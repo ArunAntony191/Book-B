@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BOOK-B • Borrow Books for Free</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    .font-black { font-weight: 900; }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+  <!-- Navbar -->
+  <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center">
+          <a href="/" class="flex items-center space-x-2">
+            <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <i class="fas fa-book text-white text-xl text-white"></i>
+            </div>
+            <span class="text-2xl font-black text-gray-900">BOOK<span class="text-indigo-600">-B</span></span>
+          </a>
+        </div>
+
+        <div class="hidden md:flex items-center space-x-8">
+          <a href="#features" class="text-gray-700 hover:text-indigo-600 font-medium transition">Features</a>
+          <a href="#how" class="text-gray-700 hover:text-indigo-600 font-medium transition">How It Works</a>
+          <a href="login.html" class="text-gray-700 hover:text-indigo-600 font-medium transition">Login</a>
+          <a href="register.html" class="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition font-semibold shadow-md">Join Free</a>
+        </div>
+
+        <div class="md:hidden flex items-center">
+          <button class="mobile-menu-button text-gray-700">
+            <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu hidden md:hidden bg-white border-t">
+      <div class="px-4 pt-3 pb-4 space-y-2">
+        <a href="#features" class="block px-4 py-2 text-gray-700 hover:bg-indigo-50 rounded-lg">Features</a>
+        <a href="#how" class="block px-4 py-2 text-gray-700 hover:bg-indigo-50 rounded-lg">How It Works</a>
+        <a href="login.html" class="block px-4 py-2 text-gray-700 hover:bg-indigo-50 rounded-lg">Login</a>
+        <a href="register.html" class="block px-4 py-2 text-indigo-600 font-bold hover:bg-indigo-50 rounded-lg">Join Free</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="pt-32 pb-20 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <h1 class="text-5xl md:text-7xl font-black text-gray-900 leading-tight">
+        Borrow Books.<br>Read More.<br>Pay Nothing.
+      </h1>
+      <p class="mt-6 text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto">
+        Join <span class="font-bold text-indigo-600">BOOK-B</span> — the free community where book lovers share locally.
+      </p>
+      <div class="mt-10 flex flex-col sm:flex-row gap-5 justify-center">
+        <a href="register.html" class="bg-indigo-600 text-white px-10 py-5 rounded-xl text-xl font-bold hover:bg-indigo-700 transition transform hover:scale-105 shadow-xl">
+          Start Borrowing — It's Free
+        </a>
+        <a href="#how" class="border-2 border-indigo-600 text-indigo-600 px-10 py-5 rounded-xl text-xl font-bold hover:bg-indigo-50 transition">
+          See How It Works
+        </a>
+      </div>
+    </div>
+    <div class="mt-16 max-w-5xl mx-auto px-6">
+      <img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1400&fit=crop" alt="BOOK-B Community" class="rounded-3xl shadow-2xl w-full">
+    </div>
+  </section>
+
+ <!-- Features -->
+  <section id="features" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <h2 class="text-4xl md:text-5xl font-black text-center mb-16">Why People Love BOOK-B</h2>
+      <div class="grid md:grid-cols-4 gap-12">
+        <div class="text-center">
+          <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-book-open text-4xl text-indigo-600"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Variety Books</h3>
+          <p class="text-gray-600">From fiction and textbooks to comics and rare editions — endless choices to discover.</p>
+        </div>
+        <div class="text-center">
+          <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-users text-4xl text-indigo-600"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Trusted Community</h3>
+          <p class="text-gray-600">Ratings, reviews, and verified profiles keep everything safe.</p>
+        </div>
+        <div class="text-center">
+          <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-user-friends text-4xl text-indigo-600"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Join groups</h3>
+          <p class="text-gray-600">Connect with local book clubs, neighborhoods, and interest-based circles for personalized sharing.</p>
+        </div>
+        <div class="text-center">
+          <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-leaf text-4xl text-indigo-600"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Eco-Friendly</h3>
+          <p class="text-gray-600">One borrowed book = one less book printed. Save trees!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how" class="py-20 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-6">
+      <h2 class="text-4xl md:text-5xl font-black text-center mb-16">How BOOK-B Works</h2>
+      <div class="grid md:grid-cols-4 gap-8 text-center">
+        <div>
+          <div class="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold mb-4 shadow-lg">1</div>
+          <h4 class="font-bold text-lg">Sign Up Free</h4>
+          <p class="text-gray-600 mt-2">30 seconds, no credit card</p>
+        </div>
+        <div>
+          <div class="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold mb-4 shadow-lg">2</div>
+          <h4 class="font-bold text-lg">Find or List Books</h4>
+          <p class="text-gray-600 mt-2">Search nearby or add your own</p>
+        </div>
+        <div>
+          <div class="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold mb-4 shadow-lg">3</div>
+          <h4 class="font-bold text-lg">Chat & Collect</h4>
+          <p class="text-gray-600 mt-2">Message and arrange pickup</p>
+        </div>
+        <div>
+          <div class="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold mb-4 shadow-lg">4</div>
+          <h4 class="font-bold text-lg">Read & Return</h4>
+          <p class="text-gray-600 mt-2">Enjoy and give back on time</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="py-24 bg-indigo-600">
+    <div class="max-w-4xl mx-auto text-center px-6">
+      <h2 class="text-5xl md:text-6xl font-black text-white mb-6">
+        Start Reading Today
+      </h2>
+      <p class="text-xl text-indigo-100 mb-10">
+        Join 10,000+ book lovers already saving money with BOOK-B
+      </p>
+      <a href="register.html" class="inline-block bg-white text-indigo-600 px-12 py-5 rounded-xl text-2xl font-bold hover:bg-gray-100 transition transform hover:scale-105 shadow-2xl">
+        Join BOOK-B — Free Forever
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-white py-16">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-4 gap-10">
+        <div>
+          <a href="/" class="flex items-center space-x-2 mb-6">
+            <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <i class="fas fa-book text-white text-xl"></i>
+            </div>
+            <span class="text-2xl font-black">BOOK<span class="text-indigo-400">-B</span></span>
+          </a>
+          <p class="text-gray-400">Borrow. Read. Return.<br>Your free local book-sharing community.</p>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Company</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="#" class="hover:text-white">About</a></li>
+            <li><a href="#" class="hover:text-white">Blog</a></li>
+            <li><a href="#" class="hover:text-white">Careers</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Support</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="#" class="hover:text-white">Help Center</a></li>
+            <li><a href="#" class="hover:text-white">Safety</a></li>
+            <li><a href="#" class="hover:text-white">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Legal</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="#" class="hover:text-white">Privacy</a></li>
+            <li><a href="#" class="hover:text-white">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500">
+        <p>&copy; 2025 BOOK-B. Made with love for readers everywhere.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelector('.mobile-menu-button').addEventListener('click', () => {
+      document.querySelector('.mobile-menu').classList.toggle('hidden');
+    });
+  </script>
+</body>
+</html>
