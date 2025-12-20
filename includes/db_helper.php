@@ -2,6 +2,9 @@
 // Database helper functions for user authentication
 require_once __DIR__ . '/../config/database.php';
 
+// Sync timezone for consistent expiration times
+date_default_timezone_set('Asia/Kolkata');
+
 /**
  * Create a new user
  */

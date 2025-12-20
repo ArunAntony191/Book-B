@@ -180,6 +180,12 @@
                 <p class="auth-subtitle">Log in to see your borrowed books</p>
             </div>
 
+            <?php if (isset($_GET['reset']) && $_GET['reset'] === 'success'): ?>
+                <div style="background: #dcfce7; border: 1px solid #22c55e; color: #166534; padding: 0.875rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                    ✅ Password updated successfully. You can now log in.
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($_GET['error'])): ?>
                 <div style="background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.875rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; font-size: 0.9rem;">
                     <?php
@@ -216,15 +222,16 @@
                         <input type="checkbox">
                         <span>Remember me</span>
                     </label>
-                    <a href="#" style="color: var(--primary); font-size: 0.9rem; text-decoration: none;">Forgot password?</a>
+                    <a href="forgot_password.php" style="color: var(--primary); font-size: 0.9rem; text-decoration: none;">Forgot password?</a>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-full">Sign In</button>
 
                 <div class="divider">Or</div>
 
+                <?php require_once 'config/google.php'; ?>
                 <div id="g_id_onload"
-                     data-client_id="899803678954-9i1vi4e0d92d9p8lbnfa74eed2pbl7ut.apps.googleusercontent.com"
+                     data-client_id="<?php echo GOOGLE_CLIENT_ID; ?>"
                      data-login_uri="http://localhost/BOOK-B/auth_google.php"
                      data-auto_prompt="false">
                 </div>

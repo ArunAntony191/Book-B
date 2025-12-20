@@ -13,6 +13,8 @@ CREATE TABLE users (
     lastname VARCHAR(100) NOT NULL,
     role ENUM('user', 'library', 'bookstore', 'admin') NOT NULL DEFAULT 'user',
     reputation_score INT DEFAULT 50,
+    reset_token VARCHAR(255) DEFAULT NULL,
+    reset_expires DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),

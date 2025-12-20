@@ -368,9 +368,10 @@
                 <!-- Divider -->
                 <div class="divider">Or</div>
 
+                <?php require_once 'config/google.php'; ?>
                 <!-- Google Sign-In Button -->
                 <div id="g_id_onload"
-                     data-client_id="899803678954-9i1vi4e0d92d9p8lbnfa74eed2pbl7ut.apps.googleusercontent.com"
+                     data-client_id="<?php echo GOOGLE_CLIENT_ID; ?>"
                      data-login_uri="http://localhost/BOOK-B/auth_google.php"
                      data-auto_prompt="false">
                 </div>
