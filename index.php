@@ -29,27 +29,27 @@
         <div class="container">
             <div class="hero-content">
                 <h1 class="hero-title">
-                    Borrow Books.<br>
+                    Borrow <span>Books</span>.<br>
                     Read More.<br>
-                    Spend less.
+                    Spend Less.
                 </h1>
                 <p class="hero-subtitle">
-                    Join <span style="color: var(--primary-color); font-weight: 700;">BOOK-B</span> — the free community where book lovers share locally.
+                    Join the ultimate community for book lovers. Share, discover, and borrow books locally with BOOK-B.
                 </p>
-                <div style="display: flex; gap: 1rem; justify-content: center;">
+                <div style="display: flex; gap: 1.5rem;">
                     <a href="register.php" class="btn btn-primary btn-lg">Start Borrowing — It's Free</a>
-                    <a href="#how-it-works" class="btn btn-outline btn-lg">See How It Works</a>
+                    <a href="#how-it-works" class="btn btn-primary btn-lg">See How It Works</a>
                 </div>
             </div>
-            
+
             <div class="hero-image-container">
-                <img src="https://images.unsplash.com/photo-1507842217121-9d59630c93e1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Library Books">
+                <img src="assets/images/hero-books.jpg" alt="Library Books">
             </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section id="features" class="features-section">
+    <section id="features" class="features-section reveal">
         <div class="container">
             <h2 class="section-title">Why People Love BOOK-B</h2>
             
@@ -90,7 +90,7 @@
     </section>
 
     <!-- How It Works Section -->
-    <section id="how-it-works" class="how-it-works-section">
+    <section id="how-it-works" class="how-it-works-section reveal">
         <div class="container">
             <h2 class="section-title">How BOOK-B Works</h2>
             
@@ -120,14 +120,44 @@
     </section>
 
     <!-- Footer CTA -->
-    <section class="footer-cta">
+    <section class="footer-cta reveal">
         <div class="container">
             <h2>Start Reading Today</h2>
             <p>Join 10,000+ book lovers already saving money with BOOK-B</p>
-            <a href="register.php" class="btn btn-lg">Join BOOK-B — Free Forever</a>
+            <a href="register.php" class="btn btn-primary btn-lg" style="background: white; color: var(--primary);">Join BOOK-B — Free Forever</a>
         </div>
     </section>
 
+    <script>
+        // Reveal on scroll
+        const reveal = () => {
+            const reveals = document.querySelectorAll('.reveal');
+            reveals.forEach(el => {
+                const windowHeight = window.innerHeight;
+                const elementTop = el.getBoundingClientRect().top;
+                const elementVisible = 150;
+                if (elementTop < windowHeight - elementVisible) {
+                    el.classList.add('active');
+                }
+            });
+        };
+        window.addEventListener('scroll', reveal);
+        reveal(); // Initial check
+
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.style.padding = '0.5rem 0';
+                navbar.style.background = 'rgba(255, 255, 255, 0.95)';
+                navbar.style.backdropFilter = 'blur(10px)';
+            } else {
+                navbar.style.padding = '1rem 0';
+                navbar.style.background = 'white';
+                navbar.style.backdropFilter = 'none';
+            }
+        });
+    </script>
     <script src="assets/js/script.js"></script>
 </body>
 </html>

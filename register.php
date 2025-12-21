@@ -22,7 +22,7 @@
             box-shadow: var(--shadow-lg);
             padding: 3rem;
             width: 100%;
-            max-width: 440px;
+            max-width: 520px;
         }
         .auth-header {
             text-align: center;
@@ -172,18 +172,30 @@
         }
         .role-selection {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 480px) {
+            .role-selection {
+                grid-template-columns: 1fr;
+            }
+            .auth-card {
+                padding: 2rem 1.5rem;
+            }
         }
         .role-card {
             position: relative;
-            padding: 1.25rem;
+            padding: 1.5rem 1rem;
             border: 2px solid var(--border-color);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: white;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .role-card:hover {
             border-color: var(--primary);
@@ -315,15 +327,6 @@
                             <div class="role-desc">Sell & track orders</div>
                         </label>
 
-                        <label class="role-card" data-role="admin">
-                            <input type="radio" name="role" value="admin" required>
-                            <div class="checkmark"><i class='bx bx-check'></i></div>
-                            <div class="role-icon admin">
-                                <i class='bx bxs-shield-alt-2'></i>
-                            </div>
-                            <div class="role-title">Administrator</div>
-                            <div class="role-desc">Platform management</div>
-                        </label>
                     </div>
                 </div>
 
@@ -373,12 +376,14 @@
                 <div id="g_id_onload"
                      data-client_id="<?php echo GOOGLE_CLIENT_ID; ?>"
                      data-login_uri="http://localhost/BOOK-B/auth_google.php"
-                     data-auto_prompt="false">
+                     data-auto_prompt="false"
+                     data-auto_select="false"
+                     data-itp_support="true">
                 </div>
                 
                 <div class="g_id_signin"
                      data-type="standard"
-                     data-size="large"
+                     data-size="medium"
                      data-theme="outline"
                      data-text="signup_with"
                      data-shape="rectangular"

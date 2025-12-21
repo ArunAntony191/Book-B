@@ -14,6 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_once 'includes/db_helper.php';
     
     $role = $_POST['role'] ?? 'user';
+    
+    // Security: Prevent selecting admin role
+    if ($role === 'admin') {
+        $role = 'user';
+    }
     $email = $googleUser['email'];
     $firstname = $googleUser['firstname'];
     $lastname = $googleUser['lastname'];
@@ -122,18 +127,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .role-selection {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 480px) {
+            .role-selection {
+                grid-template-columns: 1fr;
+            }
+            .auth-card {
+                padding: 2rem 1.5rem;
+            }
         }
         .role-card {
             position: relative;
-            padding: 1.25rem;
+            padding: 1.5rem 1rem;
             border: 2px solid var(--border-color);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: white;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .role-card:hover {
             border-color: var(--primary);
@@ -247,15 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="role-desc">Sell & track orders</div>
                     </label>
 
-                    <label class="role-card" data-role="admin">
-                        <input type="radio" name="role" value="admin" required>
-                        <div class="checkmark"><i class='bx bx-check'></i></div>
-                        <div class="role-icon admin">
-                            <i class='bx bxs-shield-alt-2'></i>
-                        </div>
-                        <div class="role-title">Administrator</div>
-                        <div class="role-desc">Platform management</div>
-                    </label>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-full">Continue</button>

@@ -109,13 +109,13 @@ CREATE TABLE reviews (
 
 -- Insert sample admin user (password: admin123)
 INSERT INTO users (email, password, firstname, lastname, role) VALUES 
-('admin@bookb.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'User', 'admin');
+('admin@bookb.com', '$2y$10$7udOzMaQ3BTcqPm9KWjg8./3MNjgve4NpTSLq/k/LIExT37koHqay', 'Admin', 'User', 'admin');
 
 -- Insert sample regular users for testing
 INSERT INTO users (email, password, firstname, lastname, role) VALUES 
-('user@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Doe', 'user'),
-('library@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'City', 'Library', 'library'),
-('store@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Main St', 'Books', 'bookstore');
+('user@test.com', '$2y$10$7udOzMaQ3BTcqPm9KWjg8./3MNjgve4NpTSLq/k/LIExT37koHqay', 'John', 'Doe', 'user'),
+('library@test.com', '$2y$10$7udOzMaQ3BTcqPm9KWjg8./3MNjgve4NpTSLq/k/LIExT37koHqay', 'City', 'Library', 'library'),
+('store@test.com', '$2y$10$7udOzMaQ3BTcqPm9KWjg8./3MNjgve4NpTSLq/k/LIExT37koHqay', 'Main St', 'Books', 'bookstore');
 
 -- Insert sample books
 INSERT INTO books (title, author, isbn, description, category) VALUES 

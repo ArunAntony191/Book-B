@@ -233,12 +233,14 @@
                 <div id="g_id_onload"
                      data-client_id="<?php echo GOOGLE_CLIENT_ID; ?>"
                      data-login_uri="http://localhost/BOOK-B/auth_google.php"
-                     data-auto_prompt="false">
+                     data-auto_prompt="false"
+                     data-auto_select="false"
+                     data-itp_support="true">
                 </div>
                 
                 <div class="g_id_signin"
                      data-type="standard"
-                     data-size="large"
+                     data-size="medium"
                      data-theme="outline"
                      data-text="signin_with"
                      data-shape="rectangular"

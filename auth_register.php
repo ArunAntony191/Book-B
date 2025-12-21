@@ -9,6 +9,11 @@ $email = trim($_POST['email'] ?? '');
 $password = $_POST['password'] ?? '';
 $role = $_POST['role'] ?? 'user';
 
+// Security: Prevent registration as admin
+if ($role === 'admin') {
+    $role = 'user';
+}
+
 // Validate inputs
 if (empty($firstname) || empty($lastname) || empty($email) || empty($password) || empty($role)) {
     header("Location: register.php?error=missing_fields");
