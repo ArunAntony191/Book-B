@@ -73,6 +73,7 @@ $user = authenticateUserByEmail($email);
 
 if ($user) {
     // User exists - log them in
+    $_SESSION['user_id'] = $user['id'];
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['firstname'] = $user['firstname'];
     $_SESSION['lastname'] = $user['lastname'];

@@ -1,5 +1,6 @@
 <?php 
 require_once 'includes/db_helper.php';
+require_once 'paths.php';
 include 'includes/dashboard_header.php'; 
 
 // Ensure only library users can see this

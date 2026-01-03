@@ -45,7 +45,7 @@ try {
     $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_expires = ? WHERE email = ?");
     if ($stmt->execute([$token, $expiry, $email])) {
         // Send actual email
-        $resetLink = "http://localhost/BOOK-B/reset_password.php?token=" . $token;
+        $resetLink = "http://localhost/BOOK-B project/reset_password.php?token=" . $token;
         $mailSent = sendResetEmail($email, $user['firstname'], $resetLink);
         
         // Redirection to the professional success page

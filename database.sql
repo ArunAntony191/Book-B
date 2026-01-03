@@ -48,6 +48,8 @@ CREATE TABLE listings (
     availability_status ENUM('available', 'borrowed', 'sold', 'unavailable') DEFAULT 'available',
     duration_days INT DEFAULT 14,
     location VARCHAR(255),
+    latitude DECIMAL(10, 8) DEFAULT NULL,
+    longitude DECIMAL(11, 8) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

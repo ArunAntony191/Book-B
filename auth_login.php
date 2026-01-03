@@ -16,6 +16,7 @@ $user = authenticateUser($email, $password);
 
 if ($user) {
     // Set session
+    $_SESSION['user_id'] = $user['id'];
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['firstname'] = $user['firstname'];
     $_SESSION['lastname'] = $user['lastname'];
