@@ -117,7 +117,7 @@
                         <i class='bx bx-info-circle'></i> Simulation: Click to open reset link
                     </p>
                     <a href="reset_password.php?token=<?php echo htmlspecialchars($_GET['token']); ?>" style="color: var(--text-main); font-weight: 500; word-break: break-all; text-decoration: none; padding: 8px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; display: block;">
-                        http://localhost/BOOK-B/reset_password...
+                        http://localhost/BOOK-B project/reset_password.php?token=...
                     </a>
                 </div>
             <?php endif; ?>

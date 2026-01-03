@@ -23,6 +23,9 @@ $deals = getUserDeals($userId);
 
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
+
+// Separate requests for tab counts if needed or just show badge in UI
+$pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'requested'));
 ?>
 <!DOCTYPE html>
 <html lang="en">

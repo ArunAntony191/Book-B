@@ -8,6 +8,7 @@ $filters = [
     'query'    => $_GET['query'] ?? '',
     'role'     => $_GET['role'] ?? '',
     'type'     => $_GET['type'] ?? '',
+    'category' => $_GET['category'] ?? '',
     'min_price' => isset($_GET['min_price']) && $_GET['min_price'] !== '' ? (float)$_GET['min_price'] : null,
     'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null,
     'has_location' => true
@@ -159,6 +160,20 @@ $results = searchListingsAdvanced($filters);
                                     </select>
                                 </div>
                             </div>
+                            
+                            <div class="form-group" style="margin-bottom: 2rem;">
+                                <label class="form-label">Category</label>
+                                <select name="category" class="form-input">
+                                    <option value="">All Categories</option>
+                                    <?php 
+                                    $cats = ['Authentication', 'Education', 'Fiction', 'Non-Fiction', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
+                                    foreach($cats as $c) {
+                                        $sel = ($filters['category'] == $c) ? 'selected' : '';
+                                        echo "<option value='$c' $sel>$c</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
 
                             <button type="submit" class="btn btn-primary w-full">Apply Filters</button>
                         </form>
@@ -189,7 +204,15 @@ $results = searchListingsAdvanced($filters);
                     </div>
                 </div>
 
-                <div id="map"></div>
+                <div style="position: relative; height: 100%;">
+                    <div id="map"></div>
+                    <!-- Map Search Overlay -->
+                    <div style="position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; gap: 5px;">
+                        <input type="text" id="map-loc-search" placeholder="Go to city..." style="border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; outline: none;">
+                        <button class="btn btn-primary btn-sm" onclick="searchMapLoc()">Go</button>
+                        <button class="btn btn-outline btn-sm" onclick="useMyLoc()" title="Use Current Location" style="border: 1px solid #ccc;"><i class='bx bx-current-location'></i></button>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -235,6 +258,38 @@ $results = searchListingsAdvanced($filters);
         markerGroup.addTo(map);
         if (markers.length > 0) {
             map.fitBounds(markerGroup.getBounds().pad(0.1));
+        }
+
+        function searchMapLoc() {
+            const query = document.getElementById('map-loc-search').value;
+            if(!query) return;
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data && data.length > 0) {
+                        const lat = data[0].lat;
+                        const lon = data[0].lon;
+                        map.setView([lat, lon], 13);
+                    } else {
+                        alert('Location not found');
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function useMyLoc() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    map.setView([lat, lng], 13);
+                }, () => {
+                    alert('Unable to retrieve your location');
+                });
+            } else {
+                alert('Geolocation is not supported by your browser');
+            }
         }
     </script>
 </body>

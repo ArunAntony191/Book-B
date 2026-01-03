@@ -205,12 +205,86 @@ function getUserStats($userId) {
 function getAllUsers($excludeId = 0) {
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role FROM users WHERE id != ? ORDER BY firstname ASC");
-        $stmt->execute([$excludeId]);
+        $sql = "SELECT u.id, u.email, u.firstname, u.lastname, u.role,
+                (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.is_read = 0) as unread_count,
+                (SELECT MAX(created_at) FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id)) as last_activity
+                FROM users u WHERE u.id != ? 
+                ORDER BY last_activity DESC, firstname ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$excludeId, $excludeId, $excludeId, $excludeId]);
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log("Get all users error: " . $e->getMessage());
         return [];
+    }
+}
+
+/**
+ * Get users that have had a conversation with the current user
+ */
+function getRecentChats($userId) {
+    try {
+        $pdo = getDBConnection();
+        $sql = "SELECT DISTINCT u.id, u.email, u.firstname, u.lastname, u.role,
+                (SELECT message FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id) ORDER BY created_at DESC LIMIT 1) as last_message,
+                (SELECT created_at FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id) ORDER BY created_at DESC LIMIT 1) as last_time,
+                (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.is_read = 0) as unread_count
+                FROM users u
+                INNER JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = u.id)
+                WHERE u.id != ?
+                ORDER BY last_time DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId, $userId, $userId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get recent chats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Search users by name or email
+ */
+function searchUsers($query, $excludeId = 0) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role FROM users 
+                              WHERE id != ? AND (firstname LIKE ? OR lastname LIKE ? OR email LIKE ?)
+                              LIMIT 10");
+        $q = "%$query%";
+        $stmt->execute([$excludeId, $q, $q, $q]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Search users error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get total unread messages for a user
+ */
+function getTotalUnreadCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get unread notification count for a user
+ */
+function getUnreadNotificationsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
     }
 }
 /**
@@ -256,22 +330,22 @@ function updateTransactionStatus($transactionId, $status) {
 /**
  * Add a new book listing
  */
-function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null) {
+function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
 
         // 1. Create/Get book
-        $stmt = $pdo->prepare("INSERT INTO books (title, author, cover_image) VALUES (?, ?, ?)");
-        $stmt->execute([$bookTitle, $author, $cover]);
+        $stmt = $pdo->prepare("INSERT INTO books (title, author, cover_image, description, category, condition_status) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition]);
         $bookId = $pdo->lastInsertId();
 
         // 2. Create listing
         $stmt = $pdo->prepare("
-            INSERT INTO listings (user_id, book_id, listing_type, price, location, latitude, longitude) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO listings (user_id, book_id, listing_type, price, location, latitude, longitude, visibility, community_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$userId, $bookId, $type, $price, $location, $lat, $lng]);
+        $stmt->execute([$userId, $bookId, $type, $price, $location, $lat, $lng, $visibility, $communityId]);
         
         $pdo->commit();
         return true;
@@ -295,7 +369,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
-            WHERE l.availability_status = 'available'
+            WHERE l.availability_status = 'available' AND l.visibility = 'public'
         ";
 
         if (!empty($filters['query'])) {
@@ -307,6 +381,11 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         if (!empty($filters['role'])) {
             $sql .= " AND u.role = ?";
             $params[] = $filters['role'];
+        }
+
+        if (!empty($filters['category'])) {
+            $sql .= " AND b.category LIKE ?";
+            $params[] = "%" . $filters['category'] . "%";
         }
 
         if (!empty($filters['type'])) {
