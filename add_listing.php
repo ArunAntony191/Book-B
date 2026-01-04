@@ -12,8 +12,15 @@ if (!$userId) {
 $error = '';
 $success = '';
 
+// Check current credits
+$currentCredits = getUserCredits($userId);
+$canList = ($user['role'] === 'admin') || ($currentCredits >= 10);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = $_POST['title'] ?? '';
+    if (!$canList) {
+        $error = "Insufficient credits. You need at least 10 credits to list a new book.";
+    } else {
+        $title = $_POST['title'] ?? '';
     $author = $_POST['author'] ?? '';
     $type = $_POST['listing_type'] ?? 'borrow';
     $price = $_POST['price'] ?? 0;
@@ -25,6 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $condition = $_POST['condition'] ?? 'good';
     $visibility = $_POST['visibility'] ?? 'public';
     $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
+    
+    // Quantity (only for library and bookstore)
+    $quantity = 1;
+    if ($user['role'] === 'library' || $user['role'] === 'bookstore') {
+        $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
+    }
+    
+    // Credit cost
+    $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
     
     // Handle Cover Upload (URL or File)
     $cover = $_POST['cover_image'] ?? ''; // From auto-fill
@@ -47,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($price < 0) {
             $error = "Price cannot be less than 0.";
         }
-        else if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId)) {
+        else if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
             $success = "Successfully listed your book!";
         } else {
             $error = "Failed to add listing. Please try again.";
@@ -56,7 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please fill all required fields and pick a location on the map.";
     }
 }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -295,6 +313,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">Selling Price (₹)</label>
                                 <input type="number" name="price" id="input_price" class="form-input" value="0" min="0" oninput="validity.valid||(value='');">
                                 <p style="color: red; font-size: 0.8rem; display: none;" id="price-error">Price cannot be less than 0</p>
+                            </div>
+
+                            <?php if ($user['role'] === 'library' || $user['role'] === 'bookstore'): ?>
+                            <!-- Quantity Field (Only for Libraries and Bookstores) -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class='bx bx-package'></i> Quantity Available
+                                </label>
+                                <input type="number" name="quantity" class="form-input" value="1" min="1" placeholder="Number of copies">
+                                <p class="form-hint" style="margin-top: 0.5rem;">
+                                    <i class='bx bx-info-circle'></i> Total number of copies you have in stock
+                                </p>
+                            </div>
+                            <?php endif; ?>
+
+                            <!-- Credit Cost Field -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class='bx bx-wallet'></i> Credit Cost
+                                </label>
+                                <input type="number" name="credit_cost" class="form-input" value="10" min="1" placeholder="Credits required">
+                                <p class="form-hint" style="margin-top: 0.5rem;">
+                                    <i class='bx bx-info-circle'></i> Credits borrowers need to pay (default: 10)
+                                </p>
                             </div>
 
                             <div class="form-group">

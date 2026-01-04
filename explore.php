@@ -189,6 +189,14 @@ $results = searchListingsAdvanced($filters);
                                         <div>
                                             <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;"><?php echo htmlspecialchars($item['title']); ?></div>
                                             <div style="font-size: 0.8rem; color: var(--text-muted);">by <?php echo htmlspecialchars($item['author']); ?></div>
+                                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 4px;">
+                                                <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
+                                                    <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
+                                                </div>
+                                                <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
+                                                    <i class='bx bxs-shield-check'></i> <?php echo $item['trust_score']; ?>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span class="badge badge-<?php echo $item['listing_type']; ?>"><?php echo ucfirst($item['listing_type']); ?></span>
@@ -238,8 +246,14 @@ $results = searchListingsAdvanced($filters);
                             <strong style="display:block; font-size: 1.1rem; margin-bottom: 2px; color: var(--text-main);">${m.title}</strong>
                             <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">by ${m.author}</span>
                             
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <span class="badge badge-${m.listing_type}" style="font-size: 0.7rem;">${m.listing_type}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color: #f59e0b; font-size: 0.85rem; font-weight: 700;"><i class='bx bxs-star'></i> ${m.average_rating}</span>
+                                    <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"><i class='bx bxs-shield-check'></i> ${m.trust_score}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-bottom: 10px;">
                                 <strong style="color: var(--primary); font-size: 1.1rem;">₹${m.price}</strong>
                             </div>
                             

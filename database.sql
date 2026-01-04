@@ -13,12 +13,20 @@ CREATE TABLE users (
     lastname VARCHAR(100) NOT NULL,
     role ENUM('user', 'library', 'bookstore', 'admin') NOT NULL DEFAULT 'user',
     reputation_score INT DEFAULT 50,
+    credits INT DEFAULT 100,
+    trust_score INT DEFAULT 50,
+    total_lends INT DEFAULT 0,
+    total_borrows INT DEFAULT 0,
+    late_returns INT DEFAULT 0,
+    average_rating DECIMAL(3,2) DEFAULT 0.00,
+    total_ratings INT DEFAULT 0,
     reset_token VARCHAR(255) DEFAULT NULL,
     reset_expires DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),
-    INDEX idx_role (role)
+    INDEX idx_role (role),
+    INDEX idx_trust_score (trust_score)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Books table
@@ -50,6 +58,10 @@ CREATE TABLE listings (
     location VARCHAR(255),
     latitude DECIMAL(10, 8) DEFAULT NULL,
     longitude DECIMAL(11, 8) DEFAULT NULL,
+    quantity INT DEFAULT 1,
+    credit_cost INT DEFAULT 10,
+    visibility ENUM('public', 'community') DEFAULT 'public',
+    community_id INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -102,11 +114,45 @@ CREATE TABLE reviews (
     reviewee_id INT NOT NULL,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
+    trust_impact INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
     FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reviewee_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_reviewee (reviewee_id)
+    INDEX idx_reviewee (reviewee_id),
+    INDEX idx_transaction (transaction_id),
+    UNIQUE KEY unique_review (transaction_id, reviewer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Credit Transactions table
+CREATE TABLE credit_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    transaction_id INT NULL,
+    amount INT NOT NULL,
+    balance_after INT NOT NULL,
+    type ENUM('earn', 'spend', 'penalty', 'bonus', 'rating_bonus') NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_type (type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Penalties table
+CREATE TABLE penalties (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    transaction_id INT NOT NULL,
+    user_id INT NOT NULL,
+    days_overdue INT NOT NULL,
+    credit_penalty INT NOT NULL,
+    trust_penalty INT NOT NULL,
+    status ENUM('pending', 'applied', 'waived') DEFAULT 'applied',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_transaction (transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert sample admin user (password: admin123)

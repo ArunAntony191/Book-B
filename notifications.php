@@ -6,7 +6,8 @@ session_start();
 $userId = $_SESSION['user_id'] ?? 0;
 if (!$userId) { header("Location: login.php"); exit(); }
 
-// Mark all as read logic could go here, or individual read
+// Mark all as read when page is visited
+markAllNotificationsAsRead($userId);
 ?>
 <!DOCTYPE html>
 <html lang="en">

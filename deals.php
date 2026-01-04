@@ -9,23 +9,25 @@ if (!$userId) {
     exit();
 }
 
-// Handle status updates
-if (isset($_POST['action']) && isset($_POST['transaction_id'])) {
-    $tid = $_POST['transaction_id'];
-    $action = $_POST['action'];
-    
-    if ($action === 'approve') updateTransactionStatus($tid, 'approved');
-    if ($action === 'cancel') updateTransactionStatus($tid, 'cancelled');
-    if ($action === 'complete') updateTransactionStatus($tid, 'returned');
-}
-
 $deals = getUserDeals($userId);
-
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
 
-// Separate requests for tab counts if needed or just show badge in UI
-$pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'requested'));
+// Get user's listings
+try {
+    $pdo = getDBConnection();
+    $stmt = $pdo->prepare("
+        SELECT l.*, b.title, b.author, b.cover_image, b.category
+        FROM listings l
+        JOIN books b ON l.book_id = b.id
+        WHERE l.user_id = ?
+        ORDER BY l.created_at DESC
+    ");
+    $stmt->execute([$userId]);
+    $myListings = $stmt->fetchAll();
+} catch (Exception $e) {
+    $myListings = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,20 +38,39 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
     <link rel="stylesheet" href="assets/css/style.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
-        .deals-wrapper {
-            max-width: 1100px;
-            margin: 0 auto;
+        /* Status Message */
+        #statusMessage {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease-out;
         }
-        .page-header {
-            margin-bottom: 2.5rem;
-            animation: fadeInUp 0.5s ease-out;
+        #statusMessage.success {
+            background: #10b981;
+            color: white;
         }
+        #statusMessage.error {
+            background: #ef4444;
+            color: white;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .deals-wrapper { max-width: 1200px; margin: 0 auto; }
+        .page-header { margin-bottom: 2rem; }
         .tabs-header {
             display: flex;
-            gap: 2.5rem;
-            margin-bottom: 2.5rem;
+            gap: 2rem;
+            margin-bottom: 2rem;
             border-bottom: 1px solid var(--border-color);
-            position: relative;
         }
         .tab-btn {
             padding: 1rem 0;
@@ -83,7 +104,7 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             margin-left: 6px;
         }
         .tab-btn.active .tab-count {
-            background: var(--primary-light);
+            background: var(--primary);
             color: white;
         }
 
@@ -96,13 +117,12 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             display: flex;
             align-items: center;
             gap: 2rem;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            animation: fadeInUp 0.6s ease-out;
+            transition: all 0.3s;
         }
         .deal-card:hover {
-            transform: scale(1.02);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary-light);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: var(--primary);
         }
 
         .deal-visual {
@@ -132,9 +152,7 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             text-transform: uppercase;
         }
 
-        .deal-main {
-            flex: 1;
-        }
+        .deal-main { flex: 1; }
         .deal-title {
             font-size: 1.25rem;
             font-weight: 800;
@@ -153,7 +171,6 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             align-items: center;
             gap: 0.4rem;
         }
-        .meta-item i { font-size: 1.1rem; color: var(--primary); }
 
         .deal-actions {
             display: flex;
@@ -169,12 +186,14 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             font-size: 0.8rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
         .pill-requested { background: #fef3c7; color: #d97706; }
         .pill-approved { background: #dcfce7; color: #16a34a; }
         .pill-cancelled { background: #fee2e2; color: #dc2626; }
         .pill-returned { background: #f1f5f9; color: #475569; }
+        .pill-active { background: #dbeafe; color: #3b82f6; }
+        .pill-available { background: #d1fae5; color: #10b981; }
+        .pill-unavailable { background: #f3f4f6; color: #6b7280; }
 
         .btn-group {
             display: flex;
@@ -189,14 +208,16 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
     </style>
 </head>
 <body>
+    <div id="statusMessage"></div>
+    
     <div class="dashboard-wrapper">
         <?php include 'includes/dashboard_sidebar.php'; ?>
 
         <main class="main-content">
             <div class="deals-wrapper">
                 <div class="page-header">
-                    <h1>Deals & Transactions</h1>
-                    <p>Track your book requests, exchanges, and sales</p>
+                    <h1>Deals & Listings</h1>
+                    <p>Manage your transactions and book inventory</p>
                 </div>
 
                 <div class="tabs-header">
@@ -206,17 +227,21 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
                     <button class="tab-btn" onclick="switchTab('outgoing', this)">
                         My Requests <span class="tab-count"><?php echo count($outgoing); ?></span>
                     </button>
+                    <button class="tab-btn" onclick="switchTab('listings', this)">
+                        My Listings <span class="tab-count"><?php echo count($myListings); ?></span>
+                    </button>
                 </div>
 
+                <!-- Incoming Offers Tab -->
                 <div id="incoming-list">
                     <?php if (empty($incoming)): ?>
                         <div class="empty-deals">
                             <i class='bx bx-mail-send' style="font-size: 4rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"></i>
-                            <p style="font-size: 1.1rem; font-weight: 500;">No one has requested your books yet.</p>
+                            <p style="font-size: 1.1rem; font-weight: 500;">No incoming requests yet.</p>
                         </div>
                     <?php endif; ?>
                     <?php foreach ($incoming as $deal): ?>
-                        <div class="deal-card">
+                        <div class="deal-card" id="deal-<?php echo $deal['id']; ?>">
                             <div class="deal-visual">
                                 <img src="<?php echo $deal['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'; ?>" class="deal-img">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
@@ -231,17 +256,21 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
                                 <?php if ($deal['status'] === 'requested'): ?>
-                                    <form method="POST" class="btn-group">
-                                        <input type="hidden" name="transaction_id" value="<?php echo $deal['id']; ?>">
-                                        <button name="action" value="approve" class="btn btn-primary btn-sm">Accept</button>
-                                        <button name="action" value="cancel" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Decline</button>
-                                    </form>
+                                    <div class="btn-group">
+                                        <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'accept_request')" class="btn btn-primary btn-sm">Accept</button>
+                                        <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'decline_request')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Decline</button>
+                                    </div>
+                                <?php elseif ($deal['status'] === 'approved' || $deal['status'] === 'active'): ?>
+                                    <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
+                                        <i class='bx bx-check-circle'></i> Mark Returned
+                                    </button>
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
 
+                <!-- Outgoing Requests Tab -->
                 <div id="outgoing-list" style="display: none;">
                     <?php if (empty($outgoing)): ?>
                         <div class="empty-deals">
@@ -271,6 +300,46 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
                         </div>
                     <?php endforeach; ?>
                 </div>
+
+                <!-- My Listings Tab -->
+                <div id="listings-list" style="display: none;">
+                    <?php if (empty($myListings)): ?>
+                        <div class="empty-deals">
+                            <i class='bx bx-book-add' style="font-size: 4rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"></i>
+                            <p style="font-size: 1.1rem; font-weight: 500;">You haven't listed any books yet.</p>
+                            <a href="add_listing.php" class="btn btn-primary" style="margin-top: 1.5rem;">
+                                <i class='bx bx-plus-circle'></i> Add Your First Book
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($myListings as $listing): ?>
+                        <div class="deal-card" id="listing-<?php echo $listing['id']; ?>">
+                            <div class="deal-visual">
+                                <img src="<?php echo $listing['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'; ?>" class="deal-img">
+                                <span class="deal-type-tag"><?php echo $listing['listing_type']; ?></span>
+                            </div>
+                            <div class="deal-main">
+                                <div class="deal-title"><?php echo htmlspecialchars($listing['title']); ?></div>
+                                <div class="deal-meta">
+                                    <div class="meta-item"><i class='bx bx-package'></i> Quantity: <strong><?php echo $listing['quantity'] ?? 1; ?></strong></div>
+                                    <div class="meta-item"><i class='bx bx-wallet'></i> <?php echo $listing['credit_cost'] ?? 10; ?> credits</div>
+                                    <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d', strtotime($listing['created_at'])); ?></div>
+                                </div>
+                            </div>
+                            <div class="deal-actions">
+                                <span class="status-pill pill-<?php echo $listing['availability_status']; ?>"><?php echo $listing['availability_status']; ?></span>
+                                <div class="btn-group">
+                                    <button onclick="editListing(<?php echo $listing['id']; ?>)" class="btn btn-outline btn-sm">
+                                        <i class='bx bx-edit'></i> Edit
+                                    </button>
+                                    <button onclick="deleteListing(<?php echo $listing['id']; ?>)" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">
+                                        <i class='bx bx-trash'></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </main>
     </div>
@@ -280,12 +349,86 @@ $pending_incoming = count(array_filter($incoming, fn($d) => $d['status'] == 'req
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
             
-            if (tab === 'incoming') {
-                document.getElementById('incoming-list').style.display = 'block';
-                document.getElementById('outgoing-list').style.display = 'none';
+            document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
+            document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
+            document.getElementById('listings-list').style.display = tab === 'listings' ? 'block' : 'none';
+        }
+
+        function showMessage(message, type) {
+            const msgEl = document.getElementById('statusMessage');
+            msgEl.textContent = message;
+            msgEl.className = type;
+            msgEl.style.display = 'block';
+            
+            setTimeout(() => {
+                msgEl.style.display = 'none';
+            }, 3000);
+        }
+
+        async function handleDeal(transactionId, action) {
+            try {
+                const formData = new FormData();
+                formData.append('action', action);
+                formData.append('transaction_id', transactionId);
+
+                const response = await fetch('request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    
+                    // Refresh the deal card
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showMessage(result.message || 'Action failed', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            }
+        }
+
+        function editListing(listingId) {
+            window.location.href = `add_listing.php?edit=${listingId}`;
+        }
+
+        async function deleteListing(listingId) {
+            const card = document.getElementById(`listing-${listingId}`);
+            card.style.opacity = '0.5';
+            
+            const confirmed = confirm('Are you sure you want to delete this listing?');
+            
+            if (confirmed) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'delete_listing');
+                    formData.append('listing_id', listingId);
+
+                    const response = await fetch('listing_action.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        card.style.display = 'none';
+                        showMessage('Listing deleted successfully', 'success');
+                    } else {
+                        card.style.opacity = '1';
+                        showMessage(result.message || 'Delete failed', 'error');
+                    }
+                } catch (error) {
+                    card.style.opacity = '1';
+                    showMessage('Network error. Please try again.', 'error');
+                }
             } else {
-                document.getElementById('incoming-list').style.display = 'none';
-                document.getElementById('outgoing-list').style.display = 'block';
+                card.style.opacity = '1';
             }
         }
     </script>

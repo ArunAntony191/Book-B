@@ -23,10 +23,10 @@ function createUser($email, $password, $firstname, $lastname, $role) {
         // Hash password
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         
-        // Insert new user
+        // Insert new user with initial credits and trust
         $stmt = $pdo->prepare("
-            INSERT INTO users (email, password, firstname, lastname, role) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (email, password, firstname, lastname, role, credits, trust_score) 
+            VALUES (?, ?, ?, ?, ?, 100, 100)
         ");
         
         return $stmt->execute([$email, $hashedPassword, $firstname, $lastname, $role]);
@@ -330,7 +330,7 @@ function updateTransactionStatus($transactionId, $status) {
 /**
  * Add a new book listing
  */
-function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null) {
+function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
@@ -340,12 +340,12 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
         $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition]);
         $bookId = $pdo->lastInsertId();
 
-        // 2. Create listing
+        // 2. Create listing with quantity and credit_cost
         $stmt = $pdo->prepare("
-            INSERT INTO listings (user_id, book_id, listing_type, price, location, latitude, longitude, visibility, community_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO listings (user_id, book_id, listing_type, price, location, latitude, longitude, visibility, community_id, quantity, credit_cost) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$userId, $bookId, $type, $price, $location, $lat, $lng, $visibility, $communityId]);
+        $stmt->execute([$userId, $bookId, $type, $price, $location, $lat, $lng, $visibility, $communityId, $quantity, $creditCost]);
         
         $pdo->commit();
         return true;
@@ -365,7 +365,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         $params = [];
         $sql = "
             SELECT l.*, b.title, b.author, b.cover_image, b.category, 
-                   u.firstname, u.lastname, u.role, u.reputation_score
+                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
@@ -423,6 +423,536 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
     } catch (PDOException $e) {
         error_log("Advanced search error: " . $e->getMessage());
         return [];
+    }
+}
+
+// ==================== CREDIT MANAGEMENT FUNCTIONS ====================
+
+/**
+ * Get user's current credit balance
+ */
+function getUserCredits($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
+        return $result ? (int)$result['credits'] : 0;
+    } catch (PDOException $e) {
+        error_log("Get credits error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Add credits to user account
+ */
+function addCredits($userId, $amount, $type, $description, $transactionId = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // Get current balance
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $currentBalance = (int)$stmt->fetchColumn();
+        
+        $newBalance = $currentBalance + $amount;
+        
+        // Update user credits
+        $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
+        $stmt->execute([$newBalance, $userId]);
+        
+        // Log transaction
+        $stmt = $pdo->prepare("
+            INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $transactionId, $amount, $newBalance, $type, $description]);
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Add credits error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Deduct credits from user account
+ */
+function deductCredits($userId, $amount, $type, $description, $transactionId = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // Get current balance
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $currentBalance = (int)$stmt->fetchColumn();
+        
+        $newBalance = $currentBalance - $amount;
+        
+        // Update user credits (allow negative balance for penalties)
+        $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
+        $stmt->execute([$newBalance, $userId]);
+        
+        // Log transaction
+        $stmt = $pdo->prepare("
+            INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $transactionId, -$amount, $newBalance, $type, $description]);
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Deduct credits error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if user has sufficient credits
+ */
+function checkSufficientCredits($userId, $amount) {
+    $balance = getUserCredits($userId);
+    return $balance >= $amount;
+}
+
+/**
+ * Get credit transaction history
+ */
+function getCreditHistory($userId, $limit = 20) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT * FROM credit_transactions
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get credit history error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==================== TRUST SCORE FUNCTIONS ====================
+
+/**
+ * Update user trust score
+ */
+function updateTrustScore($userId, $change, $reason) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE users 
+            SET trust_score = GREATEST(0, LEAST(100, trust_score + ?))
+            WHERE id = ?
+        ");
+        return $stmt->execute([$change, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update trust score error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get trust score rating label
+ */
+function getTrustScoreRating($score) {
+    if ($score >= 80) return ['label' => 'Excellent', 'color' => '#10b981'];
+    if ($score >= 60) return ['label' => 'Good', 'color' => '#3b82f6'];
+    if ($score >= 40) return ['label' => 'Fair', 'color' => '#f59e0b'];
+    return ['label' => 'Poor', 'color' => '#ef4444'];
+}
+
+/**
+ * Calculate penalty for late return
+ */
+function calculatePenalty($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get transaction details
+        $stmt = $pdo->prepare("
+            SELECT borrower_id, due_date, return_date 
+            FROM transactions 
+            WHERE id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $transaction = $stmt->fetch();
+        
+        if (!$transaction || !$transaction['due_date']) {
+            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+        }
+        
+        $dueDate = new DateTime($transaction['due_date']);
+        $returnDate = $transaction['return_date'] ? new DateTime($transaction['return_date']) : new DateTime();
+        
+        if ($returnDate <= $dueDate) {
+            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+        }
+        
+        $daysOverdue = $dueDate->diff($returnDate)->days;
+        $creditPenalty = $daysOverdue * 5; // 5 credits per day
+        $trustPenalty = min($daysOverdue * 2, 20); // 2 points per day, max 20
+        
+        return [
+            'days' => $daysOverdue,
+            'credit_penalty' => $creditPenalty,
+            'trust_penalty' => $trustPenalty
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Calculate penalty error: " . $e->getMessage());
+        return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+    }
+}
+
+/**
+ * Apply penalty for late return
+ */
+function applyPenalty($transactionId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $penalty = calculatePenalty($transactionId);
+        
+        if ($penalty['days'] > 0) {
+            $pdo->beginTransaction();
+            
+            // Record penalty
+            $stmt = $pdo->prepare("
+                INSERT INTO penalties (transaction_id, user_id, days_overdue, credit_penalty, trust_penalty)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $transactionId,
+                $userId,
+                $penalty['days'],
+                $penalty['credit_penalty'],
+                $penalty['trust_penalty']
+            ]);
+            
+            // Deduct credits
+            deductCredits($userId, $penalty['credit_penalty'], 'penalty', 
+                "Late return penalty: {$penalty['days']} days overdue", $transactionId);
+            
+            // Update trust score
+            updateTrustScore($userId, -$penalty['trust_penalty'], 'late_return');
+            
+            // Update late returns count
+            $stmt = $pdo->prepare("UPDATE users SET late_returns = late_returns + 1 WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            $pdo->commit();
+            return true;
+        }
+        
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Apply penalty error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ==================== RATING SYSTEM FUNCTIONS ====================
+
+/**
+ * Add a review/rating for a user
+ */
+function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment = '') {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // Calculate trust impact based on rating (1-5 stars)
+        // 5 stars: +10 trust, 4 stars: +5, 3 stars: 0, 2 stars: -5, 1 star: -10
+        $trustImpact = ($rating - 3) * 5;
+        
+        // Insert review
+        $stmt = $pdo->prepare("
+            INSERT INTO reviews (transaction_id, reviewer_id, reviewee_id, rating, comment, trust_impact)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$transactionId, $reviewerId, $revieweeId, $rating, $comment, $trustImpact]);
+        
+        // Update reviewee's average rating and total ratings
+        $stmt = $pdo->prepare("
+            UPDATE users 
+            SET total_ratings = total_ratings + 1,
+                average_rating = (
+                    SELECT AVG(rating) FROM reviews WHERE reviewee_id = ?
+                )
+            WHERE id = ?
+        ");
+        $stmt->execute([$revieweeId, $revieweeId]);
+        
+        // Update trust score
+        updateTrustScore($revieweeId, $trustImpact, 'rating_received');
+        
+        // Bonus credits for 5-star ratings
+        if ($rating == 5) {
+            addCredits($revieweeId, 5, 'rating_bonus', 'Earned 5-star rating bonus', $transactionId);
+        }
+        
+        $pdo->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Add review error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if user has already reviewed a transaction
+ */
+function hasUserReviewed($transactionId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM reviews 
+            WHERE transaction_id = ? AND reviewer_id = ?
+        ");
+        $stmt->execute([$transactionId, $userId]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Get reviews for a user
+ */
+function getUserReviews($userId, $limit = 10) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, u.firstname, u.lastname, t.id as trans_id
+            FROM reviews r
+            JOIN users u ON r.reviewer_id = u.id
+            JOIN transactions t ON r.transaction_id = t.id
+            WHERE r.reviewee_id = ?
+            ORDER BY r.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get reviews error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==================== QUANTITY MANAGEMENT FUNCTIONS ====================
+
+/**
+ * Check available quantity for a listing
+ */
+function checkAvailableQuantity($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT quantity FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+        $result = $stmt->fetch();
+        return $result ? (int)$result['quantity'] : 0;
+    } catch (PDOException $e) {
+        error_log("Check quantity error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Update listing quantity
+ */
+function updateListingQuantity($listingId, $change) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE listings 
+            SET quantity = GREATEST(0, quantity + ?),
+                availability_status = CASE 
+                    WHEN (quantity + ?) <= 0 THEN 'unavailable'
+                    ELSE 'available'
+                END
+            WHERE id = ?
+        ");
+        return $stmt->execute([$change, $change, $listingId]);
+    } catch (PDOException $e) {
+        error_log("Update quantity error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get listing with full details including quantity
+ */
+function getListingWithQuantity($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.description, b.category,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.id = ?
+        ");
+        $stmt->execute([$listingId]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log("Get listing error: " . $e->getMessage());
+        return null;
+    }
+}
+
+// ==================== ENHANCED USER STATS ====================
+
+/**
+ * Get enhanced user statistics with credits and trust
+ */
+function getUserStatsEnhanced($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get user data
+        $stmt = $pdo->prepare("
+            SELECT credits, trust_score, average_rating, total_ratings, 
+                   total_lends, total_borrows, late_returns
+            FROM users 
+            WHERE id = ?
+        ");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        // Get total listings
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM listings WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $listings = $stmt->fetch()['total'];
+        
+        // Get active borrows
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM transactions 
+            WHERE borrower_id = ? AND status IN ('active', 'approved')
+        ");
+        $stmt->execute([$userId]);
+        $activeBorrows = $stmt->fetch()['total'];
+        
+        // Get pending requests (as lender)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM transactions 
+            WHERE lender_id = ? AND status = 'requested'
+        ");
+        $stmt->execute([$userId]);
+        $pendingRequests = $stmt->fetch()['total'];
+        
+        return array_merge($user ?: [], [
+            'total_listings' => $listings,
+            'active_borrows' => $activeBorrows,
+            'pending_requests' => $pendingRequests,
+            'trust_rating' => getTrustScoreRating($user['trust_score'] ?? 50)
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log("Get enhanced stats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get library/bookstore specific stats
+ */
+function getStoreStats($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Total inventory (sum of all quantities)
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(quantity), 0) as total_inventory,
+                   COUNT(*) as unique_titles
+            FROM listings 
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        $inventory = $stmt->fetch();
+        
+        // Currently lent books
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as lent 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE l.user_id = ? AND t.status IN ('active', 'approved')
+        ");
+        $stmt->execute([$userId]);
+        $lent = $stmt->fetch()['lent'];
+        
+        // Low stock items (quantity < 3)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as low_stock
+            FROM listings 
+            WHERE user_id = ? AND quantity < 3 AND quantity > 0
+        ");
+        $stmt->execute([$userId]);
+        $lowStock = $stmt->fetch()['low_stock'];
+        
+        // Out of stock items
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as out_stock
+            FROM listings 
+            WHERE user_id = ? AND quantity = 0
+        ");
+        $stmt->execute([$userId]);
+        $outStock = $stmt->fetch()['out_stock'];
+        
+        return [
+            'total_inventory' => $inventory['total_inventory'],
+            'unique_titles' => $inventory['unique_titles'],
+            'currently_lent' => $lent,
+            'low_stock_items' => $lowStock,
+            'out_of_stock_items' => $outStock
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Get store stats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Mark notification as read
+ */
+function markNotificationAsRead($notificationId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ?");
+        return $stmt->execute([$notificationId]);
+    } catch (Exception $e) {
+        error_log("Mark notification read error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Mark all notifications as read for a user
+ */
+function markAllNotificationsAsRead($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0");
+        return $stmt->execute([$userId]);
+    } catch (Exception $e) {
+        error_log("Mark all notifications read error: " . $e->getMessage());
+        return false;
     }
 }
 ?>
