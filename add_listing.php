@@ -12,66 +12,94 @@ if (!$userId) {
 $error = '';
 $success = '';
 
+// Edit Mode Logic
+$editId = $_GET['edit'] ?? 0;
+$editData = null;
+if ($editId) {
+    $editData = getListingWithQuantity($editId);
+    if (!$editData || $editData['user_id'] != $userId) {
+        header("Location: dashboard_user.php");
+        exit();
+    }
+}
+
 // Check current credits
 $currentCredits = getUserCredits($userId);
-$canList = ($user['role'] === 'admin') || ($currentCredits >= 10);
+// Requirement: If editing, no credit check needed. If new, need 10.
+$canList = ($user['role'] === 'admin') || ($currentCredits >= 10) || $editId;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$canList) {
         $error = "Insufficient credits. You need at least 10 credits to list a new book.";
     } else {
+        $postEditId = $_POST['edit_id'] ?? 0;
         $title = $_POST['title'] ?? '';
-    $author = $_POST['author'] ?? '';
-    $type = $_POST['listing_type'] ?? 'borrow';
-    $price = $_POST['price'] ?? 0;
-    $location = $_POST['location_name'] ?? '';
-    $lat = $_POST['latitude'] ?? null;
-    $lng = $_POST['longitude'] ?? null;
-    $description = $_POST['description'] ?? '';
-    $categories = isset($_POST['categories']) ? implode(', ', $_POST['categories']) : '';
-    $condition = $_POST['condition'] ?? 'good';
-    $visibility = $_POST['visibility'] ?? 'public';
-    $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
-    
-    // Quantity (only for library and bookstore)
-    $quantity = 1;
-    if ($user['role'] === 'library' || $user['role'] === 'bookstore') {
-        $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
-    }
-    
-    // Credit cost
-    $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
-    
-    // Handle Cover Upload (URL or File)
-    $cover = $_POST['cover_image'] ?? ''; // From auto-fill
-    
-    // If a file is uploaded, it takes precedence
-    if (isset($_FILES['cover_upload']) && $_FILES['cover_upload']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = 'images/books/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+        $author = $_POST['author'] ?? '';
+        $type = $_POST['listing_type'] ?? 'borrow';
+        $price = $_POST['price'] ?? 0;
+        $location = $_POST['location_name'] ?? '';
+        $lat = $_POST['latitude'] ?? null;
+        $lng = $_POST['longitude'] ?? null;
+        $description = $_POST['description'] ?? '';
+        $categories = isset($_POST['categories']) ? implode(', ', $_POST['categories']) : '';
+        $condition = $_POST['condition'] ?? 'good';
+        $visibility = $_POST['visibility'] ?? 'public';
+        $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
         
-        $fileName = time() . '_' . basename($_FILES['cover_upload']['name']);
-        $targetPath = $uploadDir . $fileName;
-        
-        if (move_uploaded_file($_FILES['cover_upload']['tmp_name'], $targetPath)) {
-            $cover = $targetPath;
+        // Quantity (only for library and bookstore)
+        $quantity = 1;
+        if ($user['role'] === 'library' || $user['role'] === 'bookstore') {
+            $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
         }
-    }
+        
+        // Credit cost
+        $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
+        
+        // Handle Cover Upload (URL or File)
+        $cover = $_POST['cover_image'] ?? ''; 
+        if ($postEditId && empty($cover)) {
+            $cover = $editData['cover_image'] ?? '';
+        }
+        
+        // If a file is uploaded, it takes precedence
+        if (isset($_FILES['cover_upload']) && $_FILES['cover_upload']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = 'images/books/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+            
+            $fileName = time() . '_' . basename($_FILES['cover_upload']['name']);
+            $targetPath = $uploadDir . $fileName;
+            
+            if (move_uploaded_file($_FILES['cover_upload']['tmp_name'], $targetPath)) {
+                $cover = $targetPath;
+            }
+        }
 
-    if ($title && $author && $lat && $lng) {
-        // Validation: Price cannot be negative
-        if ($price < 0) {
-            $error = "Price cannot be less than 0.";
-        }
-        else if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
-            $success = "Successfully listed your book!";
+        if ($title && $author && $lat && $lng) {
+            if ($price < 0) {
+                $error = "Price cannot be less than 0.";
+            } else {
+                if ($postEditId) {
+                    // Update Logic
+                    if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
+                        $success = "Successfully updated your book!";
+                        $editData = getListingWithQuantity($postEditId); // Refresh data
+                    } else {
+                        $error = "Failed to update listing.";
+                    }
+                } else {
+                    // Create Logic
+                    if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
+                        deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
+                        $success = "Successfully listed your book! 10 credits have been deducted.";
+                    } else {
+                        $error = "Failed to add listing.";
+                    }
+                }
+            }
         } else {
-            $error = "Failed to add listing. Please try again.";
+            $error = "Please fill all required fields and pick a location on the map.";
         }
-    } else {
-        $error = "Please fill all required fields and pick a location on the map.";
     }
-}
 }
 ?>
 
@@ -208,8 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <main class="main-content">
             <div class="add-container">
-                <h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.5rem;">List a New Book</h1>
-                <p style="color: var(--text-muted); margin-bottom: 2rem;">Share your books with the community and start swaps or sales.</p>
+                <h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.5rem;"><?php echo $editId ? 'Edit Book Listing' : 'List a New Book'; ?></h1>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;"><?php echo $editId ? 'Update your book details below.' : 'Share your books with the community and start swaps or sales.'; ?></p>
 
                 <?php if ($success): ?>
                     <div style="background: #ecfdf5; color: #059669; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid #10b981;">
@@ -225,6 +253,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form method="POST" enctype="multipart/form-data">
+                    <?php if ($editId): ?>
+                        <input type="hidden" name="edit_id" value="<?php echo $editId; ?>">
+                    <?php endif; ?>
                     
                     <!-- Smart Search Section -->
                     <div class="search-hero">
@@ -244,11 +275,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label class="form-label">Book Title *</label>
-                                    <input type="text" name="title" id="input_title" class="form-input" required placeholder="Book Title">
+                                    <input type="text" name="title" id="input_title" class="form-input" required placeholder="Book Title" value="<?php echo htmlspecialchars($editData['title'] ?? ''); ?>">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Author Name *</label>
-                                    <input type="text" name="author" id="input_author" class="form-input" required placeholder="Author Name">
+                                    <input type="text" name="author" id="input_author" class="form-input" required placeholder="Author Name" value="<?php echo htmlspecialchars($editData['author'] ?? ''); ?>">
                                 </div>
                             </div>
 
@@ -257,9 +288,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="category-grid">
                                     <?php 
                                     $categories = ['Authentication', 'Education', 'Fiction', 'Non-Fiction', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History', 'Other'];
-                                    foreach ($categories as $cat): ?>
-                                        <label class="cat-pill">
-                                            <input type="checkbox" name="categories[]" value="<?php echo $cat; ?>" class="cat-checkbox" onchange="toggleCat(this)">
+                                    $selectedCats = explode(', ', $editData['category'] ?? '');
+                                    foreach ($categories as $cat): 
+                                        $selected = in_array($cat, $selectedCats) ? 'selected' : '';
+                                        $checked = in_array($cat, $selectedCats) ? 'checked' : '';
+                                    ?>
+                                        <label class="cat-pill <?php echo $selected; ?>">
+                                            <input type="checkbox" name="categories[]" value="<?php echo $cat; ?>" class="cat-checkbox" onchange="toggleCat(this)" <?php echo $checked; ?>>
                                             <?php echo $cat; ?>
                                         </label>
                                     <?php endforeach; ?>
@@ -268,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="form-group">
                                 <label class="form-label">Description</label>
-                                <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..."></textarea>
+                                <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..."><?php echo htmlspecialchars($editData['description'] ?? ''); ?></textarea>
                             </div>
                             <!-- Location Picker -->
                             <div class="form-group">
@@ -279,29 +314,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <button type="button" class="btn btn-outline" onclick="useMyLocation()" title="Use Current Location"><i class='bx bx-current-location'></i></button>
                                 </div>
                                 <div id="picker-map"></div>
-                                <input type="hidden" name="location_name" id="location_name" required>
-                                <input type="hidden" name="latitude" id="lat" required>
-                                <input type="hidden" name="longitude" id="lng" required>
+                                <input type="hidden" name="location_name" id="location_name" value="<?php echo htmlspecialchars($editData['location'] ?? ''); ?>" required>
+                                <input type="hidden" name="latitude" id="lat" value="<?php echo htmlspecialchars($editData['latitude'] ?? ''); ?>" required>
+                                <input type="hidden" name="longitude" id="lng" value="<?php echo htmlspecialchars($editData['longitude'] ?? ''); ?>" required>
                                 <p class="form-hint" style="margin-top: 0.5rem;"><i class='bx bx-map'></i> Search for your city, then click the exact spot.</p>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Listing Type</label>
                                 <div class="type-grid">
-                                    <label class="type-card active" onclick="selectType('borrow')">
-                                        <input type="radio" name="listing_type" value="borrow" class="type-input" checked>
+                                    <?php $listingType = $editData['listing_type'] ?? 'borrow'; ?>
+                                    <label class="type-card <?php echo $listingType === 'borrow' ? 'active' : ''; ?>" onclick="selectType('borrow')">
+                                        <input type="radio" name="listing_type" value="borrow" class="type-input" <?php echo $listingType === 'borrow' ? 'checked' : ''; ?>>
                                         <i class='bx bx-book-reader'></i>
                                         <div style="font-weight: 700;">Lend</div>
                                         <small style="font-size: 0.75rem;">Free/Deposit</small>
                                     </label>
-                                    <label class="type-card" onclick="selectType('sell')">
-                                        <input type="radio" name="listing_type" value="sell" class="type-input">
+                                    <label class="type-card <?php echo $listingType === 'sell' ? 'active' : ''; ?>" onclick="selectType('sell')">
+                                        <input type="radio" name="listing_type" value="sell" class="type-input" <?php echo $listingType === 'sell' ? 'checked' : ''; ?>>
                                         <i class='bx bx-rupee'></i>
                                         <div style="font-weight: 700;">Sell</div>
                                         <small style="font-size: 0.75rem;">Get Paid</small>
                                     </label>
-                                    <label class="type-card" onclick="selectType('exchange')">
-                                        <input type="radio" name="listing_type" value="exchange" class="type-input">
+                                    <label class="type-card <?php echo $listingType === 'exchange' ? 'active' : ''; ?>" onclick="selectType('exchange')">
+                                        <input type="radio" name="listing_type" value="exchange" class="type-input" <?php echo $listingType === 'exchange' ? 'checked' : ''; ?>>
                                         <i class='bx bx-refresh'></i>
                                         <div style="font-weight: 700;">Swap</div>
                                         <small style="font-size: 0.75rem;">Book for Book</small>
@@ -309,9 +345,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                             </div>
                             
-                            <div class="form-group" id="price-group" style="display: none;">
+                             <div class="form-group" id="price-group" style="display: <?php echo ($listingType === 'sell') ? 'block' : 'none'; ?>;">
                                 <label class="form-label">Selling Price (₹)</label>
-                                <input type="number" name="price" id="input_price" class="form-input" value="0" min="0" oninput="validity.valid||(value='');">
+                                <input type="number" name="price" id="input_price" class="form-input" value="<?php echo htmlspecialchars($editData['price'] ?? 0); ?>" min="0" oninput="validity.valid||(value='');">
                                 <p style="color: red; font-size: 0.8rem; display: none;" id="price-error">Price cannot be less than 0</p>
                             </div>
 
@@ -321,7 +357,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">
                                     <i class='bx bx-package'></i> Quantity Available
                                 </label>
-                                <input type="number" name="quantity" class="form-input" value="1" min="1" placeholder="Number of copies">
+                                <input type="number" name="quantity" class="form-input" value="<?php echo htmlspecialchars($editData['quantity'] ?? 1); ?>" min="1" placeholder="Number of copies">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
                                     <i class='bx bx-info-circle'></i> Total number of copies you have in stock
                                 </p>
@@ -333,7 +369,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">
                                     <i class='bx bx-wallet'></i> Credit Cost
                                 </label>
-                                <input type="number" name="credit_cost" class="form-input" value="10" min="1" placeholder="Credits required">
+                                <input type="number" name="credit_cost" class="form-input" value="<?php echo htmlspecialchars($editData['credit_cost'] ?? 10); ?>" min="1" placeholder="Credits required">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
                                     <i class='bx bx-info-circle'></i> Credits borrowers need to pay (default: 10)
                                 </p>
@@ -342,36 +378,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-group">
                                 <label class="form-label">Book Condition</label>
                                 <select name="condition" class="form-input">
-                                    <option value="new">New</option>
-                                    <option value="like_new">Like New</option>
-                                    <option value="good" selected>Good</option>
-                                    <option value="fair">Fair</option>
-                                    <option value="poor">Poor</option>
+                                    <?php $currentCondition = $editData['condition_status'] ?? 'good'; ?>
+                                    <option value="new" <?php echo $currentCondition == 'new' ? 'selected' : ''; ?>>New</option>
+                                    <option value="like_new" <?php echo $currentCondition == 'like_new' ? 'selected' : ''; ?>>Like New</option>
+                                    <option value="good" <?php echo $currentCondition == 'good' ? 'selected' : ''; ?>>Good</option>
+                                    <option value="fair" <?php echo $currentCondition == 'fair' ? 'selected' : ''; ?>>Fair</option>
+                                    <option value="poor" <?php echo $currentCondition == 'poor' ? 'selected' : ''; ?>>Poor</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Visibility</label>
                                 <div style="display: flex; gap: 1rem;">
-                                    <label class="cat-pill selected" onclick="toggleVisibility('public', this)">
-                                        <input type="radio" name="visibility" value="public" style="display:none;" checked>
+                                    <?php $currentVisual = $editData['visibility'] ?? 'public'; ?>
+                                    <label class="cat-pill <?php echo $currentVisual == 'public' ? 'selected' : ''; ?>" onclick="toggleVisibility('public', this)">
+                                        <input type="radio" name="visibility" value="public" style="display:none;" <?php echo $currentVisual == 'public' ? 'checked' : ''; ?>>
                                         <i class='bx bx-world'></i> Public
                                     </label>
-                                    <label class="cat-pill" onclick="toggleVisibility('community', this)">
-                                        <input type="radio" name="visibility" value="community" style="display:none;">
+                                    <label class="cat-pill <?php echo $currentVisual == 'community' ? 'selected' : ''; ?>" onclick="toggleVisibility('community', this)">
+                                        <input type="radio" name="visibility" value="community" style="display:none;" <?php echo $currentVisual == 'community' ? 'checked' : ''; ?>>
                                         <i class='bx bx-group'></i> Community Only
                                     </label>
                                 </div>
-                                <div id="community-select" style="display: none; margin-top: 1rem;">
+                                <div id="community-select" style="display: <?php echo $currentVisual == 'community' ? 'block' : 'none'; ?>; margin-top: 1rem;">
                                     <label class="form-label" style="font-size: 0.9rem;">Select Community</label>
                                     <select name="community_id" class="form-input">
                                         <option value="">-- Choose a Community --</option>
                                         <?php 
-                                        // Ideally fetch this from DB
-                                        // For demo, we put hardcoded or empty
+                                        $selectedComm = $editData['community_id'] ?? 0;
                                         ?>
-                                        <option value="1">Book Lovers Club</option>
-                                        <option value="2">Sci-Fi Geeks</option>
+                                        <option value="1" <?php echo $selectedComm == 1 ? 'selected' : ''; ?>>Book Lovers Club</option>
+                                        <option value="2" <?php echo $selectedComm == 2 ? 'selected' : ''; ?>>Sci-Fi Geeks</option>
                                     </select>
                                 </div>
                             </div>
@@ -380,22 +417,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <!-- Right Column: Upload -->
                         <div class="form-group">
                             <label class="form-label">Book Cover</label>
-                            <input type="hidden" name="cover_image" id="input_cover_url"> <!-- For API URL -->
+                            <input type="hidden" name="cover_image" id="input_cover_url" value="<?php echo htmlspecialchars($editData['cover_image'] ?? ''); ?>"> <!-- For API URL -->
                             <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file_input').click()">
                                 <input type="file" name="cover_upload" id="file_input" style="display: none;" accept="image/*" onchange="previewFile(this)">
-                                <div id="upload-content">
+                                <div id="upload-content" style="<?php echo ($editData['cover_image'] ?? '') ? 'display: none;' : ''; ?>">
                                     <i class='bx bx-cloud-upload' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
                                     <p style="font-weight: 600; margin-bottom: 0.5rem;">Click to Upload</p>
                                     <p style="font-size: 0.8rem; color: var(--text-muted);">or drag and drop here</p>
                                 </div>
-                                <img id="cover_preview" class="upload-preview" style="display: none;">
+                                <img id="cover_preview" class="upload-preview" src="<?php echo htmlspecialchars($editData['cover_image'] ?? ''); ?>" style="<?php echo ($editData['cover_image'] ?? '') ? 'display: block;' : 'display: none;'; ?>">
                             </div>
                         </div>
                     </div>
  
                     
                     <div style="margin-top: 2.5rem; display: flex; gap: 1rem; align-items: center;">
-                        <button type="submit" class="btn btn-primary" style="padding: 0.8rem 2.5rem; font-size: 1rem;">Publish Book</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 0.8rem 2.5rem; font-size: 1rem;"><?php echo $editId ? 'Update Book' : 'Publish Book'; ?></button>
                         <a href="dashboard_user.php" class="btn" style="padding: 0.8rem 2rem; background: transparent; color: var(--text-muted);">Cancel</a>
                     </div>
                 </form>
@@ -405,10 +442,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('picker-map').setView([12.9716, 77.5946], 12);
+        const initialLat = <?php echo ($editData['latitude'] ?? 12.9716); ?>;
+        const initialLng = <?php echo ($editData['longitude'] ?? 77.5946); ?>;
+        const map = L.map('picker-map').setView([initialLat, initialLng], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         let marker;
+        if (<?php echo $editId ? 'true' : 'false'; ?>) {
+            marker = L.marker([initialLat, initialLng]).addTo(map);
+        }
 
         map.on('click', function(e) {
             updateLocation(e.latlng.lat, e.latlng.lng);

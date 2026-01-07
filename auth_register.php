@@ -26,6 +26,24 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit();
 }
 
+// Validate names (Letters, spaces, hyphens, apostrophes only)
+if (!preg_match("/^[A-Za-z\s'\-]+$/", $firstname) || !preg_match("/^[A-Za-z\s'\-]+$/", $lastname)) {
+    header("Location: register.php?error=invalid_name");
+    exit();
+}
+
+// Validate password (min 8 chars, at least one uppercase, one lowercase, one number, one special char)
+$isStrong = strlen($password) >= 8 && 
+            preg_match("/[A-Z]/", $password) && 
+            preg_match("/[a-z]/", $password) && 
+            preg_match("/[0-9]/", $password) && 
+            preg_match("/[^A-Za-z0-9]/", $password);
+
+if (!$isStrong) {
+    header("Location: register.php?error=weak_password");
+    exit();
+}
+
 // Create user
 if (createUser($email, $password, $firstname, $lastname, $role)) {
     // Set session

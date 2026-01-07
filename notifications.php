@@ -29,7 +29,13 @@ markAllNotificationsAsRead($userId);
                 <?php
                 try {
                     $pdo = getDBConnection();
-                    $stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC");
+                    $stmt = $pdo->prepare("
+                        SELECT n.*, t.status as transaction_status 
+                        FROM notifications n 
+                        LEFT JOIN transactions t ON n.reference_id = t.id 
+                        WHERE n.user_id = ? 
+                        ORDER BY n.created_at DESC
+                    ");
                     $stmt->execute([$userId]);
                     $notifs = $stmt->fetchAll();
                     
@@ -37,6 +43,7 @@ markAllNotificationsAsRead($userId);
                         foreach ($notifs as $n) {
                             $highlight = $n['is_read'] ? '' : 'background: #f0f9ff;';
                             $isRequest = strpos($n['type'], '_request') !== false;
+                            $canAction = ($isRequest && $n['reference_id'] && $n['transaction_status'] === 'requested');
                             
                             echo "
                             <div style='padding: 1.5rem; border-bottom: 1px solid var(--border-color); $highlight' id='notif-{$n['id']}'>
@@ -45,12 +52,17 @@ markAllNotificationsAsRead($userId);
                                         <i class='bx bx-bell' style='font-size: 1.2rem; color: var(--text-main);'></i>
                                     </div>
                                     <div style='flex: 1;'>
-                                        <div style='font-size: 1rem; color: var(--text-main); margin-bottom: 0.25rem;'>{$n['message']}</div>
+                                        <div style='display: flex; justify-content: space-between; align-items: start;'>
+                                            <div style='font-size: 1rem; color: var(--text-main); margin-bottom: 0.25rem;'>{$n['message']}</div>
+                                            " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' ? "
+                                                <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
+                                            " : "") . "
+                                        </div>
                                         <div style='font-size: 0.8rem; color: var(--text-muted);'>" . date('M d, h:i A', strtotime($n['created_at'])) . "</div>
                                     </div>
                                 </div>";
                             
-                            if ($isRequest && $n['reference_id']) {
+                            if ($canAction) {
                                 echo "
                                 <div style='display: flex; gap: 0.75rem; margin-top: 1rem;'>
                                     <button class='btn btn-primary btn-sm' onclick='handleRequest({$n['reference_id']}, \"accept\", {$n['id']})'>Accept</button>

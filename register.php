@@ -282,6 +282,12 @@
                         case 'invalid_email':
                             echo 'Please enter a valid email address.';
                             break;
+                        case 'invalid_name':
+                            echo 'Names can only contain letters, spaces, hyphens and apostrophes.';
+                            break;
+                        case 'weak_password':
+                            echo 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.';
+                            break;
                         case 'user_exists':
                             echo 'An account with this email already exists. Please <a href="login.php" style="color: inherit; text-decoration: underline;">login instead</a>.';
                             break;
@@ -335,11 +341,13 @@
                     <div class="form-row">
                         <div>
                             <label class="form-label">First Name</label>
-                            <input type="text" name="firstname" class="form-input" placeholder="First Name" required>
+                            <input type="text" name="firstname" class="form-input" placeholder="First Name" required 
+                                   pattern="[A-Za-z\s'\-]+" title="Only letters, spaces, hyphens and apostrophes allowed">
                         </div>
                         <div>
                             <label class="form-label">Last Name</label>
-                            <input type="text" name="lastname" class="form-input" placeholder="Last Name" required>
+                            <input type="text" name="lastname" class="form-input" placeholder="Last Name" required
+                                   pattern="[A-Za-z\s'\-]+" title="Only letters, spaces, hyphens and apostrophes allowed">
                         </div>
                     </div>
                 </div>
@@ -354,8 +362,16 @@
                 <div class="form-group">
                     <label class="form-label">Create Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
+                        <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required
+                               minlength="8">
                         <i class='bx bx-hide password-toggle' id="togglePassword"></i>
+                    </div>
+                    <!-- Password Strength Indicator -->
+                    <div id="password-strength" style="margin-top: 0.5rem; display: none;">
+                        <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                            <div id="strength-bar" style="height: 100%; width: 0; transition: all 0.3s; background: #ef4444;"></div>
+                        </div>
+                        <p id="strength-text" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;"></p>
                     </div>
                 </div>
 
@@ -412,6 +428,47 @@
                 // Check the radio button
                 this.querySelector('input[type="radio"]').checked = true;
             });
+        });
+        // Password Strength Logic
+        const passwordInput = document.getElementById('password');
+        const strengthDiv = document.getElementById('password-strength');
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthText = document.getElementById('strength-text');
+
+        passwordInput.addEventListener('input', function() {
+            const val = this.value;
+            if (val.length === 0) {
+                strengthDiv.style.display = 'none';
+                return;
+            }
+
+            strengthDiv.style.display = 'block';
+            let score = 0;
+            
+            if (val.length >= 8) score++;
+            if (/[A-Z]/.test(val)) score++;
+            if (/[a-z]/.test(val)) score++;
+            if (/[0-9]/.test(val)) score++;
+            if (/[^A-Za-z0-9]/.test(val)) score++;
+
+            let color = '#ef4444';
+            let text = 'Weak';
+            let width = '20%';
+
+            if (score > 2) {
+                color = '#f59e0b';
+                text = 'Fair';
+                width = '50%';
+            }
+            if (score > 3) {
+                color = '#22c55e';
+                text = 'Strong';
+                width = '100%';
+            }
+
+            strengthBar.style.width = width;
+            strengthBar.style.backgroundColor = color;
+            strengthText.textContent = `Strength: ${text}`;
         });
     </script>
 </body>

@@ -494,7 +494,7 @@ $users = getRecentChats($userId);
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const response = await fetch(`${API_URL}/api.php?action=search_contacts&q=${encodeURIComponent(query)}&user_id=${currentUserId}`);
+                    const response = await fetch(`${API_URL}?action=search_contacts&q=${encodeURIComponent(query)}&user_id=${currentUserId}`);
                     const results = await response.json();
                     
                     loading.style.display = 'none';
@@ -569,7 +569,7 @@ $users = getRecentChats($userId);
                     userItem.click();
                 } else {
                     // User not in sidebar list? Fetch details and open chat anyway
-                    fetch(`${API_URL}/api.php?action=get_user_info&id=${userParam}`)
+                    fetch(`${API_URL}?action=get_user_info&id=${userParam}`)
                         .then(res => res.json())
                         .then(user => {
                             if (user && user.id) {

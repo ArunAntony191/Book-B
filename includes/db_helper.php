@@ -357,6 +357,42 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
 }
 
 /**
+ * Update an existing book listing
+ */
+function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get book_id from listing
+        $stmt = $pdo->prepare("SELECT book_id FROM listings WHERE id = ? AND user_id = ?");
+        $stmt->execute([$listingId, $userId]);
+        $listing = $stmt->fetch();
+        if (!$listing) throw new Exception("Listing not found or unauthorized");
+        $bookId = $listing['book_id'];
+
+        // 2. Update book
+        $stmt = $pdo->prepare("UPDATE books SET title = ?, author = ?, cover_image = ?, description = ?, category = ?, condition_status = ? WHERE id = ?");
+        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $bookId]);
+
+        // 3. Update listing
+        $stmt = $pdo->prepare("
+            UPDATE listings 
+            SET listing_type = ?, price = ?, location = ?, latitude = ?, longitude = ?, visibility = ?, community_id = ?, quantity = ?, credit_cost = ?
+            WHERE id = ? AND user_id = ?
+        ");
+        $stmt->execute([$type, $price, $location, $lat, $lng, $visibility, $communityId, $quantity, $creditCost, $listingId, $userId]);
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Update listing error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Advanced search for listings
  */
 function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
