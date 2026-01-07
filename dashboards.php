@@ -54,6 +54,17 @@
                     <p style="font-size: 0.9rem; color: var(--text-muted);">For platform moderation and system overview.</p>
                 </div>
             </a>
+
+            <!-- Delivery Agent -->
+            <a href="dashboard_delivery_agent.php" style="text-decoration: none; color: inherit;">
+                <div class="widget-card" style="padding: 2rem; transition: transform 0.2s; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;">
+                    <div style="width: 60px; height: 60px; background: #e0f2fe; color: #0369a1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                        <i class='bx bxs-truck'></i>
+                    </div>
+                    <h3 style="margin: 0;">Delivery Agent</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">For managing book pickups and deliveries.</p>
+                </div>
+            </a>
         </div>
         
         <div style="margin-top: 3rem;">

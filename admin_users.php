@@ -16,7 +16,7 @@ $search = $_GET['search'] ?? '';
 try {
     $pdo = getDBConnection();
     
-    $query = "SELECT id, firstname, lastname, email, role, credits, trust_score, total_lends, total_borrows, late_returns, created_at FROM users WHERE 1=1";
+    $query = "SELECT id, firstname, lastname, email, role, credits, trust_score, total_lends, total_borrows, late_returns, is_banned, created_at FROM users WHERE 1=1";
     $params = [];
     
     if ($filter === 'low_trust') {
@@ -97,7 +97,7 @@ try {
                             <th style="padding: 1rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Credits</th>
                             <th style="padding: 1rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Trust</th>
                             <th style="padding: 1rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Activity</th>
-                            <th style="padding: 1rem; text-align: right; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Joined</th>
+                            <th style="padding: 1rem; text-align: right; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -128,8 +128,14 @@ try {
                                     <br><span style="color: #ef4444; font-weight: 600;"><?php echo $u['late_returns']; ?> late</span>
                                 <?php endif; ?>
                             </td>
-                            <td style="padding: 1.25rem; text-align: right; font-size: 0.85rem; color: var(--text-muted);">
-                                <?php echo date('M d, Y', strtotime($u['created_at'])); ?>
+                            <td style="padding: 1.25rem; text-align: right;">
+                                <?php if ($u['role'] !== 'admin'): ?>
+                                    <?php if ($u['is_banned']): ?>
+                                        <button onclick="toggleBan(<?php echo $u['id']; ?>, 'unban')" class="btn btn-sm" style="background: #10b981; color: white; border: none;">Unban</button>
+                                    <?php else: ?>
+                                        <button onclick="toggleBan(<?php echo $u['id']; ?>, 'ban')" class="btn btn-sm" style="background: #ef4444; color: white; border: none;">Ban</button>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -145,5 +151,34 @@ try {
             </div>
         </main>
     </div>
+
+    <script>
+    async function toggleBan(userId, action) {
+        if (!confirm('Are you sure you want to ' + action + ' this user?')) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', action + '_user');
+            formData.append('user_id', userId);
+            
+            const response = await fetch('request_action.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred');
+        }
+    }
+    </script>
 </body>
 </html>

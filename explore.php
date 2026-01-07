@@ -200,9 +200,17 @@ $results = searchListingsAdvanced($filters);
                                         </div>
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span class="badge badge-<?php echo $item['listing_type']; ?>"><?php echo ucfirst($item['listing_type']); ?></span>
-                                            <span style="font-weight: 800; color: var(--primary); font-size: 1rem;">₹<?php echo number_format($item['price'], 2); ?></span>
+                                            <div style="text-align: right;">
+                                                <div style="font-size: 0.75rem; color: var(--text-muted);"><i class='bx bx-layer'></i> Qty: <?php echo $item['quantity']; ?></div>
+                                                <span style="font-weight: 800; color: var(--primary); font-size: 1rem;">₹<?php echo number_format($item['price'], 2); ?></span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <?php if ($item['quantity'] <= 0): ?>
+                                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: var(--radius-md);">
+                                            <span class="badge" style="background: #ef4444; color: white;">Sold Out</span>
+                                        </div>
+                                    <?php endif; ?>
                                     <a href="chat/index.php?user=<?php echo $item['user_id']; ?>" onclick="event.stopPropagation();" class="chat-btn-mini" title="Chat with Owner">
                                         <i class='bx bx-message-square-dots'></i>
                                     </a>

@@ -172,7 +172,7 @@
         }
         .role-selection {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 1rem;
             margin-bottom: 2rem;
         }
@@ -291,6 +291,12 @@
                         case 'user_exists':
                             echo 'An account with this email already exists. Please <a href="login.php" style="color: inherit; text-decoration: underline;">login instead</a>.';
                             break;
+                        case 'phone_exists':
+                            echo 'This phone number is already registered to another account. Please use a different number.';
+                            break;
+                        case 'server_error':
+                            echo 'A server error occurred. Please try again later.';
+                            break;
                         default:
                             echo 'An error occurred. Please try again.';
                     }
@@ -333,6 +339,16 @@
                             <div class="role-desc">Sell & track orders</div>
                         </label>
 
+                        <label class="role-card" data-role="delivery_agent">
+                            <input type="radio" name="role" value="delivery_agent" required>
+                            <div class="checkmark"><i class='bx bx-check'></i></div>
+                            <div class="role-icon admin"> <!-- Using admin icon color for delivery agent -->
+                                <i class='bx bxs-truck'></i>
+                            </div>
+                            <div class="role-title">Delivery Agent</div>
+                            <div class="role-desc">Deliver books & earn</div>
+                        </label>
+
                     </div>
                 </div>
 
@@ -352,10 +368,19 @@
                     </div>
                 </div>
 
-                <!-- Email -->
+                <!-- Email & Phone -->
                 <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" placeholder="you@example.com" required>
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" name="phone" class="form-input" placeholder="+1234567890" required
+                                   pattern="^\+?[0-9]{10,15}$" title="Enter a valid phone number (10-15 digits)">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Password -->
@@ -363,16 +388,10 @@
                     <label class="form-label">Create Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required
-                               minlength="8">
+                               minlength="4">
                         <i class='bx bx-hide password-toggle' id="togglePassword"></i>
                     </div>
-                    <!-- Password Strength Indicator -->
-                    <div id="password-strength" style="margin-top: 0.5rem; display: none;">
-                        <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                            <div id="strength-bar" style="height: 100%; width: 0; transition: all 0.3s; background: #ef4444;"></div>
-                        </div>
-                        <p id="strength-text" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;"></p>
-                    </div>
+                    <p class="form-hint" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;">Minimal 4 characters for testing</p>
                 </div>
 
                 <!-- Terms Checkbox -->
@@ -430,45 +449,14 @@
             });
         });
         // Password Strength Logic
-        const passwordInput = document.getElementById('password');
-        const strengthDiv = document.getElementById('password-strength');
-        const strengthBar = document.getElementById('strength-bar');
-        const strengthText = document.getElementById('strength-text');
-
-        passwordInput.addEventListener('input', function() {
-            const val = this.value;
-            if (val.length === 0) {
-                strengthDiv.style.display = 'none';
-                return;
-            }
-
-            strengthDiv.style.display = 'block';
-            let score = 0;
-            
-            if (val.length >= 8) score++;
-            if (/[A-Z]/.test(val)) score++;
-            if (/[a-z]/.test(val)) score++;
-            if (/[0-9]/.test(val)) score++;
-            if (/[^A-Za-z0-9]/.test(val)) score++;
-
-            let color = '#ef4444';
-            let text = 'Weak';
-            let width = '20%';
-
-            if (score > 2) {
-                color = '#f59e0b';
-                text = 'Fair';
-                width = '50%';
-            }
-            if (score > 3) {
-                color = '#22c55e';
-                text = 'Strong';
-                width = '100%';
-            }
-
-            strengthBar.style.width = width;
-            strengthBar.style.backgroundColor = color;
-            strengthText.textContent = `Strength: ${text}`;
+        // Password toggle logic only
+        const togglePassword = document.getElementById('togglePassword');
+        const password = document.getElementById('password');
+        togglePassword.addEventListener('click', function (e) {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.classList.toggle('bx-show');
+            this.classList.toggle('bx-hide');
         });
     </script>
 </body>

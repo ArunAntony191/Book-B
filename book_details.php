@@ -9,7 +9,7 @@ $listingId = $_GET['id'] ?? 0;
 $pdo = getDBConnection();
 $stmt = $pdo->prepare("
     SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, 
-           u.firstname, u.lastname, u.role, u.reputation_score
+           u.firstname, u.lastname, u.role, u.reputation_score, l.quantity
     FROM listings l
     JOIN books b ON l.book_id = b.id
     JOIN users u ON l.user_id = u.id
@@ -27,6 +27,9 @@ if ($userId) {
     $wStmt->execute([$userId, $listingId]);
     if ($wStmt->fetch()) $inWishlist = true;
 }
+
+// Get user profile for default location
+$currentUser = $userId ? getUserById($userId) : null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,6 +96,29 @@ if ($userId) {
             background: white; padding: 2rem; border-radius: var(--radius-lg); width: 400px;
             box-shadow: var(--shadow-xl);
         }
+        .delivery-banner {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f0fdf4;
+            border: 1px solid #dcfce7;
+            border-radius: var(--radius-md);
+            margin-bottom: 1.5rem;
+            color: #166534;
+        }
+        .delivery-unavailable {
+            background: #fff1f2;
+            border-color: #ffe4e6;
+            color: #9f1239;
+        }
+        #delivery-map {
+            height: 250px;
+            width: 100%;
+            border-radius: var(--radius-md);
+            margin-top: 1rem;
+            border: 1px solid var(--border-color);
+        }
     </style>
 </head>
 <body>
@@ -133,7 +159,6 @@ if ($userId) {
                     </div>
                 </div>
 
-                <!-- Right: Action & Provider -->
                 <div class="column-right">
                     <div class="section-card">
                         <div style="font-weight: 700; margin-bottom: 1.5rem; font-size: 1.1rem;">Listing Details</div>
@@ -145,26 +170,55 @@ if ($userId) {
                             </span>
                         </div>
                         
-                        <div style="display:flex; justify-content: space-between; margin-bottom: 2rem;">
+                        <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; align-items: center;">
                             <span style="color: var(--text-muted);">Type</span>
                             <span class="badge badge-<?php echo $book['listing_type']; ?>" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">
                                 <?php echo ucfirst($book['listing_type']); ?>
                             </span>
                         </div>
 
+                        <!-- Delivery Status Placeholder -->
+                        <div id="delivery-info" class="delivery-banner" style="display: none;">
+                            <i class='bx bxs-truck bx-tada'></i>
+                            <div>
+                                <strong style="display: block;">Delivery Available</strong>
+                                <span style="font-size: 0.85rem;">Local agents cover this route!</span>
+                            </div>
+                        </div>
+                        <div id="delivery-none" class="delivery-banner delivery-unavailable" style="display: none;">
+                            <i class='bx bx-x-circle'></i>
+                            <div>
+                                <strong style="display: block;">Pickup Only</strong>
+                                <span style="font-size: 0.85rem;">No active agents in this area.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content: space-between; margin-bottom: 2rem; align-items: center;">
+                            <span style="color: var(--text-muted);">Availability</span>
+                            <span style="font-weight: 700; color: <?php echo $book['quantity'] > 0 ? '#15803d' : '#ef4444'; ?>;">
+                                <?php echo $book['quantity'] > 0 ? $book['quantity'] . " in stock" : "Out of Stock"; ?>
+                            </span>
+                        </div>
+
                         <!-- Action Buttons -->
-                        <div style="display: grid; gap: 0.75rem;">
-                            <?php if ($book['listing_type'] === 'borrow'): ?>
-                                <button onclick="openRequestModal('borrow')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
-                                    Request to Borrow
-                                </button>
-                            <?php elseif ($book['listing_type'] === 'sell'): ?>
-                                <button onclick="openRequestModal('sell')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
-                                    Buy Now
-                                </button>
+                        <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                            <?php if ($book['quantity'] > 0): ?>
+                                <?php if ($book['listing_type'] === 'borrow'): ?>
+                                    <button onclick="openRequestModal('borrow')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
+                                        Request to Borrow
+                                    </button>
+                                <?php elseif ($book['listing_type'] === 'sell'): ?>
+                                    <button onclick="openRequestModal('sell')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
+                                        Buy Now
+                                    </button>
+                                <?php else: ?>
+                                    <button onclick="openRequestModal('exchange')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
+                                        Request Swap
+                                    </button>
+                                <?php endif; ?>
                             <?php else: ?>
-                                <button onclick="openRequestModal('exchange')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
-                                    Request Swap
+                                <button class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem; background: var(--text-muted); cursor: not-allowed;" disabled>
+                                    Currently Unavailable
                                 </button>
                             <?php endif; ?>
 
@@ -210,6 +264,24 @@ if ($userId) {
                 <input type="date" id="due-date" class="form-input" min="<?php echo date('Y-m-d'); ?>">
             </div>
 
+            <div id="delivery-section" style="margin-bottom: 1.5rem;">
+                <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <input type="checkbox" id="want-delivery" onchange="toggleDeliveryMap()">
+                    <span>I want door-step delivery</span>
+                </label>
+                
+                <div id="delivery-setup" style="display: none;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Confirm Drop-off Location</label>
+                    <div id="delivery-map"></div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0.25rem;">
+                        <i class='bx bx-map-pin'></i> Click on the map to set your exact location
+                    </div>
+                    <textarea id="delivery-address" class="form-input" rows="2" placeholder="Building name, Street, Apartment number..."><?php echo htmlspecialchars($currentUser['address'] ?? ''); ?></textarea>
+                    <input type="hidden" id="order-lat" value="">
+                    <input type="hidden" id="order-lng" value="">
+                </div>
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="submitRequest()">Send Request</button>
@@ -222,7 +294,39 @@ if ($userId) {
         const listingId = <?php echo $listingId; ?>;
         const ownerId = <?php echo $book['user_id']; ?>;
         const bookTitle = "<?php echo addslashes($book['title']); ?>";
+        const lenderLat = <?php echo $book['latitude'] ?: 'null'; ?>;
+        const lenderLng = <?php echo $book['longitude'] ?: 'null'; ?>;
+        const userLatDefault = <?php echo $currentUser['service_start_lat'] ?? '9.4124'; ?>;
+        const userLngDefault = <?php echo $currentUser['service_start_lng'] ?? '76.6946'; ?>;
         let currentType = '';
+        let dMap = null;
+        let dMarker = null;
+
+        // Auto-check availability on load
+        window.addEventListener('load', () => {
+             checkAvailabilityGlobal(lenderLat, lenderLng, userLatDefault, userLngDefault);
+        });
+
+        async function checkAvailabilityGlobal(lLat, lLng, bLat, bLng) {
+            if(!lLat || !lLng) return;
+            try {
+                const res = await fetch('request_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=check_delivery&l_lat=${lLat}&l_lng=${lLng}&b_lat=${bLat}&b_lng=${bLng}`
+                });
+                const data = await res.json();
+                if(data.available) {
+                    document.getElementById('delivery-info').style.display = 'flex';
+                    document.getElementById('delivery-none').style.display = 'none';
+                    document.getElementById('delivery-section').style.display = 'block';
+                } else {
+                    document.getElementById('delivery-info').style.display = 'none';
+                    document.getElementById('delivery-none').style.display = 'flex';
+                    document.getElementById('delivery-section').style.display = 'none';
+                }
+            } catch(e) {}
+        }
 
         // Wishlist
         function toggleWishlist() {
@@ -272,18 +376,49 @@ if ($userId) {
             document.getElementById('req-modal').style.display = 'none';
         }
 
+        function toggleDeliveryMap() {
+            const isChecked = document.getElementById('want-delivery').checked;
+            document.getElementById('delivery-setup').style.display = isChecked ? 'block' : 'none';
+            
+            if(isChecked && !dMap) {
+                setTimeout(() => {
+                    dMap = L.map('delivery-map').setView([userLatDefault, userLngDefault], 14);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(dMap);
+                    
+                    dMap.on('click', (e) => {
+                        if(dMarker) dMap.removeLayer(dMarker);
+                        dMarker = L.marker(e.latlng).addTo(dMap);
+                        document.getElementById('order-lat').value = e.latlng.lat;
+                        document.getElementById('order-lng').value = e.latlng.lng;
+                        
+                        // Re-check availability if they change their delivery spot
+                        checkAvailabilityGlobal(lenderLat, lenderLng, e.latlng.lat, e.latlng.lng);
+                    });
+                }, 100);
+            }
+        }
+
         function submitRequest() {
             const dueDate = document.getElementById('due-date').value;
+            const wantDelivery = document.getElementById('want-delivery').checked;
+            const address = document.getElementById('delivery-address').value;
+            const lat = document.getElementById('order-lat').value;
+            const lng = document.getElementById('order-lng').value;
             
             if (currentType === 'borrow' && !dueDate) {
                 alert('Please select a return date!');
                 return;
             }
 
+            if (wantDelivery && !lat) {
+                alert('Please click on the map to set your delivery location!');
+                return;
+            }
+
             fetch('request_action.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `action=create_request&listing_id=${listingId}&owner_id=${ownerId}&type=${currentType}&due_date=${dueDate}&book_title=${encodeURIComponent(bookTitle)}`
+                body: `action=create_request&listing_id=${listingId}&owner_id=${ownerId}&type=${currentType}&due_date=${dueDate}&book_title=${encodeURIComponent(bookTitle)}&delivery=${wantDelivery?1:0}&address=${encodeURIComponent(address)}&lat=${lat}&lng=${lng}`
             })
             .then(res => res.json())
             .then(data => {

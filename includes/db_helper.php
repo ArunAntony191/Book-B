@@ -8,16 +8,24 @@ date_default_timezone_set('Asia/Kolkata');
 /**
  * Create a new user
  */
-function createUser($email, $password, $firstname, $lastname, $role) {
+function createUser($email, $password, $firstname, $lastname, $role, $phone = null) {
     try {
         $pdo = getDBConnection();
         
-        // Check if user already exists
+        // Check if email already exists
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
-        
         if ($stmt->fetch()) {
-            return false; // User already exists
+            return 'email_exists';
+        }
+        
+        // Check if phone already exists
+        if ($phone) {
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+            $stmt->execute([$phone]);
+            if ($stmt->fetch()) {
+                return 'phone_exists';
+            }
         }
         
         // Hash password
@@ -25,11 +33,14 @@ function createUser($email, $password, $firstname, $lastname, $role) {
         
         // Insert new user with initial credits and trust
         $stmt = $pdo->prepare("
-            INSERT INTO users (email, password, firstname, lastname, role, credits, trust_score) 
-            VALUES (?, ?, ?, ?, ?, 100, 100)
+            INSERT INTO users (email, password, firstname, lastname, phone, role, credits, trust_score) 
+            VALUES (?, ?, ?, ?, ?, ?, 100, 100)
         ");
         
-        return $stmt->execute([$email, $hashedPassword, $firstname, $lastname, $role]);
+        if ($stmt->execute([$email, $hashedPassword, $firstname, $lastname, $phone, $role])) {
+            return $pdo->lastInsertId();
+        }
+        return false;
         
     } catch (PDOException $e) {
         error_log("Create user error: " . $e->getMessage());
@@ -45,7 +56,7 @@ function authenticateUser($email, $password) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, password, firstname, lastname, role, reputation_score 
+            SELECT id, email, password, firstname, lastname, role, reputation_score, is_accepting_deliveries 
             FROM users 
             WHERE email = ?
         ");
@@ -75,7 +86,8 @@ function getUserById($userId) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, firstname, lastname, role, reputation_score, created_at 
+            SELECT id, email, firstname, lastname, phone, role, reputation_score, created_at,
+                   address, service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
             FROM users 
             WHERE id = ?
         ");
@@ -99,12 +111,15 @@ function updateUser($userId, $data) {
         $fields = [];
         $values = [];
         
-        foreach ($data as $key => $value) {
-            if (in_array($key, ['firstname', 'lastname', 'email'])) {
+            if (in_array($key, [
+                'firstname', 'lastname', 'email', 'phone', 'address', 
+                'service_start_lat', 'service_start_lng', 
+                'service_end_lat', 'service_end_lng', 
+                'is_accepting_deliveries'
+            ])) {
                 $fields[] = "$key = ?";
                 $values[] = $value;
             }
-        }
         
         if (empty($fields)) {
             return false;
@@ -436,6 +451,11 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         if (isset($filters['max_price']) && $filters['max_price'] !== null) {
             $sql .= " AND l.price <= ?";
             $params[] = $filters['max_price'];
+        }
+
+        // Only show available quantities by default if not specified
+        if (!isset($filters['show_all'])) {
+            $sql .= " AND l.quantity > 0";
         }
 
         if (!empty($filters['has_location'])) {
@@ -783,8 +803,121 @@ function getUserReviews($userId, $limit = 10) {
         $stmt->execute([$userId, $limit]);
         return $stmt->fetchAll();
     } catch (PDOException $e) {
-        error_log("Get reviews error: " . $e->getMessage());
+        error_log("Get user reviews error: " . $e->getMessage());
         return [];
+    }
+}
+
+// ==================== ADMIN SAFETY FUNCTIONS ====================
+
+/**
+ * Ban a user
+ */
+function banUser($userId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Set is_banned flag
+        $stmt = $pdo->prepare("UPDATE users SET is_banned = 1 WHERE id = ?");
+        $stmt->execute([$userId]);
+
+        // 2. Clear any active sessions (handled by login check usually, but good to flag)
+        
+        // 3. Send notification
+        $stmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, type, message, is_read) 
+            VALUES (?, 'system', 'Your account has been suspended due to policy violations. Contact admin for appeal.', 0)
+        ");
+        $stmt->execute([$userId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Ban user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Unban a user
+ */
+function unbanUser($userId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare("UPDATE users SET is_banned = 0 WHERE id = ?");
+        $stmt->execute([$userId]);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, type, message, is_read) 
+            VALUES (?, 'system', 'Your account suspension has been lifted. Welcome back.', 0)
+        ");
+        $stmt->execute([$userId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Unban user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create a user report
+ */
+function createReport($reporterId, $reportedId, $reason, $description) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO reports (reporter_id, reported_id, reason, description, status) 
+            VALUES (?, ?, ?, ?, 'pending')
+        ");
+        return $stmt->execute([$reporterId, $reportedId, $reason, $description]);
+    } catch (PDOException $e) {
+        error_log("Create report error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get reports
+ */
+function getReports($status = 'pending') {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, 
+                   u_reporter.firstname as reporter_fname, u_reporter.lastname as reporter_lname,
+                   u_reported.firstname as reported_fname, u_reported.lastname as reported_lname, u_reported.id as reported_uid
+            FROM reports r
+            JOIN users u_reporter ON r.reporter_id = u_reporter.id
+            JOIN users u_reported ON r.reported_id = u_reported.id
+            WHERE r.status = ?
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute([$status]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get reports error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Resolve report
+ */
+function resolveReport($reportId, $status) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE reports SET status = ? WHERE id = ?");
+        return $stmt->execute([$status, $reportId]);
+    } catch (PDOException $e) {
+        error_log("Resolve report error: " . $e->getMessage());
+        return false;
     }
 }
 

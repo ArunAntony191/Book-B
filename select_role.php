@@ -47,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'admin':
                 header("Location: dashboard_admin.php");
                 break;
+            case 'delivery_agent':
+                header("Location: dashboard_delivery_agent.php");
+                break;
             case 'user':
             default:
                 header("Location: dashboard_user.php");
@@ -127,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .role-selection {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
         @media (max-width: 480px) {
@@ -262,6 +265,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <div class="role-title">Bookstore</div>
                         <div class="role-desc">Sell & track orders</div>
+                    </label>
+
+                    <label class="role-card" data-role="delivery_agent">
+                        <input type="radio" name="role" value="delivery_agent" required>
+                        <div class="checkmark"><i class='bx bx-check'></i></div>
+                        <div class="role-icon admin">
+                            <i class='bx bxs-truck'></i>
+                        </div>
+                        <div class="role-title">Delivery Agent</div>
+                        <div class="role-desc">Deliver books & earn</div>
                     </label>
 
                 </div>

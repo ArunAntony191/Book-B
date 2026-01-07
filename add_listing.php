@@ -46,11 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $visibility = $_POST['visibility'] ?? 'public';
         $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
         
-        // Quantity (only for library and bookstore)
-        $quantity = 1;
-        if ($user['role'] === 'library' || $user['role'] === 'bookstore') {
-            $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
-        }
+        // Quantity (allowing all users to set quantity)
+        $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
         
         // Credit cost
         $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
@@ -351,18 +348,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <p style="color: red; font-size: 0.8rem; display: none;" id="price-error">Price cannot be less than 0</p>
                             </div>
 
-                            <?php if ($user['role'] === 'library' || $user['role'] === 'bookstore'): ?>
-                            <!-- Quantity Field (Only for Libraries and Bookstores) -->
+                            <!-- Quantity Field (Available for all roles) -->
                             <div class="form-group">
                                 <label class="form-label">
                                     <i class='bx bx-package'></i> Quantity Available
                                 </label>
                                 <input type="number" name="quantity" class="form-input" value="<?php echo htmlspecialchars($editData['quantity'] ?? 1); ?>" min="1" placeholder="Number of copies">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
-                                    <i class='bx bx-info-circle'></i> Total number of copies you have in stock
+                                    <i class='bx bx-info-circle'></i> Number of copies you have to share
                                 </p>
                             </div>
-                            <?php endif; ?>
 
                             <!-- Credit Cost Field -->
                             <div class="form-group">

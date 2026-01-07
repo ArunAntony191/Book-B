@@ -5,6 +5,7 @@ session_start();
 header('Content-Type: application/json');
 
 $userId = $_SESSION['user_id'] ?? 0;
+$userRole = $_SESSION['role'] ?? 'user';
 if (!$userId) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
@@ -17,7 +18,6 @@ try {
     $pdo = getDBConnection();
 
     if ($action === 'toggle_wishlist') {
-        // ... (Wishlist Logic)
         $stmt = $pdo->prepare("SELECT id FROM wishlist WHERE user_id = ? AND listing_id = ?");
         $stmt->execute([$userId, $listingId]);
         
@@ -28,6 +28,15 @@ try {
             $pdo->prepare("INSERT INTO wishlist (user_id, listing_id) VALUES (?, ?)")->execute([$userId, $listingId]);
             echo json_encode(['success' => true, 'status' => 'added']);
         }
+
+    } elseif ($action === 'check_delivery') {
+        $lLat = $_POST['l_lat'] ?? null;
+        $lLng = $_POST['l_lng'] ?? null;
+        $bLat = $_POST['b_lat'] ?? null;
+        $bLng = $_POST['b_lng'] ?? null;
+        
+        $available = checkDeliveryAvailability($lLat, $lLng, $bLat, $bLng);
+        echo json_encode(['success' => true, 'available' => $available]);
 
     } elseif ($action === 'create_request') {
         $type = $_POST['type'] ?? 'borrow'; 
@@ -56,12 +65,24 @@ try {
         // Map type to transaction_type
         $transactionType = ($type === 'sell') ? 'purchase' : $type;
 
-        // Create Transaction
+        // Create Transaction with delivery info
+        $wantDelivery = ($_POST['delivery'] ?? 0) == 1;
+        $orderAddress = $_POST['address'] ?? null;
+        $orderLat = $_POST['lat'] ?? null;
+        $orderLng = $_POST['lng'] ?? null;
+
         $stmt = $pdo->prepare("
-            INSERT INTO transactions (listing_id, borrower_id, lender_id, transaction_type, status, due_date, borrow_date) 
-            VALUES (?, ?, ?, ?, 'requested', ?, CURDATE())
+            INSERT INTO transactions (
+                listing_id, borrower_id, lender_id, transaction_type, status, 
+                due_date, borrow_date, delivery_method, order_address, order_lat, order_lng
+            ) 
+            VALUES (?, ?, ?, ?, 'requested', ?, CURDATE(), ?, ?, ?, ?)
         ");
-        $stmt->execute([$listingId, $userId, $ownerId, $transactionType, $dueDate]);
+        $stmt->execute([
+            $listingId, $userId, $ownerId, $transactionType, 
+            $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
+            $orderAddress, $orderLat, $orderLng
+        ]);
         $transactionId = $pdo->lastInsertId();
 
         // Construct Message
@@ -230,8 +251,97 @@ try {
             'penalty_applied' => $penaltyApplied,
             'penalty_details' => $penaltyApplied ? $penalty : null
         ]);
-    } 
-    else {
+    } elseif ($action === 'update_delivery_status') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        $status = $_POST['status'] ?? ''; // 'active' for picked up, 'completed' (or relevant) for delivered
+
+        if (!$transactionId || !in_array($status, ['active', 'delivered'])) {
+            throw new Exception("Invalid delivery update");
+        }
+
+        // Only delivery agents or admins can do this
+        if ($userRole !== 'delivery_agent' && $userRole !== 'admin') {
+            throw new Exception("Unauthorized");
+        }
+
+        $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?")
+            ->execute([$status, $transactionId]);
+
+        // If delivered, we might need to handle specific logic if it was a purchase
+        // For borrow, 'active' means it's with the borrower now.
+        
+        echo json_encode(['success' => true, 'message' => 'Delivery status updated!']);
+    } elseif ($action === 'update_availability') {
+        $status = $_POST['status'] ?? 0; // 1 for online, 0 for offline
+        
+        if ($userRole !== 'delivery_agent') {
+            throw new Exception("Unauthorized");
+        }
+
+        $pdo->prepare("UPDATE users SET is_accepting_deliveries = ? WHERE id = ?")
+            ->execute([$status, $userId]);
+            
+        echo json_encode(['success' => true, 'message' => 'Availability updated']);
+    } elseif ($action === 'claim_job') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        
+        if ($userRole !== 'delivery_agent') {
+            throw new Exception("Unauthorized");
+        }
+        
+        // Assign to self and set status to active (or 'assigned' if we want a step before pickup)
+        // For simplicity, let's keep it 'active' which means 'In Progress/Assigned'
+        // Ideally: 'approved' -> 'active' (picked up) -> 'delivered'
+        // But let's say claiming it keeps it 'approved' but assigns the agent, 
+        // until they actually pick it up.
+        
+        $pdo->prepare("UPDATE transactions SET delivery_agent_id = ? WHERE id = ? AND delivery_agent_id IS NULL")
+            ->execute([$userId, $transactionId]);
+            
+        if ($pdo->rowCount() > 0) {
+            echo json_encode(['success' => true, 'message' => 'Job Claimed']);
+        } else {
+             throw new Exception("Job already taken or invalid");
+        }
+    } elseif ($action === 'ban_user') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized");
+        $targetId = $_POST['user_id'] ?? 0;
+        if (banUser($targetId)) {
+            echo json_encode(['success' => true, 'message' => 'User has been banned']);
+        } else {
+            throw new Exception("Failed to ban user");
+        }
+    } elseif ($action === 'unban_user') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized");
+        $targetId = $_POST['user_id'] ?? 0;
+        if (unbanUser($targetId)) {
+            echo json_encode(['success' => true, 'message' => 'User has been unbanned']);
+        } else {
+            throw new Exception("Failed to unban user");
+        }
+    } elseif ($action === 'submit_report') {
+        $reportedId = $_POST['reported_id'] ?? 0;
+        $reason = $_POST['reason'] ?? '';
+        $description = $_POST['description'] ?? '';
+        
+        if (!$reportedId || !$reason) throw new Exception("Missing required fields");
+        
+        if (createReport($userId, $reportedId, $reason, $description)) {
+            echo json_encode(['success' => true, 'message' => 'Report submitted successfully']);
+        } else {
+            throw new Exception("Failed to submit report");
+        }
+    } elseif ($action === 'resolve_report') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized");
+        $reportId = $_POST['report_id'] ?? 0;
+        $status = $_POST['status'] ?? 'resolved';
+        
+        if (resolveReport($reportId, $status)) {
+            echo json_encode(['success' => true, 'message' => 'Report updated']);
+        } else {
+            throw new Exception("Failed to update report");
+        }
+    } else {
         echo json_encode(['success' => false, 'message' => 'Invalid Action']);
     }
 

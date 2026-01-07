@@ -43,6 +43,9 @@ if ($method === 'GET') {
     if ($action === 'unread_counts') {
         $userId = $_GET['user_id'] ?? 0;
         if ($userId) {
+            // Clean up self-messages just in case
+            $pdo->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = receiver_id AND receiver_id = ? AND is_read = 0")->execute([$userId]);
+            
             $stmt = $pdo->prepare("SELECT sender_id, COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = 0 GROUP BY sender_id");
             $stmt->execute([$userId]);
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -111,8 +114,9 @@ if ($method === 'GET') {
     }
 
     if ($sender_id && $receiver_id && ($message || $attachment_url)) {
-        $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message, attachment_url) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$sender_id, $receiver_id, $message, $attachment_url]);
+        $is_read = ($sender_id === $receiver_id) ? 1 : 0;
+        $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message, attachment_url, is_read) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$sender_id, $receiver_id, $message, $attachment_url, $is_read]);
         echo json_encode(['status' => 'success']);
     } else {
         http_response_code(400);

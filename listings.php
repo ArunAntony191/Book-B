@@ -141,9 +141,14 @@ $myListings = $stmt->fetchAll();
                     <h1>My Book Listings</h1>
                     <p>Collections you've shared with the community</p>
                 </div>
-                <a href="add_listing.php" class="btn btn-primary">
-                    <i class='bx bx-plus-circle'></i> Add New Listing
-                </a>
+                <div style="display: flex; gap: 1rem;">
+                    <a href="dashboard_delivery_agent.php" class="btn btn-outline" style="border-color: var(--primary);">
+                        <i class='bx bxs-truck'></i> Delivery View
+                    </a>
+                    <a href="add_listing.php" class="btn btn-primary">
+                        <i class='bx bx-plus-circle'></i> Add New Listing
+                    </a>
+                </div>
             </div>
 
             <?php if (empty($myListings)): ?>
@@ -160,12 +165,18 @@ $myListings = $stmt->fetchAll();
                             <span class="type-badge badge-<?php echo $listing['listing_type']; ?>">
                                 <?php echo $listing['listing_type']; ?>
                             </span>
+                            <?php if ($listing['quantity'] <= 0): ?>
+                                <span class="type-badge" style="background: var(--text-muted); left: auto; right: 15px;">Out of Stock</span>
+                            <?php endif; ?>
                             <div class="listing-img-wrapper">
                                 <img src="<?php echo $listing['cover_image'] ?: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600'; ?>" class="listing-img" alt="Book">
                             </div>
                             <div class="listing-content">
                                 <div class="listing-title"><?php echo htmlspecialchars($listing['title']); ?></div>
                                 <div class="listing-author">by <?php echo htmlspecialchars($listing['author']); ?></div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                                    <i class='bx bx-layer'></i> Quantity: <strong><?php echo $listing['quantity']; ?></strong>
+                                </div>
                                 
                                 <div class="listing-footer">
                                     <div class="listing-price">

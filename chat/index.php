@@ -32,6 +32,37 @@ $users = getRecentChats($userId);
             border: 1px solid var(--border-color);
         }
 
+        /* Report Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+        }
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .close-modal:hover { color: var(--text-main); }
+
 
         .users-sidebar {
             border-right: 1px solid var(--border-color);
@@ -288,6 +319,7 @@ $users = getRecentChats($userId);
                     <div id="chat-header-container" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
                         <span id="chat-header" style="font-weight: 700;">Select a user to start chatting</span>
                         <div class="chat-header-actions">
+                            <i id="report-btn" class='bx bx-flag' title="Report User" style="color: #f59e0b; cursor: pointer; display: none; font-size: 1.25rem;" onclick="openReportModal()"></i>
                             <i id="clear-chat-btn" class='bx bx-trash clear-chat-btn' title="Clear Chat" onclick="clearChat()"></i>
                         </div>
                     </div>
@@ -315,6 +347,34 @@ $users = getRecentChats($userId);
             </div>
         </main>
 
+        <!-- Report Modal -->
+        <div id="reportModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeReportModal()">&times;</span>
+                <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Report User</h2>
+                <form id="reportForm" onsubmit="submitReport(event)">
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Reason</label>
+                        <select name="reason" class="form-input" required style="width: 100%;">
+                            <option value="">Select a reason...</option>
+                            <option value="Harassment/Abuse">Harassment or Verbal Abuse</option>
+                            <option value="Spam/Scam">Spam or Scam Attempt</option>
+                            <option value="Inappropriate Content">Inappropriate Content</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Description</label>
+                        <textarea name="description" class="form-input" rows="4" style="width: 100%;" placeholder="Please provide details..." required></textarea>
+                    </div>
+                    <div style="text-align: right;">
+                        <button type="button" class="btn btn-outline" onclick="closeReportModal()" style="margin-right: 0.5rem;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="background: #ef4444;">Submit Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -327,7 +387,10 @@ $users = getRecentChats($userId);
             document.getElementById('chat-header').textContent = 'Chat with ' + userName;
             document.getElementById('message-input').disabled = false;
             document.getElementById('send-btn').disabled = false;
+            document.getElementById('message-input').disabled = false;
+            document.getElementById('send-btn').disabled = false;
             document.getElementById('clear-chat-btn').style.display = 'block';
+            document.getElementById('report-btn').style.display = 'block';
             
             // Highlight active user
             document.querySelectorAll('.user-item').forEach(item => {
@@ -585,6 +648,54 @@ $users = getRecentChats($userId);
         document.getElementById('message-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendMessage();
         });
+
+        // Report Logic
+        const reportModal = document.getElementById('reportModal');
+        
+        function openReportModal() {
+            if (!currentReceiverId) return;
+            reportModal.style.display = 'block';
+        }
+
+        function closeReportModal() {
+            reportModal.style.display = 'none';
+            document.getElementById('reportForm').reset();
+        }
+
+        async function submitReport(e) {
+            e.preventDefault();
+            if (!currentReceiverId) return;
+
+            const formData = new FormData(e.target);
+            formData.append('action', 'submit_report');
+            formData.append('reported_id', currentReceiverId);
+
+            try {
+                // Pointing to request_action.php relative to this file
+                const response = await fetch('../request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Report submitted successfully. Admins will review it shortly.');
+                    closeReportModal();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred submitting the report.');
+            }
+        }
+
+        window.onclick = function(event) {
+            if (event.target == reportModal) {
+                closeReportModal();
+            }
+        }
     </script>
 </body>
 </html>
