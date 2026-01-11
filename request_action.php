@@ -68,20 +68,21 @@ try {
         // Create Transaction with delivery info
         $wantDelivery = ($_POST['delivery'] ?? 0) == 1;
         $orderAddress = $_POST['address'] ?? null;
+        $orderLandmark = $_POST['landmark'] ?? null;
         $orderLat = $_POST['lat'] ?? null;
         $orderLng = $_POST['lng'] ?? null;
 
         $stmt = $pdo->prepare("
             INSERT INTO transactions (
                 listing_id, borrower_id, lender_id, transaction_type, status, 
-                due_date, borrow_date, delivery_method, order_address, order_lat, order_lng
+                due_date, borrow_date, delivery_method, order_address, order_landmark, order_lat, order_lng
             ) 
-            VALUES (?, ?, ?, ?, 'requested', ?, CURDATE(), ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 'requested', ?, CURDATE(), ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $listingId, $userId, $ownerId, $transactionType, 
             $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
-            $orderAddress, $orderLat, $orderLng
+            $orderAddress, $orderLandmark, $orderLat, $orderLng
         ]);
         $transactionId = $pdo->lastInsertId();
 

@@ -56,7 +56,7 @@ function authenticateUser($email, $password) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, password, firstname, lastname, role, reputation_score, is_accepting_deliveries 
+            SELECT id, email, password, firstname, lastname, role, reputation_score, is_accepting_deliveries, is_banned 
             FROM users 
             WHERE email = ?
         ");
@@ -65,6 +65,9 @@ function authenticateUser($email, $password) {
         $user = $stmt->fetch();
         
         if ($user && password_verify($password, $user['password'])) {
+            if ($user['is_banned']) {
+                return 'banned';
+            }
             // Remove password from returned array
             unset($user['password']);
             return $user;
@@ -87,7 +90,7 @@ function getUserById($userId) {
         
         $stmt = $pdo->prepare("
             SELECT id, email, firstname, lastname, phone, role, reputation_score, created_at,
-                   address, service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
+                   address, landmark, service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
             FROM users 
             WHERE id = ?
         ");
@@ -111,8 +114,9 @@ function updateUser($userId, $data) {
         $fields = [];
         $values = [];
         
+        foreach ($data as $key => $value) {
             if (in_array($key, [
-                'firstname', 'lastname', 'email', 'phone', 'address', 
+                'firstname', 'lastname', 'email', 'phone', 'address', 'landmark', 'district', 'city', 'pincode', 'state',
                 'service_start_lat', 'service_start_lng', 
                 'service_end_lat', 'service_end_lng', 
                 'is_accepting_deliveries'
@@ -120,6 +124,7 @@ function updateUser($userId, $data) {
                 $fields[] = "$key = ?";
                 $values[] = $value;
             }
+        }
         
         if (empty($fields)) {
             return false;
@@ -168,13 +173,17 @@ function authenticateUserByEmail($email) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, firstname, lastname, role, reputation_score 
+            SELECT id, email, firstname, lastname, role, reputation_score, is_banned 
             FROM users 
             WHERE email = ?
         ");
         
         $stmt->execute([$email]);
-        return $stmt->fetch();
+        $user = $stmt->fetch();
+        if ($user && $user['is_banned']) {
+            return 'banned';
+        }
+        return $user;
         
     } catch (PDOException $e) {
         error_log("Authentication error: " . $e->getMessage());
@@ -329,6 +338,36 @@ function getUserDeals($userId) {
 }
 
 /**
+ * Get all deliveries for a user (as borrower or lender)
+ */
+function getUserDeliveries($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.*, b.title, b.author, b.cover_image, 
+                   u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
+                   l.listing_type, l.location as pickup_location, l.landmark as pickup_landmark,
+                   l.latitude as pickup_lat, l.longitude as pickup_lng,
+                   u_agent.firstname as agent_name, u_agent.phone as agent_phone
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            JOIN users u_lender ON t.lender_id = u_lender.id
+            LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
+            WHERE (t.borrower_id = ? OR t.lender_id = ?) 
+            AND t.delivery_method = 'delivery'
+            ORDER BY t.created_at DESC
+        ");
+        $stmt->execute([$userId, $userId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get deliveries error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
  * Update transaction status
  */
 function updateTransactionStatus($transactionId, $status) {
@@ -345,7 +384,7 @@ function updateTransactionStatus($transactionId, $status) {
 /**
  * Add a new book listing
  */
-function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10) {
+function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
@@ -357,10 +396,10 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
 
         // 2. Create listing with quantity and credit_cost
         $stmt = $pdo->prepare("
-            INSERT INTO listings (user_id, book_id, listing_type, price, location, latitude, longitude, visibility, community_id, quantity, credit_cost) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO listings (user_id, book_id, listing_type, price, location, landmark, district, city, pincode, latitude, longitude, visibility, community_id, quantity, credit_cost) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$userId, $bookId, $type, $price, $location, $lat, $lng, $visibility, $communityId, $quantity, $creditCost]);
+        $stmt->execute([$userId, $bookId, $type, $price, $location, $landmark, $district, $city, $pincode, $lat, $lng, $visibility, $communityId, $quantity, $creditCost]);
         
         $pdo->commit();
         return true;
@@ -374,7 +413,7 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
 /**
  * Update an existing book listing
  */
-function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10) {
+function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
@@ -393,10 +432,10 @@ function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, 
         // 3. Update listing
         $stmt = $pdo->prepare("
             UPDATE listings 
-            SET listing_type = ?, price = ?, location = ?, latitude = ?, longitude = ?, visibility = ?, community_id = ?, quantity = ?, credit_cost = ?
+            SET listing_type = ?, price = ?, location = ?, landmark = ?, district = ?, city = ?, pincode = ?, latitude = ?, longitude = ?, visibility = ?, community_id = ?, quantity = ?, credit_cost = ?
             WHERE id = ? AND user_id = ?
         ");
-        $stmt->execute([$type, $price, $location, $lat, $lng, $visibility, $communityId, $quantity, $creditCost, $listingId, $userId]);
+        $stmt->execute([$type, $price, $location, $landmark, $district, $city, $pincode, $lat, $lng, $visibility, $communityId, $quantity, $creditCost, $listingId, $userId]);
         
         $pdo->commit();
         return true;
@@ -414,9 +453,23 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
     try {
         $pdo = getDBConnection();
         $params = [];
+        
+        $select = "l.*, b.title, b.author, b.cover_image, b.category, 
+                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating";
+        
+        // Dynamic Distance Calculation if center provided
+        if (!empty($filters['center_lat']) && !empty($filters['center_lng'])) {
+            $select .= ", (6371 * acos(cos(radians(" . (float)$filters['center_lat'] . ")) 
+                        * cos(radians(l.latitude)) 
+                        * cos(radians(l.longitude) - radians(" . (float)$filters['center_lng'] . ")) 
+                        + sin(radians(" . (float)$filters['center_lat'] . ")) 
+                        * sin(radians(l.latitude)))) AS distance";
+        } else {
+            $select .= ", NULL as distance";
+        }
+
         $sql = "
-            SELECT l.*, b.title, b.author, b.cover_image, b.category, 
-                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating
+            SELECT $select
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
@@ -453,7 +506,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             $params[] = $filters['max_price'];
         }
 
-        // Only show available quantities by default if not specified
+        // ONLY show available quantities by default if not specified
         if (!isset($filters['show_all'])) {
             $sql .= " AND l.quantity > 0";
         }
@@ -462,9 +515,24 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             $sql .= " AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL";
         }
 
-        $sql .= " ORDER BY l.created_at DESC LIMIT ? OFFSET ?";
+        // Bounding Box Filter
+        if (!empty($filters['bounds'])) {
+            $sql .= " AND l.latitude BETWEEN ? AND ? AND l.longitude BETWEEN ? AND ?";
+            $params[] = (float)$filters['bounds']['sw_lat'];
+            $params[] = (float)$filters['bounds']['ne_lat'];
+            $params[] = (float)$filters['bounds']['sw_lng'];
+            $params[] = (float)$filters['bounds']['ne_lng'];
+        }
+
+        // Sorting
+        if (!empty($filters['center_lat']) && !empty($filters['center_lng'])) {
+            $sql .= " ORDER BY distance ASC";
+        } else {
+            $sql .= " ORDER BY l.created_at DESC";
+        }
+
+        $sql .= " LIMIT ? OFFSET ?";
         
-        // Use bindParam for limit/offset as they must be integers in some SQL dialects
         $stmt = $pdo->prepare($sql);
         $i = 1;
         foreach($params as $p) {
@@ -1121,6 +1189,186 @@ function markAllNotificationsAsRead($userId) {
         return $stmt->execute([$userId]);
     } catch (Exception $e) {
         error_log("Mark all notifications read error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ==================== DELIVERY & SMART ASSIGN FUNCTIONS ====================
+
+/**
+ * Calculate distance between two points in KM
+ */
+function getDistanceKM($lat1, $lng1, $lat2, $lng2) {
+    if (!$lat1 || !$lng1 || !$lat2 || !$lng2) return 9999;
+    $earth_radius = 6371;
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLng = deg2rad($lng2 - $lng1);
+    $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng/2) * sin($dLng/2);
+    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+    return $earth_radius * $c;
+}
+
+/**
+ * Check if any delivery agent is available for a route
+ */
+function checkDeliveryAvailability($pickupLat, $pickupLng, $dropoffLat, $dropoffLng) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng 
+            FROM users 
+            WHERE role = 'delivery_agent' AND is_accepting_deliveries = 1 AND is_banned = 0
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+
+        foreach ($agents as $agent) {
+            // Check if both pickup and dropoff are within 10km of either endpoint of agent's route
+            $distP1 = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
+            $distP2 = getDistanceKM($pickupLat, $pickupLng, $agent['service_end_lat'], $agent['service_end_lng']);
+            
+            $distD1 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
+            $distD2 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_end_lat'], $agent['service_end_lng']);
+
+            $canPickup = ($distP1 < 10 || $distP2 < 10);
+            $canDropoff = ($distD1 < 10 || $distD2 < 10);
+
+            if ($canPickup && $canDropoff) return true;
+        }
+        return false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Smart Assign an agent to a transaction
+ */
+function assignDeliveryAgent($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // 1. Get transaction info
+        $stmt = $pdo->prepare("
+            SELECT t.*, l.lat as pickup_lat, l.lng as pickup_lng 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $t = $stmt->fetch();
+
+        if (!$t || $t['delivery_method'] !== 'delivery') return false;
+
+        // 2. Find best agent
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng, firstname
+            FROM users 
+            WHERE role = 'delivery_agent' AND is_accepting_deliveries = 1 AND is_banned = 0
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+
+        $bestAgentId = null;
+        $minDist = 9999;
+
+        foreach ($agents as $agent) {
+            $distP = min(
+                getDistanceKM($t['pickup_lat'], $t['pickup_lng'], $agent['service_start_lat'], $agent['service_start_lng']),
+                getDistanceKM($t['pickup_lat'], $t['pickup_lng'], $agent['service_end_lat'], $agent['service_end_lng'])
+            );
+            $distD = min(
+                getDistanceKM($t['order_lat'], $t['order_lng'], $agent['service_start_lat'], $agent['service_start_lng']),
+                getDistanceKM($t['order_lat'], $t['order_lng'], $agent['service_end_lat'], $agent['service_end_lng'])
+            );
+
+            if ($distP < 15 && $distD < 15) { // Threshold for candidate
+                $totalDist = $distP + $distD;
+                if ($totalDist < $minDist) {
+                    $minDist = $totalDist;
+                    $bestAgentId = $agent['id'];
+                }
+            }
+        }
+
+        if ($bestAgentId) {
+            $pdo->prepare("UPDATE transactions SET delivery_agent_id = ?, status = 'assigned' WHERE id = ?")
+                ->execute([$bestAgentId, $transactionId]);
+            
+            // Notify agent
+            $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'delivery_assigned', ?, ?)")
+                ->execute([$bestAgentId, "New delivery task assigned! Travel to pickup location.", $transactionId]);
+            
+            return true;
+        }
+
+        return false;
+    } catch (PDOException $e) {
+        error_log("Assign agent error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if delivery is available for a given pickup location
+ * Returns true if any active delivery agent can cover this area
+ */
+/**
+ * Check if delivery is available for a given pickup location
+ * Returns true if any active delivery agent can cover this area
+ */
+function checkDeliveryServiceAvailability($pickupLat, $pickupLng, $district = null) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get all active delivery agents
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng, district
+            FROM users 
+            WHERE role = 'delivery_agent' 
+            AND is_accepting_deliveries = 1
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+        
+        foreach ($agents as $agent) {
+            // Check if agent's district matches (if both have district set)
+            if ($district && $agent['district'] && $agent['district'] === $district) {
+                return true;
+            }
+            
+            // Check distance from pickup to agent's service start point
+            if ($agent['service_start_lat'] && $agent['service_start_lng']) {
+                $distStart = getDistanceKM(
+                    $pickupLat, 
+                    $pickupLng, 
+                    $agent['service_start_lat'], 
+                    $agent['service_start_lng']
+                );
+                
+                if ($distStart < 25) {
+                    return true;
+                }
+            }
+            
+            // Check distance from pickup to agent's service end point
+            if ($agent['service_end_lat'] && $agent['service_end_lng']) {
+                $distEnd = getDistanceKM(
+                    $pickupLat, 
+                    $pickupLng, 
+                    $agent['service_end_lat'], 
+                    $agent['service_end_lng']
+                );
+                
+                if ($distEnd < 25) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    } catch (PDOException $e) {
+        error_log("Check delivery availability error: " . $e->getMessage());
         return false;
     }
 }

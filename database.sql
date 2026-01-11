@@ -11,7 +11,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     firstname VARCHAR(100) NOT NULL,
     lastname VARCHAR(100) NOT NULL,
-    role ENUM('user', 'library', 'bookstore', 'admin') NOT NULL DEFAULT 'user',
+    role ENUM('user', 'library', 'bookstore', 'admin', 'delivery_agent') NOT NULL DEFAULT 'user',
     reputation_score INT DEFAULT 50,
     credits INT DEFAULT 100,
     trust_score INT DEFAULT 50,
@@ -20,10 +20,22 @@ CREATE TABLE users (
     late_returns INT DEFAULT 0,
     average_rating DECIMAL(3,2) DEFAULT 0.00,
     total_ratings INT DEFAULT 0,
+    is_banned BOOLEAN DEFAULT 0,
     reset_token VARCHAR(255) DEFAULT NULL,
     reset_expires DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    address TEXT DEFAULT NULL,
+    landmark VARCHAR(255) DEFAULT NULL,
+    district VARCHAR(100) DEFAULT NULL,
+    city VARCHAR(100) DEFAULT NULL,
+    state VARCHAR(100) DEFAULT NULL,
+    pincode VARCHAR(20) DEFAULT NULL,
+    service_start_lat DECIMAL(10, 8) DEFAULT NULL,
+    service_start_lng DECIMAL(11, 8) DEFAULT NULL,
+    service_end_lat DECIMAL(10, 8) DEFAULT NULL,
+    service_end_lng DECIMAL(11, 8) DEFAULT NULL,
+    is_accepting_deliveries BOOLEAN DEFAULT 0,
     INDEX idx_email (email),
     INDEX idx_role (role),
     INDEX idx_trust_score (trust_score)
@@ -106,6 +118,20 @@ CREATE TABLE messages (
     INDEX idx_receiver (receiver_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Notifications table
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    reference_id INT DEFAULT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_read (is_read)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Reviews/Ratings table
 CREATE TABLE reviews (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -155,6 +181,18 @@ CREATE TABLE penalties (
     INDEX idx_transaction (transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Wishlist table
+CREATE TABLE wishlist (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    listing_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_wishlist (user_id, listing_id),
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insert sample admin user (password: admin123)
 INSERT INTO users (email, password, firstname, lastname, role) VALUES 
 ('admin@bookb.com', '$2y$10$7udOzMaQ3BTcqPm9KWjg8./3MNjgve4NpTSLq/k/LIExT37koHqay', 'Admin', 'User', 'admin');
@@ -171,3 +209,17 @@ INSERT INTO books (title, author, isbn, description, category) VALUES
 ('Atomic Habits', 'James Clear', '9780735211292', 'An easy and proven way to build good habits and break bad ones.', 'Self-Help'),
 ('The Midnight Library', 'Matt Haig', '9780525559474', 'A novel about all the choices that go into a life well lived.', 'Fiction'),
 ('Educated', 'Tara Westover', '9780399590504', 'A memoir about a young woman who leaves her survivalist family.', 'Biography');
+
+-- Reports table
+CREATE TABLE reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reporter_id INT NOT NULL,
+    reported_id INT NOT NULL,
+    reason VARCHAR(50) NOT NULL,
+    description TEXT,
+    status ENUM('pending', 'resolved', 'dismissed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

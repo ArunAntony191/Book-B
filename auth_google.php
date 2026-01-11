@@ -71,6 +71,11 @@ if (empty($email)) {
 // Check if user exists
 $user = authenticateUserByEmail($email);
 
+if ($user === 'banned') {
+    header("Location: login.php?error=account_banned");
+    exit();
+}
+
 if ($user) {
     // User exists - log them in
     $_SESSION['user_id'] = $user['id'];
@@ -89,6 +94,9 @@ if ($user) {
             break;
         case 'admin':
             header("Location: dashboard_admin.php");
+            break;
+        case 'delivery_agent':
+            header("Location: dashboard_delivery_agent.php");
             break;
         case 'user':
         default:

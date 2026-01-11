@@ -14,6 +14,11 @@ if (empty($email) || empty($password)) {
 // Authenticate user
 $user = authenticateUser($email, $password);
 
+if ($user === 'banned') {
+    header("Location: login.php?error=account_banned");
+    exit();
+}
+
 if ($user) {
     // Set session
     $_SESSION['user_id'] = $user['id'];
@@ -32,6 +37,9 @@ if ($user) {
             break;
         case 'admin':
             header("Location: dashboard_admin.php");
+            break;
+        case 'delivery_agent':
+            header("Location: dashboard_delivery_agent.php");
             break;
         case 'user':
         default:

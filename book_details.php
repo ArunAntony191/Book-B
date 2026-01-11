@@ -30,6 +30,16 @@ if ($userId) {
 
 // Get user profile for default location
 $currentUser = $userId ? getUserById($userId) : null;
+
+// Check if delivery is available for this listing's location
+$deliveryAvailable = false;
+if ($book['latitude'] && $book['longitude']) {
+    $deliveryAvailable = checkDeliveryServiceAvailability(
+        $book['latitude'], 
+        $book['longitude'], 
+        $book['district']
+    );
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -86,16 +96,121 @@ $currentUser = $userId ? getUserById($userId) : null;
         .wishlist-btn:hover { border-color: #ef4444; color: #ef4444; }
         .wishlist-btn.active { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 
-        /* Modal */
+        /* Modal & Form Styles */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5);
             display: none; align-items: center; justify-content: center; z-index: 1000;
         }
         .modal-card {
-            background: white; padding: 2rem; border-radius: var(--radius-lg); width: 400px;
+            background: white; 
+            border-radius: var(--radius-lg); 
+            width: 500px;
             box-shadow: var(--shadow-xl);
+            max-width: 90vw;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
         }
+        .modal-header {
+            padding: 2rem 2rem 1rem;
+            flex-shrink: 0;
+        }
+        .modal-body {
+            padding: 0 2rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            /* Custom Scrollbar for better UX */
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .modal-body::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        .modal-footer {
+            padding: 1rem 2rem 2rem;
+            flex-shrink: 0;
+            background: white;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        .form-input, .map-search-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+            background: #fff;
+            color: var(--text-main);
+        }
+        .form-input:focus, .map-search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        
+        .map-search-container {
+            position: relative;
+            margin-bottom: 0.8rem;
+        }
+        .map-search-input {
+            padding-left: 2.5rem;
+            padding-right: 2.5rem;
+        }
+        .map-search-icon {
+            position: absolute;
+            left: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            pointer-events: none;
+        }
+        .locate-btn {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 0.4rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .locate-btn:hover { background: #f0f9ff; }
+        
+        #delivery-map {
+            height: 250px;
+            width: 100%;
+            border-radius: var(--radius-md);
+            margin-top: 0.5rem;
+            border: 1px solid var(--border-color);
+        }
+        .geocoding-loader {
+            display: none;
+            font-size: 0.8rem;
+            color: var(--primary);
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+        
         .delivery-banner {
             display: flex;
             align-items: center;
@@ -111,13 +226,6 @@ $currentUser = $userId ? getUserById($userId) : null;
             background: #fff1f2;
             border-color: #ffe4e6;
             color: #9f1239;
-        }
-        #delivery-map {
-            height: 250px;
-            width: 100%;
-            border-radius: var(--radius-md);
-            margin-top: 1rem;
-            border: 1px solid var(--border-color);
         }
     </style>
 </head>
@@ -177,21 +285,24 @@ $currentUser = $userId ? getUserById($userId) : null;
                             </span>
                         </div>
 
-                        <!-- Delivery Status Placeholder -->
-                        <div id="delivery-info" class="delivery-banner" style="display: none;">
-                            <i class='bx bxs-truck bx-tada'></i>
-                            <div>
-                                <strong style="display: block;">Delivery Available</strong>
-                                <span style="font-size: 0.85rem;">Local agents cover this route!</span>
+                        <!-- Delivery Status -->
+                        <?php if ($deliveryAvailable): ?>
+                            <div class="delivery-banner">
+                                <i class='bx bxs-truck bx-tada'></i>
+                                <div>
+                                    <strong style="display: block;">Delivery Available</strong>
+                                    <span style="font-size: 0.85rem;">Local agents cover this route!</span>
+                                </div>
                             </div>
-                        </div>
-                        <div id="delivery-none" class="delivery-banner delivery-unavailable" style="display: none;">
-                            <i class='bx bx-x-circle'></i>
-                            <div>
-                                <strong style="display: block;">Pickup Only</strong>
-                                <span style="font-size: 0.85rem;">No active agents in this area.</span>
+                        <?php else: ?>
+                            <div class="delivery-banner delivery-unavailable">
+                                <i class='bx bx-x-circle'></i>
+                                <div>
+                                    <strong style="display: block;">Pickup Only</strong>
+                                    <span style="font-size: 0.85rem;">No active agents in this area.</span>
+                                </div>
                             </div>
-                        </div>
+                        <?php endif; ?>
 
                         <div style="display:flex; justify-content: space-between; margin-bottom: 2rem; align-items: center;">
                             <span style="color: var(--text-muted);">Availability</span>
@@ -253,8 +364,11 @@ $currentUser = $userId ? getUserById($userId) : null;
     <!-- Request Modal -->
     <div id="req-modal" class="modal-overlay">
         <div class="modal-card">
+        <div class="modal-header">
             <h2 id="modal-title" style="margin-bottom: 1rem; font-size: 1.4rem;">Confirm Request</h2>
-            <p id="modal-desc" style="color: var(--text-muted); margin-bottom: 1.5rem;">Are you sure you want to proceed?</p>
+            <p id="modal-desc" style="color: var(--text-muted); margin-bottom: 0;">Are you sure you want to proceed?</p>
+        </div>
+        <div class="modal-body">
             
             <div id="date-group" style="margin-bottom: 1.5rem; display: none;">
                 <div style="background: #fff7ed; color: #c2410c; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.9rem; margin-bottom: 1rem; border: 1px solid #ffedd5;">
@@ -272,17 +386,38 @@ $currentUser = $userId ? getUserById($userId) : null;
                 
                 <div id="delivery-setup" style="display: none;">
                     <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Confirm Drop-off Location</label>
-                    <div id="delivery-map"></div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0.25rem;">
-                        <i class='bx bx-map-pin'></i> Click on the map to set your exact location
+                    
+                    <div class="map-search-container">
+                        <i class='bx bx-search map-search-icon'></i>
+                        <input type="text" id="map-search" class="map-search-input" placeholder="Search for area, street, or building...">
+                        <button type="button" class="locate-btn" onclick="getCurrentLocation()" title="Use my current location">
+                            <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
+                        </button>
                     </div>
+
+                    <div id="delivery-map"></div>
+                    <div id="geocoding-status" class="geocoding-loader">
+                        <i class='bx bx-loader-alt bx-spin'></i> Fetching address...
+                    </div>
+                    
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0.5rem; display: flex; justify-content: space-between;">
+                        <span><i class='bx bx-map-pin'></i> Click on map to adjust</span>
+                        <span id="coord-display"></span>
+                    </div>
+
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Specific Address Details</label>
                     <textarea id="delivery-address" class="form-input" rows="2" placeholder="Building name, Street, Apartment number..."><?php echo htmlspecialchars($currentUser['address'] ?? ''); ?></textarea>
+                    
+                    <label style="display: block; font-weight: 600; margin: 1rem 0 0.5rem;">Nearby Reference Point *</label>
+                    <input type="text" id="delivery-landmark" class="form-input" placeholder="e.g. Opposite Big Bazaar, Near Green Park" value="<?php echo htmlspecialchars($currentUser['landmark'] ?? ''); ?>">
+                    
                     <input type="hidden" id="order-lat" value="">
                     <input type="hidden" id="order-lng" value="">
                 </div>
             </div>
 
-            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        </div>
+        <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="submitRequest()">Send Request</button>
             </div>
@@ -382,19 +517,89 @@ $currentUser = $userId ? getUserById($userId) : null;
             
             if(isChecked && !dMap) {
                 setTimeout(() => {
-                    dMap = L.map('delivery-map').setView([userLatDefault, userLngDefault], 14);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(dMap);
+                    dMap = L.map('delivery-map', {
+                        zoomControl: true,
+                        scrollWheelZoom: true
+                    }).setView([userLatDefault, userLngDefault], 15);
+                    
+                    // Cleaner premium tiles
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        attribution: '©OpenStreetMap ©CartoDB'
+                    }).addTo(dMap);
                     
                     dMap.on('click', (e) => {
-                        if(dMarker) dMap.removeLayer(dMarker);
-                        dMarker = L.marker(e.latlng).addTo(dMap);
-                        document.getElementById('order-lat').value = e.latlng.lat;
-                        document.getElementById('order-lng').value = e.latlng.lng;
-                        
-                        // Re-check availability if they change their delivery spot
-                        checkAvailabilityGlobal(lenderLat, lenderLng, e.latlng.lat, e.latlng.lng);
+                        updateMarkerAndAddress(e.latlng.lat, e.latlng.lng);
+                    });
+
+                    // Handle Search
+                    const searchInput = document.getElementById('map-search');
+                    let searchTimeout;
+                    searchInput.addEventListener('input', (e) => {
+                        clearTimeout(searchTimeout);
+                        if(e.target.value.length > 3) {
+                            searchTimeout = setTimeout(() => searchAddress(e.target.value), 800);
+                        }
                     });
                 }, 100);
+            }
+        }
+
+        async function searchAddress(query) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const data = await res.json();
+                if(data && data.length > 0) {
+                    const { lat, lon, display_name } = data[0];
+                    dMap.setView([lat, lon], 16);
+                    updateMarkerAndAddress(parseFloat(lat), parseFloat(lon), display_name);
+                }
+            } catch(e) {}
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                document.getElementById('geocoding-status').style.display = 'block';
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const { latitude, longitude } = position.coords;
+                    dMap.setView([latitude, longitude], 16);
+                    updateMarkerAndAddress(latitude, longitude);
+                }, () => {
+                    document.getElementById('geocoding-status').style.display = 'none';
+                    alert("Unable to retrieve your location");
+                });
+            }
+        }
+
+        async function updateMarkerAndAddress(lat, lng, manualAddress = null) {
+            if(dMarker) dMap.removeLayer(dMarker);
+            dMarker = L.marker([lat, lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                })
+            }).addTo(dMap);
+
+            document.getElementById('order-lat').value = lat;
+            document.getElementById('order-lng').value = lng;
+            document.getElementById('coord-display').innerText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            
+            // Re-check delivery availability
+            checkAvailabilityGlobal(lenderLat, lenderLng, lat, lng);
+
+            if(manualAddress) {
+                document.getElementById('delivery-address').value = manualAddress;
+            } else {
+                // Reverse Geocoding
+                document.getElementById('geocoding-status').style.display = 'block';
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                    const data = await res.json();
+                    if(data && data.display_name) {
+                        document.getElementById('delivery-address').value = data.display_name;
+                    }
+                } catch(e) {}
+                document.getElementById('geocoding-status').style.display = 'none';
             }
         }
 
@@ -402,6 +607,7 @@ $currentUser = $userId ? getUserById($userId) : null;
             const dueDate = document.getElementById('due-date').value;
             const wantDelivery = document.getElementById('want-delivery').checked;
             const address = document.getElementById('delivery-address').value;
+            const landmark = document.getElementById('delivery-landmark').value;
             const lat = document.getElementById('order-lat').value;
             const lng = document.getElementById('order-lng').value;
             
@@ -418,7 +624,7 @@ $currentUser = $userId ? getUserById($userId) : null;
             fetch('request_action.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `action=create_request&listing_id=${listingId}&owner_id=${ownerId}&type=${currentType}&due_date=${dueDate}&book_title=${encodeURIComponent(bookTitle)}&delivery=${wantDelivery?1:0}&address=${encodeURIComponent(address)}&lat=${lat}&lng=${lng}`
+                body: `action=create_request&listing_id=${listingId}&owner_id=${ownerId}&type=${currentType}&due_date=${dueDate}&book_title=${encodeURIComponent(bookTitle)}&delivery=${wantDelivery?1:0}&address=${encodeURIComponent(address)}&landmark=${encodeURIComponent(landmark)}&lat=${lat}&lng=${lng}`
             })
             .then(res => res.json())
             .then(data => {

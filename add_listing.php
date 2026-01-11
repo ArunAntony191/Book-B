@@ -46,6 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $visibility = $_POST['visibility'] ?? 'public';
         $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
         
+        $district = $_POST['district'] ?? null;
+        $city = $_POST['city'] ?? null;
+        $pincode = $_POST['pincode'] ?? null;
+        $landmark = $_POST['landmark'] ?? '';
+        
         // Quantity (allowing all users to set quantity)
         $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
         
@@ -77,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 if ($postEditId) {
                     // Update Logic
-                    if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
+                    if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
                         $success = "Successfully updated your book!";
                         $editData = getListingWithQuantity($postEditId); // Refresh data
                     } else {
@@ -85,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     // Create Logic
-                    if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost)) {
+                    if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
                         deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
                         $success = "Successfully listed your book! 10 credits have been deducted.";
                     } else {
@@ -138,6 +143,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 0.5rem;
             color: var(--primary);
         }
+        #picker-map {
+            height: 350px;
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .map-search-container {
+            position: relative;
+            margin-bottom: 1rem;
+            z-index: 1001;
+        }
+        #map-search-input-new {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .search-suggestions-map {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+            z-index: 2000;
+        }
+        .map-suggestion-item {
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .map-suggestion-item:last-child { border-bottom: none; }
+        .map-suggestion-item:hover { background: #f8fafc; color: var(--primary); }
+        .map-suggestion-item i { color: var(--text-muted); font-size: 1.1rem; }
+        
+        /* Pulsing Pin Marker */
+        .pulsing-marker {
+            position: relative;
+        }
+        .pulsing-marker .pin {
+            width: 14px;
+            height: 14px;
+            background: var(--primary);
+            border: 2px solid white;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+        }
+        .pulsing-marker .pulse {
+            width: 30px;
+            height: 30px;
+            background: var(--primary);
+            border-radius: 50%;
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            opacity: 0.4;
+            animation: pin-pulse 1.5s infinite;
+        }
+        @keyframes pin-pulse {
+            0% { transform: scale(0.5); opacity: 0.5; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        /* Accuracy Circle */
+        .accuracy-circle {
+            border: 2px solid var(--primary);
+            background: rgba(var(--primary-rgb), 0.1);
+            border-radius: 50%;
+            pointer-events: none;
         }
         
         /* New Styles */
@@ -304,14 +391,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <!-- Location Picker -->
                             <div class="form-group">
-                                <label class="form-label">Interact Location</label>
-                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                    <input type="text" id="map-search-input" class="form-input" placeholder="Search city or area (e.g. Kottayam)...">
-                                    <button type="button" class="btn btn-primary" onclick="searchMapLocation()">Search</button>
-                                    <button type="button" class="btn btn-outline" onclick="useMyLocation()" title="Use Current Location"><i class='bx bx-current-location'></i></button>
+                                <!-- High Precision Search -->
+                                <div class="map-search-container">
+                                    <i class='bx bx-search' style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                    <input type="text" id="map-search-input-new" placeholder="Search area, street, or landmark..." autocomplete="off">
+                                    <button type="button" class="locate-btn" onclick="useMyLocation()" title="Use my current location" style="position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary); cursor: pointer;">
+                                        <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
+                                    </button>
+                                    <div id="search-suggestions-map" class="search-suggestions-map"></div>
                                 </div>
+                                
                                 <div id="picker-map"></div>
+                                <div class="form-group" style="margin-top: 1rem;">
+                                    <label class="form-label" style="font-size: 0.9rem;">Nearby Reference Point *</label>
+                                    <input type="text" name="landmark" class="form-input" placeholder="e.g. Near City Hospital, Opposite SBI Bank" value="<?php echo htmlspecialchars($editData['landmark'] ?? ''); ?>" required>
+                                    <p class="form-hint" style="font-size: 0.8rem; margin-top: 0.25rem;"><i class='bx bx-info-circle'></i> This helps delivery agents find the pickup spot faster.</p>
+                                </div>
                                 <input type="hidden" name="location_name" id="location_name" value="<?php echo htmlspecialchars($editData['location'] ?? ''); ?>" required>
+                                <input type="hidden" name="district" id="district" value="<?php echo htmlspecialchars($editData['district'] ?? ''); ?>">
+                                <input type="hidden" name="city" id="city" value="<?php echo htmlspecialchars($editData['city'] ?? ''); ?>">
+                                <input type="hidden" name="pincode" id="pincode" value="<?php echo htmlspecialchars($editData['pincode'] ?? ''); ?>">
                                 <input type="hidden" name="latitude" id="lat" value="<?php echo htmlspecialchars($editData['latitude'] ?? ''); ?>" required>
                                 <input type="hidden" name="longitude" id="lng" value="<?php echo htmlspecialchars($editData['longitude'] ?? ''); ?>" required>
                                 <p class="form-hint" style="margin-top: 0.5rem;"><i class='bx bx-map'></i> Search for your city, then click the exact spot.</p>
@@ -440,20 +539,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const initialLat = <?php echo ($editData['latitude'] ?? 12.9716); ?>;
         const initialLng = <?php echo ($editData['longitude'] ?? 77.5946); ?>;
         const map = L.map('picker-map').setView([initialLat, initialLng], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+        let accuracyCircle = null;
+
+        // Custom Pulsing Pin Icon
+        const pulsingIcon = L.divIcon({
+            className: 'pulsing-marker',
+            html: '<div class="pin"></div><div class="pulse"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
 
         let marker;
         if (<?php echo $editId ? 'true' : 'false'; ?>) {
-            marker = L.marker([initialLat, initialLng]).addTo(map);
+            marker = L.marker([initialLat, initialLng], { icon: pulsingIcon }).addTo(map);
         }
 
         map.on('click', function(e) {
             updateLocation(e.latlng.lat, e.latlng.lng);
         });
 
-        function updateLocation(lat, lng) {
+        const mapSearchInput = document.getElementById('map-search-input-new');
+        const searchSuggestions = document.getElementById('search-suggestions-map');
+        let searchTimeout;
+
+        mapSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            if (query.length < 3) {
+                searchSuggestions.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`);
+                    const data = await res.json();
+                    
+                    searchSuggestions.innerHTML = '';
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
+                            div.onclick = () => {
+                                map.setView([item.lat, item.lon], 17);
+                                updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                searchSuggestions.style.display = 'none';
+                                mapSearchInput.value = item.display_name;
+                            };
+                            searchSuggestions.appendChild(div);
+                        });
+                        searchSuggestions.style.display = 'block';
+                    } else {
+                        searchSuggestions.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error("Search failed", e);
+                }
+            }, 500);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!mapSearchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+                searchSuggestions.style.display = 'none';
+            }
+        });
+
+        function updateLocation(lat, lng, manualAddress = null) {
             if (marker) map.removeLayer(marker);
-            marker = L.marker([lat, lng]).addTo(map);
+            marker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(map);
 
             document.getElementById('lat').value = lat;
             document.getElementById('lng').value = lng;
@@ -462,36 +618,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('location_name').value = data.display_name.split(',')[0] + ', ' + (data.address.city || data.address.state || '');
+                    const addr = data.address;
+                    
+                    // Deep parsing
+                    const house = addr.house_number || '';
+                    const road = addr.road || addr.pedestrian || '';
+                    const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
+                    const city = addr.city || addr.town || addr.village || '';
+                    const district = addr.state_district || addr.county || '';
+                    const pincode = addr.postcode || '';
+
+                    // Deep parsing for rural areas
+                    const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
+
+                    let parts = [];
+                    if (house) parts.push(house);
+                    if (road) parts.push(road);
+                    if (suburb) parts.push(suburb);
+                    if (city) parts.push(city);
+                    if (!city && rural) parts.push(rural);
+
+                    const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
+                    document.getElementById('location_name').value = manualAddress || shortAddr;
+                    
+                    if (district) document.getElementById('district').value = district.replace(' District', '').replace(' district', '');
+                    if (city) document.getElementById('city').value = city;
+                    if (pincode) document.getElementById('pincode').value = pincode;
                 });
         }
 
-        // Search Location Logic
-        function searchMapLocation() {
-            const query = document.getElementById('map-search-input').value;
-            if(!query) return;
-
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if(data && data.length > 0) {
-                        const lat = data[0].lat;
-                        const lon = data[0].lon;
-                        map.setView([lat, lon], 13);
-                        updateLocation(lat, lon);
-                    } else {
-                        alert('Location not found');
-                    }
-                })
-                .catch(err => console.error(err));
-        }
+        // Redundant search function removed, now using high-precision autocomplete above.
 
         function useMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    map.setView([lat, lng], 15);
+                    const accuracy = position.coords.accuracy;
+
+                    if (accuracyCircle) map.removeLayer(accuracyCircle);
+                    accuracyCircle = L.circle([lat, lng], {
+                        radius: accuracy,
+                        color: 'var(--primary)',
+                        fillOpacity: 0.1,
+                        weight: 1,
+                        className: 'accuracy-circle'
+                    }).addTo(map);
+
+                    map.setView([lat, lng], 16);
                     updateLocation(lat, lng);
                 }, () => {
                     alert('Unable to retrieve your location');
@@ -512,79 +686,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             };
         }
 
-        // 2. Book Search Integration
-        const searchInput = document.getElementById('book-search');
-        const suggestions = document.getElementById('suggestions');
-
-        searchInput.addEventListener('input', debounce(async (e) => {
-            const q = e.target.value;
-            if (q.length < 3) { suggestions.style.display = 'none'; return; }
+        // 2. Book Search Integration - wrap in DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('book-search');
+            const suggestions = document.getElementById('suggestions');
             
-            try {
-                // Using Google Books API (Public)
-                const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
-                const data = await res.json();
+            if (!searchInput || !suggestions) {
+                console.error('Book search elements not found');
+                return;
+            }
+
+            searchInput.addEventListener('input', debounce(async (e) => {
+                const q = e.target.value;
+                if (q.length < 3) { suggestions.style.display = 'none'; return; }
                 
-                suggestions.innerHTML = '';
-                if (data.items) {
-                    data.items.forEach(book => {
-                        const info = book.volumeInfo;
-                        const thumb = info.imageLinks?.thumbnail || 'assets/images/book-placeholder.jpg';
-                        const title = info.title;
-                        const author = info.authors ? info.authors[0] : 'Unknown Author';
-                        
-                        const div = document.createElement('div');
-                        div.className = 'suggestion-item';
-                        div.innerHTML = `
-                            <img src="${thumb}" class="suggestion-thumb" onerror="this.src='https://via.placeholder.com/45x65?text=?'">
-                            <div>
-                                <div style="font-weight: 600; font-size: 0.95rem;">${title}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">${author}</div>
-                            </div>
-                        `;
-                        div.onclick = () => fillBook(info);
-                        suggestions.appendChild(div);
-                    });
-                    suggestions.style.display = 'block';
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        }, 400));
-
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
-                suggestions.style.display = 'none';
-            }
-        });
-
-        function fillBook(info) {
-            document.getElementById('input_title').value = info.title;
-            document.getElementById('input_author').value = info.authors ? info.authors[0] : '';
-            document.getElementById('input_description').value = info.description ? info.description : '';
-            
-            // Get higher quality image
-            let imgUrl = info.imageLinks?.thumbnail || '';
-            if (imgUrl) imgUrl = imgUrl.replace('http:', 'https:').replace('&edge=curl', '');
-            
-            document.getElementById('input_cover_url').value = imgUrl; // Store as backup
-            showPreview(imgUrl);
-            
-            // Try to auto-select categories if available
-            if (info.categories) {
-                const cats = info.categories.map(c => c.toLowerCase());
-                document.querySelectorAll('.cat-checkbox').forEach(box => {
-                    if (cats.some(c => c.includes(box.value.toLowerCase()))) {
-                        box.checked = true;
-                        box.parentElement.classList.add('selected');
+                try {
+                    // Using Google Books API (Public)
+                    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+                    const data = await res.json();
+                    
+                    suggestions.innerHTML = '';
+                    if (data.items) {
+                        data.items.forEach(book => {
+                            const info = book.volumeInfo;
+                            const thumb = info.imageLinks?.thumbnail || 'assets/images/book-placeholder.jpg';
+                            const title = info.title;
+                            const author = info.authors ? info.authors[0] : 'Unknown Author';
+                            
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.innerHTML = `
+                                <img src="${thumb}" class="suggestion-thumb" onerror="this.src='https://via.placeholder.com/45x65?text=?'">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 0.95rem;">${title}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">${author}</div>
+                                </div>
+                            `;
+                            div.onclick = () => fillBook(info);
+                            suggestions.appendChild(div);
+                        });
+                        suggestions.style.display = 'block';
                     }
-                });
-            }
+                } catch (err) {
+                    console.error('Book search error:', err);
+                }
+            }, 400));
 
-            suggestions.style.display = 'none';
-            searchInput.value = ''; 
-        }
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+                    suggestions.style.display = 'none';
+                }
+            });
+
+            function fillBook(info) {
+                document.getElementById('input_title').value = info.title;
+                document.getElementById('input_author').value = info.authors ? info.authors[0] : '';
+                document.getElementById('input_description').value = info.description ? info.description : '';
+                
+                // Get higher quality image
+                let imgUrl = info.imageLinks?.thumbnail || '';
+                if (imgUrl) imgUrl = imgUrl.replace('http:', 'https:').replace('&edge=curl', '');
+                
+                document.getElementById('input_cover_url').value = imgUrl; // Store as backup
+                showPreview(imgUrl);
+                
+                // Try to auto-select categories if available
+                if (info.categories) {
+                    const cats = info.categories.map(c => c.toLowerCase());
+                    document.querySelectorAll('.cat-checkbox').forEach(box => {
+                        if (cats.some(c => c.includes(box.value.toLowerCase()))) {
+                            box.checked = true;
+                            box.parentElement.classList.add('selected');
+                        }
+                    });
+                }
+
+                suggestions.style.display = 'none';
+                searchInput.value = ''; 
+            }
+        }); // End of DOMContentLoaded
 
         // Toggle category style
         function toggleCat(checkbox) {

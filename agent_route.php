@@ -48,15 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Route | BOOK-B</title>
+    <title>Smart Assign | BOOK-B</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map { height: 500px; width: 100%; border-radius: var(--radius-lg); border: 2px solid var(--border-color); }
         .instruction-card {
-            background: #e0f2fe; color: #0369a1; padding: 1.5rem;
-            border-radius: var(--radius-md); margin-bottom: 2rem;
+            background: #f0f9ff; color: #0369a1; padding: 1.5rem;
+            border-radius: 0.75rem; margin-bottom: 2rem;
             border: 1px solid #bae6fd;
         }
     </style>
@@ -67,8 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <main class="main-content">
             <div style="margin-bottom: 2rem;">
-                <h1>Service Route</h1>
-                <p style="color: var(--text-muted);">Define the area where you want to receive delivery requests.</p>
+                <h1 style="color: #1e293b; font-size: 2rem; font-weight: 800;">Smart Assign</h1>
+                <p style="color: #64748b; font-size: 1rem;">Define the area where you want to receive delivery requests.</p>
             </div>
 
             <?php if ($successMsg): ?>
@@ -96,8 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; display: block;">Start Location</label>
                         <div style="display: flex; gap: 0.5rem;">
                             <input type="text" id="start_search" class="form-control" placeholder="City, Area, or Pin..." style="width: 100%;" onkeydown="if(event.key === 'Enter'){event.preventDefault(); searchLocation('start');}">
-                            <button type="button" class="btn btn-outline" onclick="searchLocation('start')" title="Search"><i class='bx bx-search'></i></button>
-                            <button type="button" class="btn btn-outline" onclick="useCurrentLocation()" title="Use Current Location" style="color: var(--primary);"><i class='bx bx-current-location'></i></button>
+                            <button type="button" class="btn btn-outline" onclick="searchLocation('start')" title="Search" style="background: #f1f5f9; border-color: #e2e8f0;"><i class='bx bx-search'></i></button>
+                            <button type="button" class="btn btn-outline" onclick="useCurrentLocation()" title="Use Current Location" style="background: #f3f0ff; color: #7c3aed; border-color: #e2e8f0;"><i class='bx bx-target-lock' style="font-size: 1.2rem;"></i></button>
                         </div>
                     </div>
                     <div style="position: relative;">
@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var routeLine = null;
 
         var startIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
             iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
         });

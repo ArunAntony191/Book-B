@@ -56,7 +56,6 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
 
     <?php if($user_role == 'delivery_agent' || $user_role == 'admin'): ?>
         <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find Jobs</a>
-        <a href="<?php echo APP_URL; ?>/agent_route.php" class="nav-item <?php echo $current_page == 'agent_route.php' ? 'active' : ''; ?>"><i class='bx bx-map-alt'></i> Service Route</a>
     <?php endif; ?>
     <a href="<?php echo APP_URL; ?>/chat/index.php" class="nav-item <?php echo strpos($current_page, 'chat') !== false ? 'active' : ''; ?>">
         <i class='bx bx-message-square-detail'></i> Messages
@@ -66,6 +65,7 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
     </a>
     <?php if($user_role != 'delivery_agent'): ?>
         <a href="<?php echo APP_URL; ?>/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>"><i class='bx bx-git-compare'></i> My Deals</a>
+        <a href="<?php echo APP_URL; ?>/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>"><i class='bx bx-package'></i> Delivery Details</a>
     <?php endif; ?>
 
     
