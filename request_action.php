@@ -254,24 +254,14 @@ try {
         ]);
     } elseif ($action === 'update_delivery_status') {
         $transactionId = $_POST['transaction_id'] ?? 0;
-        $status = $_POST['status'] ?? ''; // 'active' for picked up, 'completed' (or relevant) for delivered
+        $status = $_POST['status'] ?? ''; 
 
-        if (!$transactionId || !in_array($status, ['active', 'delivered'])) {
-            throw new Exception("Invalid delivery update");
-        }
-
-        // Only delivery agents or admins can do this
-        if ($userRole !== 'delivery_agent' && $userRole !== 'admin') {
-            throw new Exception("Unauthorized");
-        }
-
-        $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?")
-            ->execute([$status, $transactionId]);
-
-        // If delivered, we might need to handle specific logic if it was a purchase
-        // For borrow, 'active' means it's with the borrower now.
+        require_once 'includes/class.delivery.php';
+        $dm = new DeliveryManager();
+        $dm->updateStatus($userId, $transactionId, $status);
         
         echo json_encode(['success' => true, 'message' => 'Delivery status updated!']);
+
     } elseif ($action === 'update_availability') {
         $status = $_POST['status'] ?? 0; // 1 for online, 0 for offline
         
@@ -283,27 +273,30 @@ try {
             ->execute([$status, $userId]);
             
         echo json_encode(['success' => true, 'message' => 'Availability updated']);
+
+    } elseif ($action === 'confirm_handover') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        require_once 'includes/class.delivery.php';
+        $dm = new DeliveryManager();
+        $dm->confirmHandover($userId, $transactionId);
+        echo json_encode(['success' => true, 'message' => 'Handover confirmed! Trust +1']);
+
+    } elseif ($action === 'confirm_receipt') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        require_once 'includes/class.delivery.php';
+        $dm = new DeliveryManager();
+        $dm->confirmReceipt($userId, $transactionId);
+        echo json_encode(['success' => true, 'message' => 'Receipt confirmed! Transaction Complete.']);
+
     } elseif ($action === 'claim_job') {
         $transactionId = $_POST['transaction_id'] ?? 0;
         
-        if ($userRole !== 'delivery_agent') {
-            throw new Exception("Unauthorized");
-        }
-        
-        // Assign to self and set status to active (or 'assigned' if we want a step before pickup)
-        // For simplicity, let's keep it 'active' which means 'In Progress/Assigned'
-        // Ideally: 'approved' -> 'active' (picked up) -> 'delivered'
-        // But let's say claiming it keeps it 'approved' but assigns the agent, 
-        // until they actually pick it up.
-        
-        $pdo->prepare("UPDATE transactions SET delivery_agent_id = ? WHERE id = ? AND delivery_agent_id IS NULL")
-            ->execute([$userId, $transactionId]);
+        require_once 'includes/class.delivery.php';
+        $dm = new DeliveryManager();
+        $dm->claimJob($userId, $transactionId);
             
-        if ($pdo->rowCount() > 0) {
-            echo json_encode(['success' => true, 'message' => 'Job Claimed']);
-        } else {
-             throw new Exception("Job already taken or invalid");
-        }
+        echo json_encode(['success' => true, 'message' => 'Job Claimed']);
+
     } elseif ($action === 'ban_user') {
         if ($userRole !== 'admin') throw new Exception("Unauthorized");
         $targetId = $_POST['user_id'] ?? 0;

@@ -211,7 +211,29 @@ function getStatusLabel($status, $agentId) {
                 </div>
 
                 <div class="agent-details">
-                    <?php if ($d['delivery_agent_id']): ?>
+                <div class="agent-details">
+                    <?php if ($d['status'] === 'requested'): ?>
+                        <div class="agent-info" style="border: 1px solid #e0f2fe; background: #f0f9ff;">
+                            <div class="agent-title" style="color: #0284c7;">
+                                <i class='bx bx-time-five'></i> Request Pending
+                            </div>
+                            
+                            <?php if ($d['lender_id'] == $_SESSION['user_id']): ?>
+                                <p style="margin:0 0 0.8rem 0; font-size: 0.8rem;">Do you want to accept this request?</p>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'accept_request')" class="btn-sm" style="background:var(--primary); color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; flex:1; cursor:pointer;">
+                                        Accept
+                                    </button>
+                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'decline_request')" class="btn-sm" style="background:white; color:#ef4444; border:1px solid #ef4444; border-radius:4px; padding:0.4rem 0.8rem; flex:1; cursor:pointer;">
+                                        Decline
+                                    </button>
+                                </div>
+                            <?php else: ?>
+                                <p style="margin:0; font-size: 0.75rem;">Waiting for the owner to accept your request.</p>
+                            <?php endif; ?>
+                        </div>
+
+                    <?php elseif ($d['delivery_agent_id']): ?>
                         <div class="agent-info">
                             <div class="agent-title"><i class='bx bxs-user-check'></i> Delivery Hero</div>
                             <span class="agent-name"><?php echo htmlspecialchars($d['agent_name']); ?></span>
@@ -220,10 +242,43 @@ function getStatusLabel($status, $agentId) {
                                 <i class='bx bx-phone'></i> Call Agent
                             </a>
                         </div>
+
                     <?php else: ?>
+                        <!-- Status is 'approved' but no agent yet -->
                         <div class="agent-info" style="border-style: dashed; background: transparent; opacity: 0.7;">
                             <div class="agent-title" style="color: var(--text-muted);"><i class='bx bx-search'></i> Finding Agent</div>
-                            <p style="margin:0; font-size: 0.75rem;">Nearby agents are being notified of your request.</p>
+                            <p style="margin:0; font-size: 0.75rem;">Nearby agents are being notified of the request.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- User Confirmation UI -->
+                    <?php if ($d['delivery_agent_id']): // Only if agent is involved ?>
+                        <div style="margin-top: 1rem;">
+                            <!-- Lender Confirmation -->
+                            <?php if ($d['lender_id'] == $_SESSION['user_id']): ?>
+                                <?php if ($d['lender_confirm_at']): ?>
+                                    <div style="color: #16a34a; font-size: 0.8rem; font-weight: 700;">
+                                        <i class='bx bx-check-double'></i> Handover Verified
+                                    </div>
+                                <?php elseif (in_array($d['status'], ['approved', 'active'])): // Agent assigned or picked up ?>
+                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-sm" style="background:var(--primary); color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; width:100%; cursor:pointer;">
+                                        Confirm Handover
+                                    </button>
+                                <?php endif; ?>
+                            <?php endif; ?>
+
+                            <!-- Borrower Confirmation -->
+                            <?php if ($d['borrower_id'] == $_SESSION['user_id']): ?>
+                                <?php if ($d['borrower_confirm_at']): ?>
+                                    <div style="color: #16a34a; font-size: 0.8rem; font-weight: 700;">
+                                        <i class='bx bx-check-double'></i> Receipt Confirmed
+                                    </div>
+                                <?php elseif (in_array($d['status'], ['approved', 'active', 'delivered'])): // Agent assigned/in-transit/delivered ?>
+                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-sm" style="background: #10b981; color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; width:100%; cursor:pointer;">
+                                        <i class='bx bx-package'></i> I Received
+                                    </button>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -299,12 +354,30 @@ function getStatusLabel($status, $agentId) {
                     const mapId = `map-${d.id}`;
                     const container = document.getElementById(mapId);
                     if (container && container.offsetParent !== null) {
-                        // Use a global or stored map object if needed, but for now we just invalidate size
-                        // Since we are re-initializing or creating them at once, we may need to store them
+                        // Invalidate size if map instance is stored, or just rely on CSS
                     }
                 });
                 window.dispatchEvent(new Event('resize')); 
             }, 100);
+        }
+
+        function confirmAction(txId, action) {
+            if (!confirm('Confirm this action? This helps build trust.')) return;
+            
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('transaction_id', txId);
+
+            fetch('request_action.php', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
         }
     </script>
 </body>
