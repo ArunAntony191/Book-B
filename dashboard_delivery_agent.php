@@ -410,10 +410,20 @@ $total_delivered = $stmt->fetchColumn();
                                 <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
                                     <i class='bx bx-box'></i> Confirm Pickup
                                 </button>
+                            <?php elseif ($job['status'] == 'active'): ?>
+                                <?php if (!$job['agent_confirm_delivery_at']): ?>
+                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
+                                        <i class='bx bx-check-circle'></i> Mark Delivered
+                                    </button>
+                                <?php else: ?>
+                                    <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
+                                        <i class='bx bx-time'></i> Waiting for Receiver
+                                    </button>
+                                <?php endif; ?>
                             <?php else: ?>
-                                <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                    <i class='bx bx-check-circle'></i> Complete Order
-                                </button>
+                                <div style="text-align: center; color: var(--success-logistics); font-weight: 700; width: 100%; grid-column: span 2;">
+                                    <i class='bx bxs-check-shield'></i> Delivery Verified
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>

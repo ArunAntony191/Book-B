@@ -279,14 +279,14 @@ try {
         require_once 'includes/class.delivery.php';
         $dm = new DeliveryManager();
         $dm->confirmHandover($userId, $transactionId);
-        echo json_encode(['success' => true, 'message' => 'Handover confirmed! Trust +1']);
+        echo json_encode(['success' => true, 'message' => 'Handover confirmed!']);
 
     } elseif ($action === 'confirm_receipt') {
         $transactionId = $_POST['transaction_id'] ?? 0;
         require_once 'includes/class.delivery.php';
         $dm = new DeliveryManager();
         $dm->confirmReceipt($userId, $transactionId);
-        echo json_encode(['success' => true, 'message' => 'Receipt confirmed! Transaction Complete.']);
+        echo json_encode(['success' => true, 'message' => 'Receipt confirmed! Waiting for final verification.']);
 
     } elseif ($action === 'claim_job') {
         $transactionId = $_POST['transaction_id'] ?? 0;

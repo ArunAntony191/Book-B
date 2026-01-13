@@ -42,6 +42,7 @@ class DeliveryManager {
 
     /**
      * Update delivery status with validations
+     * Modified to support 2-party confirmation for delivery
      */
     public function updateStatus($agentId, $transactionId, $newStatus) {
         $tx = $this->getTransaction($transactionId);
@@ -60,21 +61,36 @@ class DeliveryManager {
                 throw new Exception("Invalid transition: Can only pick up 'approved' orders.");
             }
             $sql = "UPDATE transactions SET status = 'active', picked_up_at = NOW() WHERE id = ?";
+            $this->pdo->prepare($sql)->execute([$transactionId]);
         } 
-        elseif ($newStatus === 'delivered') { // Delivering
+        elseif ($newStatus === 'delivered') { // Agent marking as delivered
             if ($currentStatus !== 'active') {
                 throw new Exception("Invalid transition: Order must be 'active' (in transit) before delivery.");
             }
-            $sql = "UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?";
+            
+            // Agent confirms delivery - but don't change status yet
+            // Status only changes when BOTH agent AND borrower confirm
+            $sql = "UPDATE transactions SET agent_confirm_delivery_at = NOW() WHERE id = ?";
+            $this->pdo->prepare($sql)->execute([$transactionId]);
+            
+            // Check if borrower already confirmed
+            if ($tx['borrower_confirm_at']) {
+                // Both have confirmed! Now mark as delivered
+                $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
+                    ->execute([$transactionId]);
+                
+                // Send final delivery notifications
+                $this->sendUpdateNotification($tx, 'delivered');
+            } else {
+                // Only agent confirmed, send notification that we're waiting for borrower
+                $msg = "Delivery agent has marked '{$tx['title']}' as delivered. Please confirm receipt.";
+                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
+                    ->execute([$tx['borrower_id'], 'delivery_pending_confirmation', $msg, $tx['id']]);
+            }
         }
         else {
             throw new Exception("Invalid status update requested.");
         }
-
-        $this->pdo->prepare($sql)->execute([$transactionId]);
-
-        // Send notifications
-        $this->sendUpdateNotification($tx, $newStatus);
 
         return true;
     }
@@ -121,7 +137,9 @@ class DeliveryManager {
         if ($status === 'active') {
             $msg = "Your order for '{$tx['title']}' has been picked up & is on the way!";
         } elseif ($status === 'delivered') {
-            $msg = "Delivered! '{$tx['title']}' has arrived.";
+            $msg = "Delivered & Verified! '{$tx['title']}' has arrived.";
+        } elseif ($status === 'agent_confirmed') {
+            $msg = "Agent marked '{$tx['title']}' as delivered. Please confirm receipt to complete.";
         }
 
         if ($msg) {
@@ -186,16 +204,23 @@ class DeliveryManager {
         $stmt = $this->pdo->prepare("UPDATE transactions SET borrower_confirm_at = NOW() WHERE id = ?");
         $stmt->execute([$transactionId]);
 
-        // If not already 'delivered', maybe auto-set it? 
-        // User confirmation overrides agent status.
-        if ($tx['status'] !== 'delivered') {
+        // Refresh transaction data to check agent confirmation
+        $tx = $this->getTransaction($transactionId);
+
+        // Status only updates to 'delivered' if agent has also confirmed
+        if ($tx['agent_confirm_delivery_at']) {
              $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
                  ->execute([$transactionId]);
              
              // Also notify Lender that it's done
-             $msg = "Borrower confirmed receipt of '{$tx['title']}'. Transaction Complete.";
+             $msg = "Delivery verified! Borrower confirmed receipt of '{$tx['title']}'.";
              $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
                  ->execute([$tx['lender_id'], 'receipt_confirmed', $msg, $transactionId]);
+        } else {
+            // Notify Lender that borrower confirmed (but agent hasn't yet)
+            $msg = "Borrower confirmed receipt of '{$tx['title']}'. Waiting for agent confirmation.";
+            $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
+                ->execute([$tx['lender_id'], 'borrower_confirmed', $msg, $transactionId]);
         }
 
         return true;

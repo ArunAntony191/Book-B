@@ -13,22 +13,12 @@ $deliveries = getUserDeliveries($userId);
 $lending = array_filter($deliveries, fn($d) => $d['lender_id'] == $userId);
 $borrowing = array_filter($deliveries, fn($d) => $d['borrower_id'] == $userId);
 
-function getStatusProgress($status, $agentId) {
-    switch ($status) {
-        case 'requested': return 10;
-        case 'approved': return $agentId ? 40 : 25;
-        case 'active': return 75;
-        case 'delivered': return 100;
-        default: return 0;
-    }
-}
-
 function getStatusLabel($status, $agentId) {
     switch ($status) {
         case 'requested': return 'Waiting for Owner';
         case 'approved': return $agentId ? 'Agent Assigned' : 'Finding Agent';
-        case 'active': return 'Out for Delivery';
-        case 'delivered': return 'Delivered';
+        case 'active': return 'In Transit';
+        case 'delivered': return 'Delivered & Verified';
         default: return ucfirst($status);
     }
 }
@@ -43,71 +33,103 @@ function getStatusLabel($status, $agentId) {
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .tracking-wrapper { max-width: 1000px; margin: 0 auto; }
-        .page-header { margin-bottom: 2rem; }
+        .tracking-wrapper { max-width: 900px; margin: 0 auto; padding: 0 1rem; }
+        .page-header { margin-bottom: 2rem; text-align: center; }
         
         .tabs-header {
-            display: flex; gap: 2rem; margin-bottom: 2rem;
-            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: center; gap: 1rem; margin-bottom: 2.5rem;
+            background: #f1f5f9; padding: 0.5rem; border-radius: 12px;
         }
         .tab-btn {
-            padding: 1rem 0; font-weight: 700; color: var(--text-muted);
-            cursor: pointer; transition: all 0.3s; position: relative;
-            background: none; border: none; font-size: 1rem;
+            padding: 0.75rem 1.5rem; font-weight: 700; color: #64748b;
+            cursor: pointer; transition: all 0.3s; border-radius: 8px;
+            background: none; border: none; font-size: 0.95rem; flex: 1; max-width: 250px;
         }
-        .tab-btn.active { color: var(--primary); }
-        .tab-btn.active::after {
-            content: ''; position: absolute; bottom: -1px; left: 0;
-            width: 100%; height: 3px; background: var(--primary); border-radius: 3px;
-        }
+        .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
         .delivery-card {
-            background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color);
-            padding: 1.5rem; margin-bottom: 1.5rem; transition: all 0.3s;
+            background: white; border-radius: 20px; border: 1px solid #eef2f6;
+            padding: 2rem; margin-bottom: 2rem; transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03); position: relative;
+            overflow: hidden;
         }
-        .delivery-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+        .delivery-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
 
-        .delivery-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #f1f5f9;
+        .status-badge {
+            position: absolute; top: 1.5rem; right: 1.5rem;
+            padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.75rem;
+            font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
         }
-        .order-id { font-family: monospace; font-weight: 700; color: var(--text-muted); }
+        .status-badge.requested { background: #eff6ff; color: #3b82f6; }
+        .status-badge.approved { background: #f0fdf4; color: #16a34a; }
+        .status-badge.active { background: #fff7ed; color: #ea580c; }
+        .status-badge.delivered { background: #f0fdf4; color: #16a34a; }
 
-        .delivery-content { display: grid; grid-template-columns: 80px 1fr 200px; gap: 1.5rem; align-items: start; }
-        .book-img { width: 80px; height: 110px; object-fit: cover; border-radius: 8px; box-shadow: var(--shadow-sm); }
+        .delivery-main { display: flex; gap: 2rem; margin-bottom: 2rem; }
+        .book-aside { width: 120px; flex-shrink: 0; }
+        .book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
-        .tracking-info { flex: 1; }
-        .book-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .delivery-body { flex: 1; }
+        .order-meta { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem; display: block; font-weight: 600; }
+        .book-title { font-size: 1.4rem; font-weight: 850; margin-bottom: 0.75rem; color: #1e293b; line-height: 1.2; }
         
-        /* Progress Bar */
-        .progress-container { margin: 1.5rem 0; position: relative; }
-        .progress-bg { height: 8px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
-        .progress-fill { 
-            height: 100%; background: var(--primary); width: 0%; 
-            transition: width 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-        }
-        .progress-labels { display: flex; justify-content: space-between; margin-top: 0.8rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
-        .progress-step.active { color: var(--primary); }
+        .location-info { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .loc-item { display: flex; align-items: flex-start; gap: 0.50rem; font-size: 0.9rem; color: #64748b; }
+        .loc-item i { margin-top: 3px; color: var(--primary); }
+        .landmark-tag { font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-left: 1.5rem; background: #eef2ff; padding: 2px 8px; border-radius: 4px; display: inline-block; }
 
-        .agent-info {
-            background: #f8fafc; padding: 1rem; border-radius: var(--radius-md);
-            border: 1px solid #e2e8f0; font-size: 0.85rem;
+        /* Progress Steps */
+        .tracking-steps { display: flex; justify-content: space-between; position: relative; margin: 3rem 0 2rem 0; width: 100%; }
+        .tracking-steps::before {
+            content: ''; position: absolute; top: 10px; left: 0; 
+            width: 100%; height: 2px; background: #e2e8f0; z-index: 1;
         }
-        .agent-title { font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; color: var(--primary); }
-        .agent-name { font-weight: 700; display: block; margin-bottom: 0.3rem; }
-        .contact-btn {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            color: var(--primary); font-weight: 700; text-decoration: none; margin-top: 0.5rem;
+        .step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; flex: 1; }
+        .step-dot { 
+            width: 22px; height: 22px; background: white; border: 2px solid #e2e8f0; 
+            border-radius: 50%; transition: all 0.4s; 
         }
+        .step-label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+        
+        .step.completed .step-dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+        .step.completed .step-label { color: var(--primary); }
+        .step.active .step-dot { background: white; border-color: var(--primary); border-width: 4px; box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.05); }
+        .step.active .step-label { color: #1e293b; }
 
-        .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+        /* Multi-party confirmation area */
+        .confirmation-box {
+            background: #f8fafc; border-radius: 16px; padding: 1.25rem;
+            margin-top: 2rem; border: 1px solid #f1f5f9;
+        }
+        .confirm-title { font-size: 0.85rem; font-weight: 800; color: #475569; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .confirm-badges { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        .c-badge { 
+            flex: 1; display: flex; align-items: center; gap: 0.5rem; 
+            background: white; padding: 0.75rem; border-radius: 10px; border: 1px solid #e2e8f0;
+            font-size: 0.8rem; font-weight: 600; color: #64748b;
+        }
+        .c-badge.verified { border-color: #10b981; color: #10b981; background: #f0fdf4; }
+        .c-badge i { font-size: 1.1rem; }
+
+        .btn-confirm {
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            width: 100%; padding: 0.85rem; border-radius: 10px; border: none;
+            font-weight: 700; cursor: pointer; transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+        .btn-confirm.primary { background: var(--primary); color: white; }
+        .btn-confirm.primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+        .btn-confirm.success { background: #10b981; color: white; }
+        .btn-confirm.success:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
 
         .mini-map {
-            height: 150px; width: 100%; border-radius: 12px;
-            margin-top: 1rem; border: 1px solid var(--border-color);
-            z-index: 1;
+            height: 200px; width: 100%; border-radius: 16px;
+            margin-top: 1.5rem; border: 1px solid #eef2f6; z-index: 1;
         }
-        .marker-pin { display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; border: 2px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .empty-state { text-align: center; padding: 5rem 2rem; color: #94a3b8; }
+        .empty-state i { font-size: 5rem; margin-bottom: 1.5rem; opacity: 0.2; }
     </style>
 </head>
 <body>
@@ -118,39 +140,41 @@ function getStatusLabel($status, $agentId) {
             <div class="tracking-wrapper">
                 <div class="page-header">
                     <h1>Delivery Tracking</h1>
-                    <p>Track your book shipments in real-time</p>
+                    <p style="color: #64748b; font-weight: 500;">Secure 2-party verified shipments</p>
                 </div>
 
                 <div class="tabs-header">
                     <button class="tab-btn active" onclick="switchTab('borrowing', this)">
-                        Incoming Books <span style="font-size: 0.8rem; opacity: 0.6;">(<?php echo count($borrowing); ?>)</span>
+                        Incoming <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($borrowing); ?>)</span>
                     </button>
                     <button class="tab-btn" onclick="switchTab('lending', this)">
-                        Outgoing Books <span style="font-size: 0.8rem; opacity: 0.6;">(<?php echo count($lending); ?>)</span>
+                        Outgoing <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($lending); ?>)</span>
                     </button>
                 </div>
 
                 <div id="borrowing-list">
                     <?php if (empty($borrowing)): ?>
                         <div class="empty-state">
-                            <i class='bx bx-package' style="font-size: 4rem; opacity: 0.2;"></i>
-                            <p>No incoming deliveries at the moment.</p>
+                            <i class='bx bx-package'></i>
+                            <h3>No incoming deliveries</h3>
+                            <p>Books you borrow will appear here for tracking.</p>
                         </div>
                     <?php endif; ?>
                     <?php foreach ($borrowing as $d): ?>
-                        <?php renderDeliveryCard($d); ?>
+                        <?php renderEnhancedDeliveryCard($d); ?>
                     <?php endforeach; ?>
                 </div>
 
                 <div id="lending-list" style="display: none;">
                     <?php if (empty($lending)): ?>
                         <div class="empty-state">
-                            <i class='bx bx-transfer-alt' style="font-size: 4rem; opacity: 0.2;"></i>
-                            <p>No outgoing deliveries at the moment.</p>
+                            <i class='bx bx-transfer-alt'></i>
+                            <h3>No outgoing deliveries</h3>
+                            <p>Books you lend via delivery agents will appear here.</p>
                         </div>
                     <?php endif; ?>
                     <?php foreach ($lending as $d): ?>
-                        <?php renderDeliveryCard($d); ?>
+                        <?php renderEnhancedDeliveryCard($d); ?>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -158,127 +182,129 @@ function getStatusLabel($status, $agentId) {
     </div>
 
     <?php
-    function renderDeliveryCard($d) {
-        $progress = getStatusProgress($d['status'], $d['delivery_agent_id']);
-        $statusLabel = getStatusLabel($d['status'], $d['delivery_agent_id']);
+    function renderEnhancedDeliveryCard($d) {
+        $userId = $_SESSION['user_id'];
+        $isBorrower = ($d['borrower_id'] == $userId);
+        
+        // Progress Logic
+        $steps = ['requested', 'approved', 'active', 'delivered'];
+        $currentIndex = array_search($d['status'], $steps);
+        if ($currentIndex === false) $currentIndex = 0;
+        
+        // Custom labels for the badge
+        $badgeLabel = getStatusLabel($d['status'], $d['delivery_agent_id']);
+        if ($d['status'] === 'active' && $d['agent_confirm_delivery_at']) {
+            $badgeLabel = "Awaiting Your Confirmation";
+        }
         ?>
         <div class="delivery-card">
-            <div class="delivery-header">
-                <div>
-                    <span class="order-id">#TRK-<?php echo $d['id']; ?></span>
-                    <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 1rem;">
-                        Ordered on <?php echo date('M d, Y', strtotime($d['created_at'])); ?>
-                    </span>
+            <span class="status-badge <?php echo $d['status']; ?>">
+                <?php echo $badgeLabel; ?>
+            </span>
+
+            <div class="delivery-main">
+                <div class="book-aside">
+                    <img src="<?php echo htmlspecialchars($d['cover_image'] ?: 'assets/images/book-placeholder.jpg'); ?>" class="book-img">
                 </div>
-                <div style="font-weight: 800; color: var(--primary); font-size: 0.9rem;">
-                    <?php echo $statusLabel; ?>
+                
+                <div class="delivery-body">
+                    <span class="order-meta">TRK-<?php echo $d['id']; ?> • <?php echo date('M d, Y', strtotime($d['created_at'])); ?></span>
+                    <h2 class="book-title"><?php echo htmlspecialchars($d['title']); ?></h2>
+                    
+                    <div class="location-info">
+                        <div class="loc-item">
+                            <i class='bx bx-map-pin'></i>
+                            <div>
+                                <strong>Destination:</strong><br>
+                                <?php echo htmlspecialchars($d['order_address']); ?>
+                                <?php if ($d['order_landmark']): ?>
+                                    <br><span class="landmark-tag">Near <?php echo htmlspecialchars($d['order_landmark']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tracking-steps">
+                        <div class="step <?php echo $currentIndex >= 0 ? ($currentIndex > 0 ? 'completed' : 'active') : ''; ?>">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Requested</span>
+                        </div>
+                        <div class="step <?php echo $currentIndex >= 1 ? ($currentIndex > 1 ? 'completed' : 'active') : ''; ?>">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Assigned</span>
+                        </div>
+                        <div class="step <?php echo $currentIndex >= 2 ? ($currentIndex > 2 ? 'completed' : 'active') : ''; ?>">
+                            <div class="step-dot"></div>
+                            <span class="step-label">In Transit</span>
+                        </div>
+                        <div class="step <?php echo $currentIndex >= 3 ? 'completed' : ''; ?>">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Delivered</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="delivery-content">
-                <img src="<?php echo htmlspecialchars($d['cover_image'] ?: 'assets/images/book-placeholder.jpg'); ?>" class="book-img">
+
+            <?php if ($d['pickup_lat'] && $d['order_lat']): ?>
+                <div id="map-<?php echo $d['id']; ?>" class="mini-map"></div>
+            <?php endif; ?>
+
+            <div class="confirmation-box">
+                <div class="confirm-title">
+                    <i class='bx bx-shield-quarter'></i> 2-PARTY VERIFICATION STATUS
+                </div>
                 
-                <div class="tracking-info">
-                    <div class="book-title"><?php echo htmlspecialchars($d['title']); ?></div>
-                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">
-                        <i class='bx bx-map'></i> <?php echo $d['borrower_id'] == $_SESSION['user_id'] ? 'Coming to: ' . htmlspecialchars($d['order_address']) : 'Picking up from: ' . htmlspecialchars($d['pickup_location']); ?>
+                <div class="confirm-badges">
+                    <div class="c-badge <?php echo !empty($d['agent_confirm_delivery_at']) ? 'verified' : ''; ?>">
+                        <i class='bx <?php echo !empty($d['agent_confirm_delivery_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                        <span>Agent Confirmation</span>
                     </div>
-                    <?php if ($d['borrower_id'] == $_SESSION['user_id'] && $d['order_landmark']): ?>
-                        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600; margin-left: 1.5rem;">
-                            Reference Point: <?php echo htmlspecialchars($d['order_landmark']); ?>
-                        </div>
-                    <?php elseif ($d['lender_id'] == $_SESSION['user_id'] && $d['pickup_landmark']): ?>
-                        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600; margin-left: 1.5rem;">
-                            Reference Point: <?php echo htmlspecialchars($d['pickup_landmark']); ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="progress-container">
-                        <div class="progress-bg">
-                            <div class="progress-fill" style="width: <?php echo $progress; ?>%;"></div>
-                        </div>
-                        <div class="progress-labels">
-                            <span class="progress-step <?php echo $progress >= 10 ? 'active' : ''; ?>">Requested</span>
-                            <span class="progress-step <?php echo $progress >= 40 ? 'active' : ''; ?>">Assigned</span>
-                            <span class="progress-step <?php echo $progress >= 75 ? 'active' : ''; ?>">In Transit</span>
-                            <span class="progress-step <?php echo $progress >= 100 ? 'active' : ''; ?>">Delivered</span>
-                        </div>
+                    <div class="c-badge <?php echo !empty($d['borrower_confirm_at']) ? 'verified' : ''; ?>">
+                        <i class='bx <?php echo !empty($d['borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                        <span>Receiver Confirmation</span>
                     </div>
-
-                    <?php if ($d['pickup_lat'] && $d['order_lat']): ?>
-                        <div id="map-<?php echo $d['id']; ?>" class="mini-map"></div>
-                    <?php endif; ?>
                 </div>
 
-                <div class="agent-details">
-                <div class="agent-details">
-                    <?php if ($d['status'] === 'requested'): ?>
-                        <div class="agent-info" style="border: 1px solid #e0f2fe; background: #f0f9ff;">
-                            <div class="agent-title" style="color: #0284c7;">
-                                <i class='bx bx-time-five'></i> Request Pending
-                            </div>
-                            
-                            <?php if ($d['lender_id'] == $_SESSION['user_id']): ?>
-                                <p style="margin:0 0 0.8rem 0; font-size: 0.8rem;">Do you want to accept this request?</p>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'accept_request')" class="btn-sm" style="background:var(--primary); color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; flex:1; cursor:pointer;">
-                                        Accept
-                                    </button>
-                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'decline_request')" class="btn-sm" style="background:white; color:#ef4444; border:1px solid #ef4444; border-radius:4px; padding:0.4rem 0.8rem; flex:1; cursor:pointer;">
-                                        Decline
-                                    </button>
-                                </div>
-                            <?php else: ?>
-                                <p style="margin:0; font-size: 0.75rem;">Waiting for the owner to accept your request.</p>
-                            <?php endif; ?>
+                <div class="actions">
+                    <?php if ($d['status'] === 'requested' && $d['lender_id'] == $userId): ?>
+                        <div style="display: flex; gap: 1rem;">
+                            <button onclick="confirmAction(<?php echo $d['id']; ?>, 'accept_request')" class="btn-confirm primary">
+                                <i class='bx bx-check'></i> Accept Request
+                            </button>
+                            <button onclick="confirmAction(<?php echo $d['id']; ?>, 'decline_request')" class="btn-confirm" style="border: 1px solid #e2e8f0;">
+                                Decline
+                            </button>
                         </div>
 
+                    <?php elseif ($isBorrower && $d['status'] === 'active' && empty($d['borrower_confirm_at'])): ?>
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm success">
+                            <i class='bx bx-package'></i> I Received My Book
+                        </button>
+                    
+                    <?php elseif (!$isBorrower && $d['status'] === 'active' && empty($d['lender_confirm_at'])): ?>
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
+                            <i class='bx bx-hand'></i> Confirm Handover to Agent
+                        </button>
+
+                    <?php elseif ($d['status'] === 'delivered'): ?>
+                        <div style="text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
+                            <i class='bx bxs-badge-check'></i> TRANSACTION COMPLETED SUCCESSFULLY
+                        </div>
+                    
                     <?php elseif ($d['delivery_agent_id']): ?>
-                        <div class="agent-info">
-                            <div class="agent-title"><i class='bx bxs-user-check'></i> Delivery Hero</div>
-                            <span class="agent-name"><?php echo htmlspecialchars($d['agent_name']); ?></span>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">Assigned to your delivery</div>
-                            <a href="tel:<?php echo $d['agent_phone']; ?>" class="contact-btn">
-                                <i class='bx bx-phone'></i> Call Agent
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="width: 35px; height: 35px; background: #eef2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                    <i class='bx bxs-user'></i>
+                                </div>
+                                <div>
+                                    <strong style="display: block;"><?php echo htmlspecialchars($d['agent_name']); ?></strong>
+                                    <span style="color: #64748b;">Delivery Agent Assigned</span>
+                                </div>
+                            </div>
+                            <a href="tel:<?php echo $d['agent_phone']; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; border: 1px solid var(--primary); padding: 5px 12px; border-radius: 6px;">
+                                <i class='bx bx-phone'></i> Call
                             </a>
-                        </div>
-
-                    <?php else: ?>
-                        <!-- Status is 'approved' but no agent yet -->
-                        <div class="agent-info" style="border-style: dashed; background: transparent; opacity: 0.7;">
-                            <div class="agent-title" style="color: var(--text-muted);"><i class='bx bx-search'></i> Finding Agent</div>
-                            <p style="margin:0; font-size: 0.75rem;">Nearby agents are being notified of the request.</p>
-                        </div>
-                    <?php endif; ?>
-
-                    <!-- User Confirmation UI -->
-                    <?php if ($d['delivery_agent_id']): // Only if agent is involved ?>
-                        <div style="margin-top: 1rem;">
-                            <!-- Lender Confirmation -->
-                            <?php if ($d['lender_id'] == $_SESSION['user_id']): ?>
-                                <?php if ($d['lender_confirm_at']): ?>
-                                    <div style="color: #16a34a; font-size: 0.8rem; font-weight: 700;">
-                                        <i class='bx bx-check-double'></i> Handover Verified
-                                    </div>
-                                <?php elseif (in_array($d['status'], ['approved', 'active'])): // Agent assigned or picked up ?>
-                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-sm" style="background:var(--primary); color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; width:100%; cursor:pointer;">
-                                        Confirm Handover
-                                    </button>
-                                <?php endif; ?>
-                            <?php endif; ?>
-
-                            <!-- Borrower Confirmation -->
-                            <?php if ($d['borrower_id'] == $_SESSION['user_id']): ?>
-                                <?php if ($d['borrower_confirm_at']): ?>
-                                    <div style="color: #16a34a; font-size: 0.8rem; font-weight: 700;">
-                                        <i class='bx bx-check-double'></i> Receipt Confirmed
-                                    </div>
-                                <?php elseif (in_array($d['status'], ['approved', 'active', 'delivered'])): // Agent assigned/in-transit/delivered ?>
-                                    <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-sm" style="background: #10b981; color:white; border:none; border-radius:4px; padding:0.4rem 0.8rem; width:100%; cursor:pointer;">
-                                        <i class='bx bx-package'></i> I Received
-                                    </button>
-                                <?php endif; ?>
-                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -305,37 +331,34 @@ function getStatusLabel($status, $agentId) {
 
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
-                const iconBase = 'display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; border:2px solid white; box-shadow:0 2px 10px rgba(0,0,0,0.2); font-size:14px;';
+                const iconBase = 'display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; border:3px solid white; box-shadow:0 2px 10px rgba(0,0,0,0.2); font-size:16px;';
                 
-                // Pickup Marker
                 L.marker([d.pickup_lat, d.pickup_lng], {
                     icon: L.divIcon({
                         className: 'custom-div-icon',
                         html: `<div style="${iconBase} background:#3b82f6; color:white;"><i class='bx bx-package'></i></div>`,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
                     })
-                }).addTo(map).bindPopup("Pickup: " + d.pickup_location);
+                }).addTo(map);
 
-                // Dropoff Marker
                 L.marker([d.order_lat, d.order_lng], {
                     icon: L.divIcon({
                         className: 'custom-div-icon',
                         html: `<div style="${iconBase} background:#10b981; color:white;"><i class='bx bx-home'></i></div>`,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
                     })
-                }).addTo(map).bindPopup("Dropoff: " + d.order_address);
+                }).addTo(map);
 
-                // Route Line
                 const line = L.polyline([[d.pickup_lat, d.pickup_lng], [d.order_lat, d.order_lng]], {
                     color: '#6366f1',
                     weight: 3,
                     opacity: 0.6,
-                    dashArray: '5, 10'
+                    dashArray: '8, 12'
                 }).addTo(map);
 
-                map.fitBounds(line.getBounds().pad(0.3));
+                map.fitBounds(line.getBounds().pad(0.4));
             });
         }
 
@@ -348,21 +371,19 @@ function getStatusLabel($status, $agentId) {
             document.getElementById('borrowing-list').style.display = tab === 'borrowing' ? 'block' : 'none';
             document.getElementById('lending-list').style.display = tab === 'lending' ? 'block' : 'none';
             
-            // Fix for Leaflet maps in hidden tabs
             setTimeout(() => {
-                deliveriesData.forEach(d => {
-                    const mapId = `map-${d.id}`;
-                    const container = document.getElementById(mapId);
-                    if (container && container.offsetParent !== null) {
-                        // Invalidate size if map instance is stored, or just rely on CSS
-                    }
-                });
                 window.dispatchEvent(new Event('resize')); 
             }, 100);
         }
 
         function confirmAction(txId, action) {
-            if (!confirm('Confirm this action? This helps build trust.')) return;
+            const msgs = {
+                'confirm_receipt': 'Confirming receipt will verify the delivery and build trust. Proceed?',
+                'confirm_handover': 'Confirm you have handed over the book to the agent?',
+                'accept_request': 'Accept this delivery request?'
+            };
+            
+            if (!confirm(msgs[action] || 'Confirm this action?')) return;
             
             const formData = new FormData();
             formData.append('action', action);
@@ -372,7 +393,6 @@ function getStatusLabel($status, $agentId) {
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        alert(data.message);
                         location.reload();
                     } else {
                         alert('Error: ' + data.message);
