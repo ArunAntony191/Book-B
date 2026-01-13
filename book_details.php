@@ -222,10 +222,31 @@ if ($book['latitude'] && $book['longitude']) {
             margin-bottom: 1.5rem;
             color: #166534;
         }
-        .delivery-unavailable {
+        .delivery-banner.delivery-unavailable {
             background: #fff1f2;
             border-color: #ffe4e6;
             color: #9f1239;
+        }
+
+        .credit-summary {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .credit-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .credit-total {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+            font-weight: 800;
+            color: var(--primary);
         }
     </style>
 </head>
@@ -237,7 +258,9 @@ if ($book['latitude'] && $book['longitude']) {
             <div class="details-grid">
                 <!-- Left: Image -->
                 <div class="column-left">
-                    <img src="<?php echo $book['cover_image'] ?: 'assets/images/book-placeholder.jpg'; ?>" class="book-img-large" alt="Book Cover">
+                    <img src="<?php echo $book['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                         class="book-img-large" alt="Book Cover"
+                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
                 </div>
                 
                 <!-- Center: Info -->
@@ -416,6 +439,22 @@ if ($book['latitude'] && $book['longitude']) {
                 </div>
             </div>
 
+            <!-- Credit Summary -->
+            <div class="credit-summary">
+                <div class="credit-row">
+                    <span>Base Cost</span>
+                    <span><span id="base-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Credits</span>
+                </div>
+                <div id="delivery-fee-row" class="credit-row" style="display: none;">
+                    <span>Delivery Fee</span>
+                    <span>+10 Credits</span>
+                </div>
+                <div class="credit-row credit-total">
+                    <span>Total to Spend</span>
+                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Credits</span>
+                </div>
+            </div>
+
         </div>
         <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -515,6 +554,12 @@ if ($book['latitude'] && $book['longitude']) {
             const isChecked = document.getElementById('want-delivery').checked;
             document.getElementById('delivery-setup').style.display = isChecked ? 'block' : 'none';
             
+            // Update Credit Summary
+            const baseCost = parseInt(document.getElementById('base-cost').innerText);
+            const deliveryFee = isChecked ? 10 : 0;
+            document.getElementById('delivery-fee-row').style.display = isChecked ? 'flex' : 'none';
+            document.getElementById('total-cost').innerText = baseCost + deliveryFee;
+
             if(isChecked && !dMap) {
                 setTimeout(() => {
                     dMap = L.map('delivery-map', {

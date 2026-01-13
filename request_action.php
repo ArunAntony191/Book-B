@@ -57,9 +57,16 @@ try {
         $creditCost = $listing['credit_cost'] ?? 10;
 
         // Check if borrower has sufficient credits
-        if (!checkSufficientCredits($userId, $creditCost)) {
+        $wantDelivery = ($_POST['delivery'] ?? 0) == 1;
+        $totalCost = $creditCost + ($wantDelivery ? 10 : 0);
+
+        if (!checkSufficientCredits($userId, $totalCost)) {
             $userCredits = getUserCredits($userId);
-            throw new Exception("Insufficient credits. You have {$userCredits}, but need {$creditCost}");
+            $msg = "Insufficient credits. You have {$userCredits}, but need {$totalCost}";
+            if ($wantDelivery) {
+                $msg .= " ({$creditCost} for book + 10 for delivery)";
+            }
+            throw new Exception($msg);
         }
 
         // Map type to transaction_type
@@ -141,7 +148,15 @@ try {
 
         // Deduct credits from borrower
         $creditCost = $transaction['credit_cost'] ?? 10;
-        if (!deductCredits($transaction['borrower_id'], $creditCost, 'spend', "Borrowed: {$transaction['title']}", $transactionId)) {
+        $totalDeduct = $creditCost;
+        $desc = "Borrowed: {$transaction['title']}";
+
+        if ($transaction['delivery_method'] === 'delivery') {
+            $totalDeduct += 10;
+            $desc .= " (including delivery fee)";
+        }
+
+        if (!deductCredits($transaction['borrower_id'], $totalDeduct, 'spend', $desc, $transactionId)) {
             throw new Exception("Failed to process credit transaction");
         }
 
@@ -296,6 +311,15 @@ try {
         $dm->claimJob($userId, $transactionId);
             
         echo json_encode(['success' => true, 'message' => 'Job Claimed']);
+
+    } elseif ($action === 'cancel_job') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        
+        require_once 'includes/class.delivery.php';
+        $dm = new DeliveryManager();
+        $dm->cancelJob($userId, $transactionId);
+            
+        echo json_encode(['success' => true, 'message' => 'Job cancelled. A small penalty of 5 credits was applied.']);
 
     } elseif ($action === 'ban_user') {
         if ($userRole !== 'admin') throw new Exception("Unauthorized");

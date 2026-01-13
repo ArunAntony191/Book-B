@@ -104,9 +104,10 @@ $currentCredits = getUserCredits($userId);
                         <i class='bx bx-trending-up' style="font-size: 1.5rem;"></i> Earn Credits
                     </div>
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
-                        <li>Lend books: +10 credits per return</li>
+                        <li>Book Sold: Credits from sale (Lenders)</li>
+                        <li>Lend books: +10 credits (Borrow transactions)</li>
+                        <li style="color: #059669; font-weight: 700;">Deliver Books: +10 credits (Agents)</li>
                         <li>5-star rating: +5 credits bonus</li>
-                        <li>On-time returns boost trust</li>
                     </ul>
                 </div>
                 <div>
@@ -114,9 +115,10 @@ $currentCredits = getUserCredits($userId);
                         <i class='bx bx-trending-down' style="font-size: 1.5rem;"></i> Spend Credits
                     </div>
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
-                        <li>Borrow books: -10 credits (default)</li>
-                        <li>Some books may cost more</li>
-                        <li>Credits deducted when approved</li>
+                        <li>Borrow books: -10 credits base</li>
+                        <li>Buy books: Sale price in credits</li>
+                        <li style="color: #1d4ed8; font-weight: 700;">Delivery Fee: -10 credits (if door-step)</li>
+                        <li>Credits deducted on lender acceptance</li>
                     </ul>
                 </div>
                 <div>
@@ -125,8 +127,8 @@ $currentCredits = getUserCredits($userId);
                     </div>
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
                         <li>Late returns: -5 credits/day</li>
-                        <li>Trust score decreases</li>
-                        <li>Return on time to avoid penalties</li>
+                        <li style="color: #b91c1c; font-weight: 700;">Job Abandon: -5 credits (Agents)</li>
+                        <li>Damage/Loss: Variable credit deduction</li>
                     </ul>
                 </div>
             </div>

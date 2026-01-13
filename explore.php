@@ -263,7 +263,9 @@ $results = searchListingsAdvanced($filters);
                         <div class="results-list">
                             <?php foreach ($results as $item): ?>
                                 <div class="book-card-mini" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                                    <img src="<?php echo $item['cover_image'] ?: 'assets/img/book-placeholder.jpg'; ?>" class="book-mini-img" alt="Book Cover">
+                                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                                         class="book-mini-img" alt="Book Cover"
+                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
                                     <div class="book-mini-content">
                                         <div>
                                             <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;"><?php echo htmlspecialchars($item['title']); ?></div>
@@ -355,7 +357,9 @@ $results = searchListingsAdvanced($filters);
                     const marker = L.marker([m.latitude, m.longitude])
                         .bindPopup(`
                             <div style="font-family: inherit; padding: 5px; min-width: 180px;">
-                                <img src="${m.cover_image || 'assets/img/book-placeholder.jpg'}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">
+                                <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
+                                     style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;"
+                                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
                                 <strong style="display:block; font-size: 1.1rem; margin-bottom: 2px; color: var(--text-main);">${m.title}</strong>
                                 <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">by ${m.author}</span>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -377,7 +381,9 @@ $results = searchListingsAdvanced($filters);
                 card.className = 'book-card-mini';
                 card.onclick = () => window.location.href = `book_details.php?id=${m.id}`;
                 card.innerHTML = `
-                    <img src="${m.cover_image || 'assets/img/book-placeholder.jpg'}" class="book-mini-img">
+                    <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
+                         class="book-mini-img" alt="Book Cover"
+                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
                     <div class="book-mini-content">
                         <div>
                             <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;">${m.title}</div>

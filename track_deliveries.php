@@ -33,101 +33,121 @@ function getStatusLabel($status, $agentId) {
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .tracking-wrapper { max-width: 900px; margin: 0 auto; padding: 0 1rem; }
-        .page-header { margin-bottom: 2rem; text-align: center; }
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --success-logistics: #10b981;
+        }
+
+        .tracking-wrapper { max-width: 1000px; margin: 0 auto; padding: 0 1.5rem; }
+        .page-header { margin-bottom: 2.5rem; text-align: left; }
         
         .tabs-header {
-            display: flex; justify-content: center; gap: 1rem; margin-bottom: 2.5rem;
-            background: #f1f5f9; padding: 0.5rem; border-radius: 12px;
+            display: flex; gap: 1rem; margin-bottom: 2.5rem;
+            background: rgba(241, 245, 249, 0.8); backdrop-filter: blur(8px);
+            padding: 0.6rem; border-radius: 18px; width: fit-content;
+            border: 1px solid var(--glass-border);
         }
         .tab-btn {
-            padding: 0.75rem 1.5rem; font-weight: 700; color: #64748b;
-            cursor: pointer; transition: all 0.3s; border-radius: 8px;
-            background: none; border: none; font-size: 0.95rem; flex: 1; max-width: 250px;
+            padding: 0.7rem 1.8rem; font-weight: 800; color: #64748b;
+            cursor: pointer; transition: all 0.3s; border-radius: 14px;
+            background: none; border: none; font-size: 0.9rem;
         }
-        .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
         .delivery-card {
-            background: white; border-radius: 20px; border: 1px solid #eef2f6;
+            background: var(--glass-bg); backdrop-filter: blur(12px);
+            border-radius: 24px; border: 1px solid var(--glass-border);
             padding: 2rem; margin-bottom: 2rem; transition: all 0.3s;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03); position: relative;
             overflow: hidden;
         }
-        .delivery-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .delivery-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.08); }
 
         .status-badge {
             position: absolute; top: 1.5rem; right: 1.5rem;
-            padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.75rem;
-            font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 0.6rem 1.2rem; border-radius: 14px; font-size: 0.75rem;
+            font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
         }
         .status-badge.requested { background: #eff6ff; color: #3b82f6; }
         .status-badge.approved { background: #f0fdf4; color: #16a34a; }
         .status-badge.active { background: #fff7ed; color: #ea580c; }
         .status-badge.delivered { background: #f0fdf4; color: #16a34a; }
 
-        .delivery-main { display: flex; gap: 2rem; margin-bottom: 2rem; }
-        .book-aside { width: 120px; flex-shrink: 0; }
-        .book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .credit-info-tag {
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            padding: 0.5rem 1rem; border-radius: 12px;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-size: 0.8rem; font-weight: 700; color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        .delivery-main { display: grid; grid-template-columns: 140px 1fr; gap: 2.5rem; margin-bottom: 2.5rem; }
+        .book-aside { width: 100%; position: relative; }
+        .book-img { 
+            width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 16px; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1); 
+        }
         
         .delivery-body { flex: 1; }
-        .order-meta { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem; display: block; font-weight: 600; }
-        .book-title { font-size: 1.4rem; font-weight: 850; margin-bottom: 0.75rem; color: #1e293b; line-height: 1.2; }
+        .order-meta { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.5rem; display: block; font-weight: 800; letter-spacing: 0.5px; }
+        .book-title { font-size: 1.6rem; font-weight: 900; margin-bottom: 0.75rem; color: #1e293b; line-height: 1.1; }
         
-        .location-info { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
-        .loc-item { display: flex; align-items: flex-start; gap: 0.50rem; font-size: 0.9rem; color: #64748b; }
-        .loc-item i { margin-top: 3px; color: var(--primary); }
-        .landmark-tag { font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-left: 1.5rem; background: #eef2ff; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+        .location-info { 
+            display: grid; grid-template-columns: 1fr; gap: 0.8rem; 
+            margin-top: 1.5rem; background: white; padding: 1.25rem; 
+            border-radius: 18px; border: 1px solid #f1f5f9;
+        }
+        .loc-item { display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.95rem; color: #475569; }
+        .loc-item i { margin-top: 4px; color: var(--primary); font-size: 1.2rem; }
+        .landmark-tag { font-size: 0.75rem; color: var(--primary); font-weight: 800; margin-top: 4px; background: #eef2ff; padding: 2px 10px; border-radius: 6px; display: inline-block; }
 
         /* Progress Steps */
-        .tracking-steps { display: flex; justify-content: space-between; position: relative; margin: 3rem 0 2rem 0; width: 100%; }
+        .tracking-steps { display: flex; justify-content: space-between; position: relative; margin: 3.5rem 0 1.5rem 0; width: 100%; }
         .tracking-steps::before {
-            content: ''; position: absolute; top: 10px; left: 0; 
-            width: 100%; height: 2px; background: #e2e8f0; z-index: 1;
+            content: ''; position: absolute; top: 12px; left: 0; 
+            width: 100%; height: 3px; background: #f1f5f9; z-index: 1;
         }
         .step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; flex: 1; }
         .step-dot { 
-            width: 22px; height: 22px; background: white; border: 2px solid #e2e8f0; 
+            width: 26px; height: 26px; background: white; border: 3px solid #f1f5f9; 
             border-radius: 50%; transition: all 0.4s; 
         }
-        .step-label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+        .step-label { font-size: 0.65rem; font-weight: 900; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        .step.completed .step-dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+        .step.completed .step-dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.15); }
         .step.completed .step-label { color: var(--primary); }
-        .step.active .step-dot { background: white; border-color: var(--primary); border-width: 4px; box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.05); }
+        .step.active .step-dot { background: white; border-color: var(--primary); border-width: 6px; box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.05); }
         .step.active .step-label { color: #1e293b; }
 
-        /* Multi-party confirmation area */
         .confirmation-box {
-            background: #f8fafc; border-radius: 16px; padding: 1.25rem;
+            background: rgba(248, 250, 252, 0.6); border-radius: 20px; padding: 1.5rem;
             margin-top: 2rem; border: 1px solid #f1f5f9;
         }
-        .confirm-title { font-size: 0.85rem; font-weight: 800; color: #475569; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .confirm-title { font-size: 0.75rem; font-weight: 900; color: #64748b; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; letter-spacing: 0.5px; }
         
-        .confirm-badges { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        .confirm-badges { display: flex; gap: 1.25rem; margin-bottom: 1.5rem; }
         .c-badge { 
-            flex: 1; display: flex; align-items: center; gap: 0.5rem; 
-            background: white; padding: 0.75rem; border-radius: 10px; border: 1px solid #e2e8f0;
-            font-size: 0.8rem; font-weight: 600; color: #64748b;
+            flex: 1; display: flex; align-items: center; gap: 0.75rem; 
+            background: white; padding: 1rem; border-radius: 14px; border: 1px solid #eef2f6;
+            font-size: 0.85rem; font-weight: 700; color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .c-badge.verified { border-color: #10b981; color: #10b981; background: #f0fdf4; }
-        .c-badge i { font-size: 1.1rem; }
+        .c-badge.verified { border-color: var(--success-logistics); color: var(--success-logistics); background: #f0fdf4; }
+        .c-badge i { font-size: 1.3rem; }
 
         .btn-confirm {
-            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-            width: 100%; padding: 0.85rem; border-radius: 10px; border: none;
-            font-weight: 700; cursor: pointer; transition: all 0.3s;
-            font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+            width: 100%; padding: 1.1rem; border-radius: 16px; border: none;
+            font-weight: 800; cursor: pointer; transition: all 0.3s;
+            font-size: 1rem;
         }
         .btn-confirm.primary { background: var(--primary); color: white; }
-        .btn-confirm.primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
-        .btn-confirm.success { background: #10b981; color: white; }
-        .btn-confirm.success:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
-
+        .btn-confirm.primary:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3); }
+        
         .mini-map {
-            height: 200px; width: 100%; border-radius: 16px;
-            margin-top: 1.5rem; border: 1px solid #eef2f6; z-index: 1;
+            height: 250px; width: 100%; border-radius: 20px;
+            margin-top: 1.5rem; border: 4px solid white; box-shadow: var(--shadow-md); z-index: 1;
         }
-
         .empty-state { text-align: center; padding: 5rem 2rem; color: #94a3b8; }
         .empty-state i { font-size: 5rem; margin-bottom: 1.5rem; opacity: 0.2; }
     </style>
@@ -140,7 +160,7 @@ function getStatusLabel($status, $agentId) {
             <div class="tracking-wrapper">
                 <div class="page-header">
                     <h1>Delivery Tracking</h1>
-                    <p style="color: #64748b; font-weight: 500;">Secure 2-party verified shipments</p>
+                    <p style="color: #64748b; font-weight: 500;">Secure 3-party verified shipments</p>
                 </div>
 
                 <div class="tabs-header">
@@ -198,6 +218,18 @@ function getStatusLabel($status, $agentId) {
         }
         ?>
         <div class="delivery-card">
+            <?php if ($isBorrower): ?>
+                <div class="credit-info-tag">
+                    <i class='bx bxs-coin-stack' style="color: #f59e0b;"></i>
+                    10 Credits Delivery Fee Paid
+                </div>
+            <?php elseif ($d['transaction_type'] === 'purchase'): ?>
+                <div class="credit-info-tag">
+                    <i class='bx bxs-coin-stack' style="color: #10b981;"></i>
+                    Reward: <?php echo $d['credit_cost'] ?? 10; ?> Credits upon delivery
+                </div>
+            <?php endif; ?>
+
             <span class="status-badge <?php echo $d['status']; ?>">
                 <?php echo $badgeLabel; ?>
             </span>
@@ -208,7 +240,7 @@ function getStatusLabel($status, $agentId) {
                 </div>
                 
                 <div class="delivery-body">
-                    <span class="order-meta">TRK-<?php echo $d['id']; ?> • <?php echo date('M d, Y', strtotime($d['created_at'])); ?></span>
+                    <span class="order-meta">#ORD-<?php echo $d['id']; ?> • <?php echo date('M d, Y', strtotime($d['created_at'])); ?></span>
                     <h2 class="book-title"><?php echo htmlspecialchars($d['title']); ?></h2>
                     
                     <div class="location-info">
@@ -251,10 +283,14 @@ function getStatusLabel($status, $agentId) {
 
             <div class="confirmation-box">
                 <div class="confirm-title">
-                    <i class='bx bx-shield-quarter'></i> 2-PARTY VERIFICATION STATUS
+                    <i class='bx bx-shield-quarter'></i> 3-PARTY VERIFICATION STATUS
                 </div>
                 
                 <div class="confirm-badges">
+                    <div class="c-badge <?php echo !empty($d['lender_confirm_at']) ? 'verified' : ''; ?>">
+                        <i class='bx <?php echo !empty($d['lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                        <span>Sender Confirmation</span>
+                    </div>
                     <div class="c-badge <?php echo !empty($d['agent_confirm_delivery_at']) ? 'verified' : ''; ?>">
                         <i class='bx <?php echo !empty($d['agent_confirm_delivery_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
                         <span>Agent Confirmation</span>
@@ -277,8 +313,8 @@ function getStatusLabel($status, $agentId) {
                         </div>
 
                     <?php elseif ($isBorrower && $d['status'] === 'active' && empty($d['borrower_confirm_at'])): ?>
-                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm success">
-                            <i class='bx bx-package'></i> I Received My Book
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
+                            <i class='bx bx-check-shield'></i> I Received My Book
                         </button>
                     
                     <?php elseif (!$isBorrower && $d['status'] === 'active' && empty($d['lender_confirm_at'])): ?>
@@ -302,8 +338,8 @@ function getStatusLabel($status, $agentId) {
                                     <span style="color: #64748b;">Delivery Agent Assigned</span>
                                 </div>
                             </div>
-                            <a href="tel:<?php echo $d['agent_phone']; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; border: 1px solid var(--primary); padding: 5px 12px; border-radius: 6px;">
-                                <i class='bx bx-phone'></i> Call
+                            <a href="tel:<?php echo $d['agent_phone']; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class='bx bx-phone'></i> <?php echo htmlspecialchars($d['agent_phone']); ?>
                             </a>
                         </div>
                     <?php endif; ?>

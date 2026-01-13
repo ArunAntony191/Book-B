@@ -23,6 +23,14 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
     }
 </style>
 <aside class="sidebar">
+    <?php if($user_role == 'delivery_agent'): ?>
+    <div class="sidebar-section-title">Logistics</div>
+    <a href="<?php echo APP_URL; ?>/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bx-grid-alt'></i> Agent Dashboard</a>
+    <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find New Jobs</a>
+    <a href="<?php echo APP_URL; ?>/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
+    <a href="<?php echo APP_URL; ?>/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
+    <?php endif; ?>
+
     <div class="sidebar-section-title">Main Menu</div>
     
     <!-- Role-Based Dashboard Link -->
@@ -32,9 +40,7 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
         <a href="<?php echo APP_URL; ?>/dashboard_library.php" class="nav-item <?php echo $current_page == 'dashboard_library.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Library Panel</a>
     <?php elseif($user_role == 'bookstore'): ?>
         <a href="<?php echo APP_URL; ?>/dashboard_bookstore.php" class="nav-item <?php echo $current_page == 'dashboard_bookstore.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Store Manager</a>
-    <?php elseif($user_role == 'delivery_agent'): ?>
-        <a href="<?php echo APP_URL; ?>/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bxs-truck'></i> Agent Hub</a>
-    <?php else: ?>
+    <?php elseif($user_role !== 'delivery_agent'): ?>
         <a href="<?php echo APP_URL; ?>/dashboard_user.php" class="nav-item <?php echo $current_page == 'dashboard_user.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> My Dashboard</a>
     <?php endif; ?>
 
@@ -54,7 +60,7 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
         <a href="<?php echo APP_URL; ?>/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
     <?php endif; ?>
 
-    <?php if($user_role == 'delivery_agent' || $user_role == 'admin'): ?>
+    <?php if($user_role == 'admin'): ?>
         <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find Jobs</a>
     <?php endif; ?>
     <a href="<?php echo APP_URL; ?>/chat/index.php" class="nav-item <?php echo strpos($current_page, 'chat') !== false ? 'active' : ''; ?>">

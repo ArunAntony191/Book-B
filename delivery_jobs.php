@@ -86,19 +86,188 @@ usort($available_jobs, function($a, $b) {
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .jobs-container { display: grid; grid-template-columns: 1fr 400px; gap: 2rem; height: calc(100vh - 180px); }
-        .jobs-list-side { overflow-y: auto; padding-right: 0.5rem; }
-        #radar-map { height: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --success-logistics: #10b981;
+        }
+
+        .jobs-container { 
+            display: grid; 
+            grid-template-columns: 1fr 450px; 
+            gap: 2rem; 
+            height: calc(100vh - 180px); 
+        }
+        
+        @media (max-width: 1024px) {
+            .jobs-container { grid-template-columns: 1fr; height: auto; }
+            #radar-map { height: 400px; margin-top: 1rem; }
+        }
+
+        .jobs-list-side { 
+            overflow-y: auto; 
+            padding-right: 0.5rem;
+            scrollbar-width: thin;
+        }
+        
+        #radar-map { 
+            height: 100%; 
+            border-radius: 24px; 
+            border: 4px solid white; 
+            box-shadow: var(--shadow-lg); 
+            z-index: 1;
+        }
         
         .job-card {
-            background: white; border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg); padding: 1.5rem;
-            margin-bottom: 1rem; transition: all 0.3s;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
-        .job-card.highlighted { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); transform: translateX(5px); }
-        .job-header { display: flex; justify-content: space-between; align-items: start; }
-        .route-path { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem; }
-        .badge-dist { background: #e0f2fe; color: #0284c7; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+
+        .job-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+            border-color: var(--primary-light);
+        }
+
+        .job-card.highlighted {
+            border-color: var(--primary);
+            background: linear-gradient(to right, #ffffff, #f0f7ff);
+        }
+
+        .earnings-tag {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+        }
+
+        .job-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .book-snapshot {
+            display: flex;
+            gap: 1.25rem;
+            background: white;
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .route-info {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+            padding-left: 0.5rem;
+            position: relative;
+        }
+
+        .route-info::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 15px;
+            bottom: 15px;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 4px, transparent 4px, transparent 8px);
+        }
+
+        .route-point {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            position: relative;
+            z-index: 2;
+        }
+
+        .point-icon {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .point-pickup { border: 2px solid #3b82f6; color: #3b82f6; }
+        .point-drop { border: 2px solid var(--success-logistics); color: var(--success-logistics); }
+
+        .btn-claim {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            padding: 1rem;
+            border-radius: 14px;
+            font-weight: 700;
+            margin-top: 1.5rem;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            transition: all 0.3s;
+        }
+
+        .btn-claim:hover {
+            background: #4338ca;
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 2rem;
+            background: rgba(241, 245, 249, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 0.6rem;
+            border-radius: 18px;
+            border: 1px solid var(--glass-border);
+            width: fit-content;
+        }
+
+        .filter-btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #64748b;
+            background: transparent;
+        }
+
+        .filter-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 <body>
@@ -124,18 +293,18 @@ usort($available_jobs, function($a, $b) {
                 </div>
             <?php else: ?>
                 <!-- Efficiency Filters -->
-                <div style="display: flex; gap: 0.8rem; margin-bottom: 2rem; background: #f8fafc; padding: 0.5rem; border-radius: 12px; border: 1px solid #e2e8f0; width: fit-content;">
-                    <a href="?filter=near_me" class="btn btn-sm <?php echo $area_filter === 'near_me' ? 'btn-primary' : 'btn-outline'; ?>" style="border-radius: 8px;">
+                <div class="filter-bar">
+                    <a href="?filter=near_me" class="filter-btn <?php echo $area_filter === 'near_me' ? 'active' : ''; ?>">
                         <i class='bx bx-navigation'></i> Near Me
                     </a>
-                    <a href="?filter=city" class="btn btn-sm <?php echo $area_filter === 'city' ? 'btn-primary' : 'btn-outline'; ?>" style="border-radius: 8px;">
-                        <i class='bx bx-building'></i> My City (<?php echo htmlspecialchars($aCity); ?>)
+                    <a href="?filter=city" class="filter-btn <?php echo $area_filter === 'city' ? 'active' : ''; ?>">
+                        <i class='bx bx-building'></i> <?php echo htmlspecialchars($aCity ?: 'City'); ?>
                     </a>
-                    <a href="?filter=district" class="btn btn-sm <?php echo $area_filter === 'district' ? 'btn-primary' : 'btn-outline'; ?>" style="border-radius: 8px;">
-                        <i class='bx bx-map-alt'></i> My District (<?php echo htmlspecialchars($aDistrict); ?>)
+                    <a href="?filter=district" class="filter-btn <?php echo $area_filter === 'district' ? 'active' : ''; ?>">
+                        <i class='bx bx-map-alt'></i> <?php echo htmlspecialchars($aDistrict ?: 'District'); ?>
                     </a>
-                    <a href="?filter=all" class="btn btn-sm <?php echo $area_filter === 'all' ? 'btn-primary' : 'btn-outline'; ?>" style="border-radius: 8px;">
-                        <i class='bx bx-globe'></i> All Jobs
+                    <a href="?filter=all" class="filter-btn <?php echo $area_filter === 'all' ? 'active' : ''; ?>">
+                        <i class='bx bx-globe'></i> All
                     </a>
                 </div>
             <?php endif; ?>
@@ -149,44 +318,53 @@ usort($available_jobs, function($a, $b) {
                 <div style="display: grid; gap: 1.5rem; grid-template-columns: 1fr;">
                     <?php foreach ($available_jobs as $job): ?>
                         <div class="job-card" id="job-<?php echo $job['id']; ?>">
-                            <div class="job-header">
-                                <span style="font-weight: 700; font-size: 1.1rem;">Pickup Request</span>
-                                <span style="font-size: 0.8rem; background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 20px;">
-                                    <?php echo date('M d, H:i', strtotime($job['created_at'])); ?>
+                            <div class="job-meta">
+                                <div class="earnings-tag">
+                                    <i class='bx bxs-coin-stack'></i>
+                                    10 CREDITS
+                                </div>
+                                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">
+                                    ORDER #<?php echo $job['id']; ?> • <?php echo date('H:i', strtotime($job['created_at'])); ?>
                                 </span>
                             </div>
                             
-                            <div style="display: flex; gap: 1rem; align-items: start;">
-                                <img src="<?php echo htmlspecialchars($job['cover_image'] ?: 'assets/img/book-placeholder.jpg'); ?>" style="width: 50px; height: 75px; object-fit: cover; border-radius: 4px;">
-                                <div>
-                                    <div style="font-weight: 600;"><?php echo htmlspecialchars($job['title']); ?></div>
-                                    <div style="font-size: 0.9rem; color: var(--text-muted);">From: <?php echo htmlspecialchars($job['lender_fname']); ?></div>
+                            <div class="book-snapshot">
+                                <img src="<?php echo htmlspecialchars($job['cover_image'] ?: 'assets/img/book-placeholder.jpg'); ?>" style="width: 50px; height: 75px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 850; font-size: 1.1rem; color: #1e293b; line-height: 1.2; margin-bottom: 4px;"><?php echo htmlspecialchars($job['title']); ?></div>
+                                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Lender: <?php echo htmlspecialchars($job['lender_fname']); ?></div>
                                 </div>
                             </div>
 
-                            <div style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); margin-top: 10px;">
-                                <div style="margin-bottom: 0.5rem; display: flex; align-items: flex-start; gap: 0.5rem;">
-                                    <i class='bx bx-store-alt' style="margin-top: 3px;"></i> 
+                            <div class="route-info">
+                                <div class="route-point">
+                                    <div class="point-icon point-pickup">
+                                        <div style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></div>
+                                    </div>
                                     <div>
-                                        <strong><?php echo htmlspecialchars($job['pickup_location']); ?></strong>
+                                        <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Pickup From</div>
+                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['pickup_location']); ?></div>
                                         <?php if($job['pickup_landmark']): ?>
-                                            <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
+                                            <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 700;">Near <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-                                    <i class='bx bx-home' style="margin-top: 3px;"></i> 
+                                <div class="route-point">
+                                    <div class="point-icon point-drop">
+                                        <div style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></div>
+                                    </div>
                                     <div>
-                                        <span>To: <?php echo htmlspecialchars($job['order_address']); ?></span>
+                                        <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Deliver To</div>
+                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['order_address']); ?></div>
                                         <?php if($job['order_landmark']): ?>
-                                            <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['order_landmark']); ?></div>
+                                            <div style="font-size: 0.75rem; color: var(--success-logistics); font-weight: 700;">Near <?php echo htmlspecialchars($job['order_landmark']); ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
 
-                            <button onclick="claimJob(<?php echo $job['id']; ?>)" class="btn btn-primary w-full" style="justify-content: center; margin-top: 15px;">
-                                Accept Job
+                            <button onclick="claimJob(<?php echo $job['id']; ?>)" class="btn-claim">
+                                <i class='bx bx-check-double'></i> Accept Assignment
                             </button>
                         </div>
                     <?php endforeach; ?>

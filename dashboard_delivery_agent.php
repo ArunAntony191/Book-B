@@ -218,6 +218,8 @@ $total_delivered = $stmt->fetchColumn();
         }
         .btn-nav { background: #f1f5f9; color: var(--text-main); }
         .btn-primary-action { background: var(--primary); color: white; }
+        .btn-danger-outline { background: white; color: #ef4444; border: 1.5px solid #fee2e2; }
+        .btn-danger-outline:hover { background: #fef2f2; border-color: #ef4444; }
     </style>
 </head>
 <body>
@@ -257,7 +259,7 @@ $total_delivered = $stmt->fetchColumn();
                     <div style="text-align: center; opacity: 0.9; font-size: 0.85rem;">
                         Earnings & Balance
                     </div>
-                    <a href="#" style="display: block; text-align: center; margin-top: 1rem; color: white; text-decoration: underline; font-size: 0.85rem;">
+                    <a href="credit_history.php" style="display: block; text-align: center; margin-top: 1rem; color: white; text-decoration: underline; font-size: 0.85rem;">
                         View History →
                     </a>
                 </div>
@@ -315,7 +317,7 @@ $total_delivered = $stmt->fetchColumn();
                 </div>
 
                 <!-- Total Delivered -->
-                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;">
+                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;" onclick="location.href='delivery_history.php'">
                     <div class="widget-title">
                         <span><i class='bx bx-check-circle'></i> Completed</span>
                     </div>
@@ -376,8 +378,8 @@ $total_delivered = $stmt->fetchColumn();
                                     <?php if ($job['pickup_landmark']): ?>
                                         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
                                     <?php endif; ?>
-                                    <a href="tel:<?php echo $job['lender_phone']; ?>" style="font-size: 0.8rem; color: var(--primary); display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem;">
-                                        <i class='bx bx-phone'></i> Call Sender
+                                    <a href="tel:<?php echo $job['lender_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
+                                        <i class='bx bx-phone'></i> <?php echo htmlspecialchars($job['lender_phone']); ?>
                                     </a>
                                 </div>
                                 <!-- Dropoff -->
@@ -389,8 +391,8 @@ $total_delivered = $stmt->fetchColumn();
                                     <?php if ($job['order_landmark']): ?>
                                         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['order_landmark']); ?></div>
                                     <?php endif; ?>
-                                    <a href="tel:<?php echo $job['borrower_phone']; ?>" style="font-size: 0.8rem; color: var(--primary); display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem;">
-                                        <i class='bx bx-phone'></i> Call Receiver
+                                    <a href="tel:<?php echo $job['borrower_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
+                                        <i class='bx bx-phone'></i> <?php echo htmlspecialchars($job['borrower_phone']); ?>
                                     </a>
                                 </div>
                             </div>
@@ -426,6 +428,13 @@ $total_delivered = $stmt->fetchColumn();
                                 </div>
                             <?php endif; ?>
                         </div>
+                        <?php if ($job['status'] !== 'delivered'): ?>
+                        <div style="padding: 0.5rem 1rem; border-top: 1px solid #f1f5f9; text-align: right;">
+                            <button onclick="cancelJob(<?php echo $job['id']; ?>)" class="btn-action btn-danger-outline" style="width: auto; padding: 0.4rem 1rem; font-size: 0.8rem;">
+                                <i class='bx bx-x'></i> Cancel Job (5 CR Penalty)
+                            </button>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
                 </div>
@@ -496,6 +505,23 @@ $total_delivered = $stmt->fetchColumn();
             formData.append('action', 'update_delivery_status');
             formData.append('transaction_id', txId);
             formData.append('status', status);
+
+            fetch('request_action.php', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => console.error('Fetch error:', err));
+        }
+        function cancelJob(txId) {
+            if (!confirm('Are you sure you want to cancel this job? A 5-credit penalty will be applied to your account.')) return;
+            const formData = new FormData();
+            formData.append('action', 'cancel_job');
+            formData.append('transaction_id', txId);
 
             fetch('request_action.php', { method: 'POST', body: formData })
             .then(res => res.json())

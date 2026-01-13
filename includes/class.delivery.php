@@ -11,6 +11,44 @@ class DeliveryManager {
     /**
      * Assign a job to an agent
      */
+    /**
+     * Agent cancels a claimed job - results in a penalty
+     */
+    public function cancelJob($agentId, $transactionId) {
+        $tx = $this->getTransaction($transactionId);
+
+        if ($tx['delivery_agent_id'] != $agentId) {
+            throw new Exception("Unauthorized: You are not assigned to this delivery.");
+        }
+
+        if ($tx['status'] === 'delivered') {
+            throw new Exception("Cannot cancel a completed delivery.");
+        }
+
+        // Reset the transaction so another agent can claim it
+        $sql = "UPDATE transactions SET 
+                delivery_agent_id = NULL, 
+                picked_up_at = NULL, 
+                agent_confirm_delivery_at = NULL,
+                status = 'approved' 
+                WHERE id = ?";
+        $this->pdo->prepare($sql)->execute([$transactionId]);
+
+        // Apply Penalty: 5 credits for abandoning
+        deductCredits($agentId, 5, 'penalty', "Abandoned delivery job #ORD-{$transactionId}", $transactionId);
+        updateTrustScore($agentId, -5, 'job_abandoned');
+
+        // Notify Borrower & Lender
+        $msg = "Delivery agent has cancelled the pickup for '{$tx['title']}'. A new agent will be assigned soon.";
+        $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
+            ->execute([$tx['borrower_id'], 'delivery_cancelled', $msg, $transactionId]);
+        
+        $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
+            ->execute([$tx['lender_id'], 'delivery_cancelled', $msg, $transactionId]);
+
+        return true;
+    }
+
     public function claimJob($agentId, $transactionId) {
         // Validate agent
         $stmt = $this->pdo->prepare("SELECT role, is_accepting_deliveries FROM users WHERE id = ?");
@@ -79,6 +117,15 @@ class DeliveryManager {
                 $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
                     ->execute([$transactionId]);
                 
+                // Reward Agent
+                addCredits($tx['delivery_agent_id'], 10, 'earn', "Mission Completed: Deliver '{$tx['title']}'", $transactionId);
+
+                // Reward Lender if it's a purchase
+                if ($tx['transaction_type'] === 'purchase') {
+                    $lenderCredits = $tx['credit_cost'] ?? 10;
+                    addCredits($tx['lender_id'], $lenderCredits, 'earn', "Book Sold & Delivered: {$tx['title']}", $transactionId);
+                }
+
                 // Send final delivery notifications
                 $this->sendUpdateNotification($tx, 'delivered');
             } else {
@@ -212,6 +259,15 @@ class DeliveryManager {
              $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
                  ->execute([$transactionId]);
              
+             // Reward Agent
+             addCredits($tx['delivery_agent_id'], 10, 'earn', "Mission Completed: Deliver '{$tx['title']}'", $transactionId);
+
+             // Reward Lender if it's a purchase
+             if ($tx['transaction_type'] === 'purchase') {
+                 $lenderCredits = $tx['credit_cost'] ?? 10;
+                 addCredits($tx['lender_id'], $lenderCredits, 'earn', "Book Sold & Delivered: {$tx['title']}", $transactionId);
+             }
+
              // Also notify Lender that it's done
              $msg = "Delivery verified! Borrower confirmed receipt of '{$tx['title']}'.";
              $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")

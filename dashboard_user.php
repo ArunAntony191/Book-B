@@ -128,21 +128,31 @@ $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
             </a>
         </div>
 
+        <?php 
+        $listings = searchListingsAdvanced([], 4); 
+        ?>
         <div class="book-grid">
-            <?php foreach ($books as $book): ?>
-            <div class="book-card" style="transition: all 0.3s; cursor: pointer;" onclick="window.location.href='book_details.php?id=<?php echo $book['id']; ?>'">
+            <?php if (empty($listings)): ?>
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                    <p style="color: var(--text-muted);">No books available in the community right now.</p>
+                </div>
+            <?php endif; ?>
+            <?php foreach ($listings as $item): ?>
+            <div class="book-card" style="transition: all 0.3s; cursor: pointer;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                 <div class="book-cover">
                     <span style="position: absolute; top: 10px; right: 10px; background:white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Available</span>
-                    <img src="<?php echo $book['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" alt="<?php echo $book['title']; ?>">
+                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                         alt="<?php echo htmlspecialchars($item['title']); ?>"
+                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
                 </div>
                 <div class="book-info">
-                    <div class="book-title"><?php echo $book['title']; ?></div>
-                    <div class="book-author"><?php echo $book['author']; ?></div>
+                    <div class="book-title"><?php echo htmlspecialchars($item['title']); ?></div>
+                    <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
                         <span style="color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bx-wallet'></i> 10 credits
+                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> credits
                         </span>
-                        <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $book['id']; ?>'">
+                        <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                             Borrow
                         </button>
                     </div>
