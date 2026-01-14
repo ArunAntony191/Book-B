@@ -4,6 +4,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $user_role = $_SESSION['role'] ?? 'user';
 $total_unread = isset($_SESSION['user_id']) ? getTotalUnreadCount($_SESSION['user_id']) : 0;
 $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESSION['user_id']) : 0;
+$deals_notifs = isset($_SESSION['user_id']) ? getUnreadRequestsCount($_SESSION['user_id']) : 0;
+$delivery_notifs = isset($_SESSION['user_id']) ? getUnreadDeliveryUpdatesCount($_SESSION['user_id']) : 0;
 ?>
 <style>
     .nav-item { position: relative; }
@@ -29,6 +31,7 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
     <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find New Jobs</a>
     <a href="<?php echo APP_URL; ?>/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
     <a href="<?php echo APP_URL; ?>/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
+    <a href="<?php echo APP_URL; ?>/agent_reports.php" class="nav-item <?php echo $current_page == 'agent_reports.php' ? 'active' : ''; ?>"><i class='bx bx-file'></i> Performance Reports</a>
     <?php endif; ?>
 
     <div class="sidebar-section-title">Main Menu</div>
@@ -70,8 +73,18 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
         <?php endif; ?>
     </a>
     <?php if($user_role != 'delivery_agent'): ?>
-        <a href="<?php echo APP_URL; ?>/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>"><i class='bx bx-git-compare'></i> My Deals</a>
-        <a href="<?php echo APP_URL; ?>/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>"><i class='bx bx-package'></i> Delivery Details</a>
+        <a href="<?php echo APP_URL; ?>/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>">
+            <i class='bx bx-git-compare'></i> My Deals
+            <?php if ($deals_notifs > 0): ?>
+                <span class="nav-badge"><?php echo $deals_notifs; ?></span>
+            <?php endif; ?>
+        </a>
+        <a href="<?php echo APP_URL; ?>/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>">
+            <i class='bx bx-package'></i> Delivery Details
+            <?php if ($delivery_notifs > 0): ?>
+                <span class="nav-badge"><?php echo $delivery_notifs; ?></span>
+            <?php endif; ?>
+        </a>
     <?php endif; ?>
 
     
@@ -83,7 +96,7 @@ $total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESS
         <?php endif; ?>
     </a>
     <a href="<?php echo APP_URL; ?>/profile.php" class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>"><i class='bx bx-user-circle'></i> Edit Profile</a>
-    <a href="#" class="nav-item"><i class='bx bx-cog'></i> Settings</a>
+    <a href="<?php echo APP_URL; ?>/settings.php" class="nav-item <?php echo $current_page == 'settings.php' ? 'active' : ''; ?>"><i class='bx bx-cog'></i> Settings</a>
     <a href="<?php echo APP_URL; ?>/logout.php" class="nav-item" style="color: #ef4444;"><i class='bx bx-log-out'></i> Logout</a>
 
 </aside>

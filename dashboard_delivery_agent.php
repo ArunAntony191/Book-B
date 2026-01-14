@@ -31,21 +31,25 @@ $stmt = $pdo->prepare("
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname, u_borrower.phone as borrower_phone,
            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname, u_lender.phone as lender_phone,
            l.location as pickup_location, l.landmark as pickup_landmark, l.latitude as pickup_lat, l.longitude as pickup_lng,
-           l.district as pickup_district, l.city as pickup_city, l.pincode as pickup_pincode, t.order_landmark
+           l.district as pickup_district, l.city as pickup_city, l.pincode as pickup_pincode, t.order_landmark,
+           CASE 
+             WHEN t.delivery_agent_id = ? THEN 'forward'
+             WHEN t.return_agent_id = ? THEN 'return'
+             ELSE 'forward'
+           END as job_type
     FROM transactions t
     JOIN listings l ON t.listing_id = l.id
     JOIN books b ON l.book_id = b.id
     JOIN users u_borrower ON t.borrower_id = u_borrower.id
     JOIN users u_lender ON t.lender_id = u_lender.id
-    WHERE t.delivery_method = 'delivery' 
-    AND (
-        (t.status = 'approved' AND t.delivery_agent_id IS NULL) -- Available for pickup
-        OR 
-        (t.status IN ('active', 'approved') AND t.delivery_agent_id = ?) -- Assigned to me
-    )
-    ORDER BY CASE WHEN t.status = 'active' THEN 1 ELSE 2 END, t.created_at DESC
+    WHERE (t.delivery_method = 'delivery' AND t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NULL AND t.status IN ('approved', 'active'))
+       OR (t.return_delivery_method = 'delivery' AND t.return_agent_id = ? AND t.return_agent_confirm_at IS NULL AND t.status = 'returning')
+    ORDER BY CASE 
+        WHEN t.status IN ('active', 'returning') THEN 1 
+        ELSE 2 
+    END, t.created_at DESC
 ");
-$stmt->execute([$userId]);
+$stmt->execute([$userId, $userId, $userId, $userId]);
 $all_deliveries = $stmt->fetchAll();
 
 // Filter based on route (simplified for now, can be strict)
@@ -54,7 +58,7 @@ $available_deliveries = [];
 $location_set = ($aLatBase && $aLngBase);
 
 foreach ($all_deliveries as $d) {
-    if ($d['delivery_agent_id'] == $userId) {
+    if ($d['delivery_agent_id'] == $userId || $d['return_agent_id'] == $userId) {
         $my_deliveries[] = $d;
     } else {
         // Filter available ones by home base proximity
@@ -364,35 +368,47 @@ $total_delivered = $stmt->fetchColumn();
                 <?php foreach ($my_deliveries as $job): ?>
                     <div class="job-card">
                         <div class="job-header">
-                            <span class="job-id">#ORD-<?php echo $job['id']; ?></span>
-                            <span class="job-status status-<?php echo $job['status']; ?>"><?php echo $job['status'] == 'approved' ? 'Pickup Pending' : 'In Transit'; ?></span>
+                            <span class="job-id">#ORD-<?php echo $job['id']; ?> <?php echo $job['job_type'] === 'return' ? '(Return Mission)' : ''; ?></span>
+                            <?php 
+                                $statusLabel = 'Pending';
+                                if ($job['job_type'] === 'forward') {
+                                    $statusLabel = ($job['status'] === 'approved') ? 'Pickup Pending' : 'In Transit';
+                                } else {
+                                    $statusLabel = ($job['status'] === 'delivered') ? 'Pickup Pending' : 'Return Transit';
+                                }
+                            ?>
+                            <span class="job-status status-<?php echo $job['status']; ?>"><?php echo $statusLabel; ?></span>
                         </div>
                         <div class="job-body">
                             <div class="route-visual">
                                 <!-- Pickup -->
                                 <div class="route-point">
-                                    <div class="point-icon <?php echo $job['status'] == 'approved' ? 'active' : ''; ?>"><i class='bx bx-store-alt'></i></div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">PICKUP FROM</div>
-                                    <div style="font-weight: 600;"><?php echo htmlspecialchars($job['lender_fname']); ?></div>
-                                    <div style="font-size: 0.9rem; margin-top: 0.2rem;"><?php echo htmlspecialchars($job['pickup_location']); ?></div>
-                                    <?php if ($job['pickup_landmark']): ?>
+                                    <div class="point-icon active"><i class='bx bx-store-alt'></i></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">PICKUP FROM (<?php echo $job['job_type'] === 'forward' ? 'Owner' : 'Borrower'; ?>)</div>
+                                    <div style="font-weight: 600;"><?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['lender_fname']) : htmlspecialchars($job['borrower_fname']); ?></div>
+                                    <div style="font-size: 0.9rem; margin-top: 0.2rem;"><?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['pickup_location']) : htmlspecialchars($job['order_address']); ?></div>
+                                    <?php if ($job['job_type'] === 'forward' && $job['pickup_landmark']): ?>
                                         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
+                                    <?php elseif ($job['job_type'] === 'return' && $job['order_landmark']): ?>
+                                        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['order_landmark']); ?></div>
                                     <?php endif; ?>
-                                    <a href="tel:<?php echo $job['lender_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
-                                        <i class='bx bx-phone'></i> <?php echo htmlspecialchars($job['lender_phone']); ?>
+                                    <a href="tel:<?php echo $job['job_type'] === 'forward' ? $job['lender_phone'] : $job['borrower_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
+                                        <i class='bx bx-phone'></i> <?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['lender_phone']) : htmlspecialchars($job['borrower_phone']); ?>
                                     </a>
                                 </div>
                                 <!-- Dropoff -->
                                 <div class="route-point" style="margin-top: 2rem;">
-                                    <div class="point-icon <?php echo $job['status'] == 'active' ? 'active' : ''; ?>"><i class='bx bx-home'></i></div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">DELIVER TO</div>
-                                    <div style="font-weight: 600;"><?php echo htmlspecialchars($job['borrower_fname']); ?></div>
-                                    <div style="font-size: 0.9rem; margin-top: 0.2rem;"><?php echo htmlspecialchars($job['order_address'] ?: 'No address provided'); ?></div>
-                                    <?php if ($job['order_landmark']): ?>
+                                    <div class="point-icon active"><i class='bx bx-home'></i></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">DELIVER TO (<?php echo $job['job_type'] === 'forward' ? 'Borrower' : 'Owner'; ?>)</div>
+                                    <div style="font-weight: 600;"><?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['borrower_fname']) : htmlspecialchars($job['lender_fname']); ?></div>
+                                    <div style="font-size: 0.9rem; margin-top: 0.2rem;"><?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['order_address']) : htmlspecialchars($job['pickup_location']); ?></div>
+                                    <?php if ($job['job_type'] === 'forward' && $job['order_landmark']): ?>
                                         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['order_landmark']); ?></div>
+                                    <?php elseif ($job['job_type'] === 'return' && $job['pickup_landmark']): ?>
+                                        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Reference Point: <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
                                     <?php endif; ?>
-                                    <a href="tel:<?php echo $job['borrower_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
-                                        <i class='bx bx-phone'></i> <?php echo htmlspecialchars($job['borrower_phone']); ?>
+                                    <a href="tel:<?php echo $job['job_type'] === 'forward' ? $job['borrower_phone'] : $job['lender_phone']; ?>" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; text-decoration: none;">
+                                        <i class='bx bx-phone'></i> <?php echo $job['job_type'] === 'forward' ? htmlspecialchars($job['borrower_phone']) : htmlspecialchars($job['lender_phone']); ?>
                                     </a>
                                 </div>
                             </div>
@@ -405,27 +421,56 @@ $total_delivered = $stmt->fetchColumn();
                             </div>
                         </div>
                         <div class="action-bar">
-                            <a href="https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=<?php echo urlencode($job['status'] == 'approved' ? ($job['pickup_lat'].','.$job['pickup_lng']) : $job['order_address']); ?>" target="_blank" class="btn-action btn-nav">
+                            <?php 
+                                $navDest = ($job['job_type'] === 'forward') 
+                                    ? (($job['status'] === 'approved') ? ($job['pickup_lat'].','.$job['pickup_lng']) : $job['order_address'])
+                                    : (($job['status'] === 'delivered') ? $job['order_address'] : ($job['pickup_lat'].','.$job['pickup_lng']));
+                            ?>
+                            <a href="https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=<?php echo urlencode($navDest); ?>" target="_blank" class="btn-action btn-nav">
                                 <i class='bx bxs-navigation'></i> Navigate
                             </a>
-                            <?php if ($job['status'] == 'approved'): ?>
-                                <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
-                                    <i class='bx bx-box'></i> Confirm Pickup
-                                </button>
-                            <?php elseif ($job['status'] == 'active'): ?>
-                                <?php if (!$job['agent_confirm_delivery_at']): ?>
-                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                        <i class='bx bx-check-circle'></i> Mark Delivered
+                            
+                            <?php if ($job['job_type'] === 'forward'): ?>
+                                <?php if ($job['status'] == 'approved'): ?>
+                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
+                                        <i class='bx bx-box'></i> Confirm Pickup
                                     </button>
+                                <?php elseif ($job['status'] == 'active'): ?>
+                                    <?php if (!$job['agent_confirm_delivery_at']): ?>
+                                        <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
+                                            <i class='bx bx-check-circle'></i> Mark Delivered
+                                        </button>
+                                    <?php else: ?>
+                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
+                                            <i class='bx bx-time'></i> Waiting for Borrower
+                                        </button>
+                                    <?php endif; ?>
                                 <?php else: ?>
-                                    <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
-                                        <i class='bx bx-time'></i> Waiting for Receiver
-                                    </button>
+                                    <div style="text-align: center; color: var(--success-logistics); font-weight: 700; width: 100%;">
+                                        <i class='bx bxs-check-shield'></i> Delivery Completed
+                                    </div>
                                 <?php endif; ?>
-                            <?php else: ?>
-                                <div style="text-align: center; color: var(--success-logistics); font-weight: 700; width: 100%; grid-column: span 2;">
-                                    <i class='bx bxs-check-shield'></i> Delivery Verified
-                                </div>
+                            <?php elseif ($job['job_type'] === 'return' && $job['return_agent_id'] == $userId): ?>
+                                <!-- Return Leg Actions - Only show if current agent is the return agent -->
+                                <?php if ($job['status'] == 'returning' && !$job['return_picked_up_at']): ?>
+                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'returning_active')" class="btn-action btn-primary-action">
+                                        <i class='bx bx-box'></i> Confirm Return Pickup
+                                    </button>
+                                <?php elseif ($job['status'] == 'returning' && $job['return_picked_up_at']): ?>
+                                    <?php if (!$job['return_agent_confirm_at']): ?>
+                                        <button onclick="updateStatus(<?php echo $job['id']; ?>, 'return_delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
+                                            <i class='bx bx-check-circle'></i> Mark Return Delivered
+                                        </button>
+                                    <?php else: ?>
+                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
+                                            <i class='bx bx-time'></i> Waiting for Lender
+                                        </button>
+                                    <?php endif; ?>
+                                <?php elseif ($job['status'] == 'returned'): ?>
+                                    <div style="text-align: center; color: var(--success-logistics); font-weight: 700; width: 100%;">
+                                        <i class='bx bxs-check-shield'></i> Return Completed
+                                    </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
                         <?php if ($job['status'] !== 'delivered'): ?>

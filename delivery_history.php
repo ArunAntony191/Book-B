@@ -13,22 +13,30 @@ if (!$userId || ($user_role !== 'delivery_agent' && $user_role !== 'admin')) {
 
 $pdo = getDBConnection();
 
-// Fetch completed tasks for this agent
+// Fetch all completed legs for this agent
 $stmt = $pdo->prepare("
     SELECT t.*, b.title, b.cover_image,
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
-           l.location as pickup_location, l.city as pickup_city, l.district as pickup_district
+           l.location as listing_loc, l.city as listing_city, l.district as listing_dist,
+           CASE 
+             WHEN t.delivery_agent_id = ? THEN 'Forward Mission'
+             WHEN t.return_agent_id = ? THEN 'Return Mission'
+           END as job_type_label,
+           CASE 
+             WHEN t.delivery_agent_id = ? THEN t.agent_confirm_delivery_at
+             WHEN t.return_agent_id = ? THEN t.return_agent_confirm_at
+           END as completion_time
     FROM transactions t
     JOIN listings l ON t.listing_id = l.id
     JOIN books b ON l.book_id = b.id
     JOIN users u_borrower ON t.borrower_id = u_borrower.id
     JOIN users u_lender ON t.lender_id = u_lender.id
-    WHERE t.delivery_agent_id = ? 
-    AND t.status = 'delivered'
-    ORDER BY t.updated_at DESC
+    WHERE (t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL)
+       OR (t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL)
+    ORDER BY completion_time DESC
 ");
-$stmt->execute([$userId]);
+$stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId]);
 $history = $stmt->fetchAll();
 
 $stats = getUserStatsEnhanced($userId);
@@ -64,6 +72,14 @@ $stats = getUserStatsEnhanced($userId);
             border-radius: 20px; font-weight: 700; font-size: 0.8rem;
             display: inline-flex; align-items: center; gap: 0.3rem;
         }
+        .mission-tag {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 700;
+            text-transform: uppercase; margin-bottom: 0.5rem; display: inline-block;
+        }
+        .tag-forward { background: #eff6ff; color: #2563eb; }
+        .tag-return { background: #fff1f2; color: #e11d48; }
+        .address-box { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; }
+        .addr-point { display: flex; align-items: center; gap: 0.5rem; }
     </style>
 </head>
 <body>
@@ -95,14 +111,25 @@ $stats = getUserStatsEnhanced($userId);
                         <div class="history-card">
                             <img src="<?php echo htmlspecialchars($h['cover_image'] ?: 'assets/images/book-placeholder.jpg'); ?>" class="book-img">
                             <div class="history-details">
-                                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700; text-transform: uppercase; margin-bottom: 0.2rem;">Order #ORD-<?php echo $h['id']; ?></div>
-                                <h3><?php echo htmlspecialchars($h['title']); ?></h3>
-                                <div class="history-meta">
-                                    <span><i class='bx bx-user'></i> <?php echo htmlspecialchars($h['lender_fname'] . ' → ' . $h['borrower_fname']); ?></span>
-                                    <span><i class='bx bx-map-pin'></i> <?php echo htmlspecialchars($h['pickup_city']); ?></span>
+                                <span class="mission-tag <?php echo $h['job_type_label'] === 'Forward Mission' ? 'tag-forward' : 'tag-return'; ?>">
+                                    <?php echo $h['job_type_label']; ?>
+                                </span>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Order #ORD-<?php echo $h['id']; ?></div>
+                                <h3 style="margin-top: 0.2rem;"><?php echo htmlspecialchars($h['title']); ?></h3>
+                                
+                                <div class="address-box">
+                                    <div class="addr-point">
+                                        <i class='bx bx-radio-circle' style="color: #2563eb;"></i>
+                                        <span>From: <?php echo $h['job_type_label'] === 'Forward Mission' ? htmlspecialchars($h['listing_loc']) : htmlspecialchars($h['order_address']); ?></span>
+                                    </div>
+                                    <div class="addr-point">
+                                        <i class='bx bx-map' style="color: #e11d48;"></i>
+                                        <span>To: <?php echo $h['job_type_label'] === 'Forward Mission' ? htmlspecialchars($h['order_address']) : htmlspecialchars($h['listing_loc']); ?></span>
+                                    </div>
                                 </div>
-                                <div style="margin-top: 0.8rem; font-size: 0.85rem; color: var(--text-muted);">
-                                    Completed on <?php echo date('M d, Y • h:i A', strtotime($h['updated_at'])); ?>
+
+                                <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted);">
+                                    <i class='bx bx-calendar-check'></i> Finished: <?php echo date('M d, Y • h:i A', strtotime($h['completion_time'])); ?>
                                 </div>
                             </div>
                             <div class="history-status">

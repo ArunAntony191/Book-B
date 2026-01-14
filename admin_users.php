@@ -129,13 +129,14 @@ try {
                                 <?php endif; ?>
                             </td>
                             <td style="padding: 1.25rem; text-align: right;">
-                                <?php if ($u['role'] !== 'admin'): ?>
+                                    <button onclick="adjustTokens(<?php echo $u['id']; ?>, '<?php echo htmlspecialchars($u['firstname'] . ' ' . $u['lastname']); ?>')" class="btn btn-sm" style="background: var(--primary); color: white; border: none; margin-right: 0.5rem;">
+                                        <i class='bx bx-coin-stack'></i> Tokens
+                                    </button>
                                     <?php if ($u['is_banned']): ?>
                                         <button onclick="toggleBan(<?php echo $u['id']; ?>, 'unban')" class="btn btn-sm" style="background: #10b981; color: white; border: none;">Unban</button>
                                     <?php else: ?>
                                         <button onclick="toggleBan(<?php echo $u['id']; ?>, 'ban')" class="btn btn-sm" style="background: #ef4444; color: white; border: none;">Ban</button>
                                     <?php endif; ?>
-                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -168,6 +169,38 @@ try {
             
             const result = await response.json();
             
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred');
+        }
+    }
+
+    async function adjustTokens(userId, userName) {
+        const amount = prompt(`Adjust tokens for ${userName}:\nEnter positive number to add, negative to take away (e.g. 50 or -20)`);
+        if (amount === null || amount === "" || isNaN(amount) || parseInt(amount) === 0) return;
+
+        const reason = prompt("Enter reason for adjustment:", "Admin adjustment");
+        if (reason === null) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'adjust_tokens');
+            formData.append('user_id', userId);
+            formData.append('amount', amount);
+            formData.append('reason', reason);
+
+            const response = await fetch('request_action.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
             if (result.success) {
                 alert(result.message);
                 location.reload();

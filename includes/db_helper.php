@@ -348,15 +348,17 @@ function getUserDeliveries($userId) {
                    u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
                    l.listing_type, l.location as pickup_location, l.landmark as pickup_landmark,
                    l.latitude as pickup_lat, l.longitude as pickup_lng,
-                   u_agent.firstname as agent_name, u_agent.phone as agent_phone
+                   u_agent.firstname as agent_name, u_agent.phone as agent_phone,
+                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             JOIN books b ON l.book_id = b.id
             JOIN users u_borrower ON t.borrower_id = u_borrower.id
             JOIN users u_lender ON t.lender_id = u_lender.id
             LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
+            LEFT JOIN users u_ret_agent ON t.return_agent_id = u_ret_agent.id
             WHERE (t.borrower_id = ? OR t.lender_id = ?) 
-            AND t.delivery_method = 'delivery'
+            AND (t.delivery_method = 'delivery' OR t.return_delivery_method = 'delivery')
             ORDER BY t.created_at DESC
         ");
         $stmt->execute([$userId, $userId]);
@@ -1193,6 +1195,42 @@ function markAllNotificationsAsRead($userId) {
     }
 }
 
+/**
+ * Get unread request notifications count
+ */
+function getUnreadRequestsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type IN ('borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined')
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get unread delivery notifications count
+ */
+function getUnreadDeliveryUpdatesCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
 // ==================== DELIVERY & SMART ASSIGN FUNCTIONS ====================
 
 /**
@@ -1369,6 +1407,86 @@ function checkDeliveryServiceAvailability($pickupLat, $pickupLng, $district = nu
         return false;
     } catch (PDOException $e) {
         error_log("Check delivery availability error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get aggregated statistics for a delivery agent over a date range
+ */
+function getAgentReportStats($agentId, $startDate, $endDate) {
+    try {
+        $pdo = getDBConnection();
+        $startStr = $startDate . " 00:00:00";
+        $endStr = $endDate . " 23:59:59";
+        
+        $stats = [];
+        
+        // Total Completed Missions (Both Legs)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE (delivery_agent_id = ? AND status IN ('delivered', 'returned') AND delivered_at BETWEEN ? AND ?)
+               OR (return_agent_id = ? AND status = 'returned' AND return_delivered_at BETWEEN ? AND ?)
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
+        $stats["total_completed"] = (int)$stmt->fetchColumn();
+        
+        // Earnings (Credits earned)
+        $stmt = $pdo->prepare("
+            SELECT SUM(amount) FROM credit_transactions 
+            WHERE user_id = ? AND type = 'earn' AND (description LIKE '%Mission Completed%' OR description LIKE '%Deliver%' OR description LIKE '%Return%')
+            AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["total_earnings"] = (int)($stmt->fetchColumn() ?: 0);
+        
+        // Abandoned Jobs
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM credit_transactions 
+            WHERE user_id = ? AND type = 'penalty' AND (description LIKE '%Abandoned%' OR description LIKE '%penalty%')
+            AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["total_abandoned"] = (int)$stmt->fetchColumn();
+        
+        // Average Rating
+        $stmt = $pdo->prepare("
+            SELECT AVG(rating) FROM reviews 
+            WHERE reviewee_id = ? AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["avg_rating"] = (float)($stmt->fetchColumn() ?: 0);
+        
+        // Success Rate
+        $total_attempts = $stats["total_completed"] + $stats["total_abandoned"];
+        $stats["success_rate"] = $total_attempts > 0 ? ($stats["total_completed"] / $total_attempts) * 100 : 100;
+        
+        // Unified Activity Log
+        $stmt = $pdo->prepare("
+            SELECT t.*, b.title, b.cover_image, u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                   CASE 
+                     WHEN t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL THEN 'Forward'
+                     WHEN t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL THEN 'Return'
+                   END as mission_type,
+                   CASE 
+                     WHEN t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL THEN t.agent_confirm_delivery_at
+                     WHEN t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL THEN t.return_agent_confirm_at
+                   END as mission_timestamp
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_lender ON t.lender_id = u_lender.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            WHERE (t.delivery_agent_id = ? AND t.agent_confirm_delivery_at BETWEEN ? AND ?)
+               OR (t.return_agent_id = ? AND t.return_agent_confirm_at BETWEEN ? AND ?)
+            ORDER BY mission_timestamp DESC
+        ");
+        $stmt->execute([$agentId, $agentId, $agentId, $agentId, $agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
+        $stats["activity"] = $stmt->fetchAll();
+        
+        return $stats;
+    } catch (PDOException $e) {
+        error_log("Get agent report stats error: " . $e->getMessage());
         return false;
     }
 }

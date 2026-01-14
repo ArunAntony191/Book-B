@@ -22,48 +22,72 @@ $aDistrict = $agent['district'] ?? null;
 $aCity = $agent['city'] ?? null;
 $aPincode = $agent['pincode'] ?? null;
 
-// Fetch ALL pending deliveries
-// We want items that are 'approved' (ready for pickup) but have NO agent assigned
+// Fetch ALL pending deliveries (Standard & Returns)
 $stmt = $pdo->prepare("
     SELECT t.*, b.title, b.cover_image,
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
-           l.location as pickup_location, l.landmark as pickup_landmark, l.latitude as pickup_lat, l.longitude as pickup_lng,
-           l.district as pickup_district, l.city as pickup_city, l.pincode as pickup_pincode, t.order_landmark
+           l.location as listing_loc, l.latitude as listing_lat, l.longitude as listing_lng,
+           l.district as listing_dist, l.city as listing_city, 
+           CASE 
+             WHEN t.status = 'approved' AND t.delivery_agent_id IS NULL THEN 'forward'
+             ELSE 'return'
+           END as job_type
     FROM transactions t
     JOIN listings l ON t.listing_id = l.id
     JOIN books b ON l.book_id = b.id
     JOIN users u_borrower ON t.borrower_id = u_borrower.id
     JOIN users u_lender ON t.lender_id = u_lender.id
-    WHERE t.delivery_method = 'delivery' 
-    AND t.status = 'approved' 
-    AND t.delivery_agent_id IS NULL
+    WHERE (t.delivery_method = 'delivery' AND t.status = 'approved' AND t.delivery_agent_id IS NULL)
+       OR (t.return_delivery_method = 'delivery' AND t.return_agent_id IS NULL AND t.status = 'returning')
     ORDER BY t.created_at DESC
 ");
 $stmt->execute();
-$all_jobs = $stmt->fetchAll();
+$all_raw_jobs = $stmt->fetchAll();
 
 $available_jobs = [];
 $location_set = ($aLatBase && $aLngBase);
 
-foreach ($all_jobs as $job) {
+foreach ($all_raw_jobs as $job) {
+    // Normalize Pickup/Dropoff based on Job Type
+    if ($job['job_type'] === 'forward') {
+        $job['p_lat'] = $job['listing_lat'];
+        $job['p_lng'] = $job['listing_lng'];
+        $job['p_addr'] = $job['listing_loc'];
+        $job['d_lat'] = $job['order_lat'];
+        $job['d_lng'] = $job['order_lng'];
+        $job['d_addr'] = $job['order_address'];
+        $job['p_city'] = $job['listing_city'];
+        $job['p_dist'] = $job['listing_dist'];
+    } else {
+        // Return Leg: Pickup from Borrower (order_address), Dropoff at Lender (listing_loc)
+        $job['p_lat'] = $job['order_lat'];
+        $job['p_lng'] = $job['order_lng'];
+        $job['p_addr'] = $job['order_address'];
+        $job['d_lat'] = $job['listing_lat'];
+        $job['d_lng'] = $job['listing_lng'];
+        $job['d_addr'] = $job['listing_loc'];
+        $job['p_city'] = $job['city']; // Borrower city? Transactions doesn't have it, but we can assume listing city for filtering or fetch borrower's city
+        $job['p_dist'] = $job['district']; // Same
+    }
+
     if (!$location_set || $area_filter === 'all') {
         $available_jobs[] = $job;
     } else {
-        $distance = getDistanceKM($job['pickup_lat'], $job['pickup_lng'], $aLatBase, $aLngBase);
+        $distance = getDistanceKM($job['p_lat'], $job['p_lng'], $aLatBase, $aLngBase);
         
         $match = false;
-        if ($area_filter === 'city' && $aCity && $job['pickup_city'] === $aCity) {
+        if ($area_filter === 'city' && $aCity && $job['p_city'] === $aCity) {
             $match = true;
-        } elseif ($area_filter === 'district' && $aDistrict && $job['pickup_district'] === $aDistrict) {
+        } elseif ($area_filter === 'district' && $aDistrict && $job['p_dist'] === $aDistrict) {
             $match = true;
-        } elseif ($area_filter === 'near_me' && ($distance < 25 || ($aDistrict && $job['pickup_district'] === $aDistrict))) {
+        } elseif ($area_filter === 'near_me' && ($distance < 25 || ($aDistrict && $job['p_dist'] === $aDistrict))) {
             $match = true;
         }
 
         if ($match) {
             $job['relevance_dist'] = $distance;
-            $job['in_district'] = ($aDistrict && $job['pickup_district'] === $aDistrict);
+            $job['in_district'] = ($aDistrict && $job['p_dist'] === $aDistrict);
             $available_jobs[] = $job;
         }
     }
@@ -317,22 +341,33 @@ usort($available_jobs, function($a, $b) {
             <?php else: ?>
                 <div style="display: grid; gap: 1.5rem; grid-template-columns: 1fr;">
                     <?php foreach ($available_jobs as $job): ?>
-                        <div class="job-card" id="job-<?php echo $job['id']; ?>">
+                        <div class="job-card <?php echo $job['job_type'] === 'return' ? 'return-job' : ''; ?>" id="job-<?php echo $job['id']; ?>">
                             <div class="job-meta">
-                                <div class="earnings-tag">
+                                <div class="earnings-tag" style="<?php echo $job['job_type'] === 'return' ? 'background: linear-gradient(135deg, #e11d48, #be123c);' : ''; ?>">
                                     <i class='bx bxs-coin-stack'></i>
                                     10 CREDITS
                                 </div>
-                                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">
-                                    ORDER #<?php echo $job['id']; ?> • <?php echo date('H:i', strtotime($job['created_at'])); ?>
-                                </span>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                    <?php if($job['job_type'] === 'return'): ?>
+                                        <span class="status-badge returning" style="position: static; padding: 0.3rem 0.8rem; margin-bottom: 5px;">Return Mission</span>
+                                    <?php endif; ?>
+                                    <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">
+                                        ORDER #<?php echo $job['id']; ?> • <?php echo date('H:i', strtotime($job['created_at'])); ?>
+                                    </span>
+                                </div>
                             </div>
                             
                             <div class="book-snapshot">
                                 <img src="<?php echo htmlspecialchars($job['cover_image'] ?: 'assets/img/book-placeholder.jpg'); ?>" style="width: 50px; height: 75px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                                 <div style="flex: 1;">
                                     <div style="font-weight: 850; font-size: 1.1rem; color: #1e293b; line-height: 1.2; margin-bottom: 4px;"><?php echo htmlspecialchars($job['title']); ?></div>
-                                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Lender: <?php echo htmlspecialchars($job['lender_fname']); ?></div>
+                                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
+                                        <?php if($job['job_type'] === 'forward'): ?>
+                                            Owner: <?php echo htmlspecialchars($job['lender_fname']); ?>
+                                        <?php else: ?>
+                                            Returning From: <?php echo htmlspecialchars($job['borrower_fname']); ?>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
 
@@ -343,9 +378,11 @@ usort($available_jobs, function($a, $b) {
                                     </div>
                                     <div>
                                         <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Pickup From</div>
-                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['pickup_location']); ?></div>
-                                        <?php if($job['pickup_landmark']): ?>
+                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['p_addr']); ?></div>
+                                        <?php if($job['job_type'] === 'forward' && $job['pickup_landmark']): ?>
                                             <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 700;">Near <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
+                                        <?php elseif($job['job_type'] === 'return' && $job['order_landmark']): ?>
+                                            <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 700;">Near <?php echo htmlspecialchars($job['order_landmark']); ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -355,9 +392,11 @@ usort($available_jobs, function($a, $b) {
                                     </div>
                                     <div>
                                         <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Deliver To</div>
-                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['order_address']); ?></div>
-                                        <?php if($job['order_landmark']): ?>
+                                        <div style="font-size: 0.9rem; font-weight: 700; color: #334155;"><?php echo htmlspecialchars($job['d_addr']); ?></div>
+                                        <?php if($job['job_type'] === 'forward' && $job['order_landmark']): ?>
                                             <div style="font-size: 0.75rem; color: var(--success-logistics); font-weight: 700;">Near <?php echo htmlspecialchars($job['order_landmark']); ?></div>
+                                        <?php elseif($job['job_type'] === 'return' && isset($job['pickup_landmark'])): ?>
+                                             <div style="font-size: 0.75rem; color: var(--success-logistics); font-weight: 700;">Near <?php echo htmlspecialchars($job['pickup_landmark']); ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -398,14 +437,18 @@ usort($available_jobs, function($a, $b) {
 
         const markers = L.featureGroup();
         jobsData.forEach(job => {
-            if (job.pickup_lat && job.pickup_lng) {
-                const marker = L.marker([job.pickup_lat, job.pickup_lng])
+            if (job.p_lat && job.p_lng) {
+                const markerColor = job.job_type === 'return' ? '#e11d48' : '#3b82f6';
+                const marker = L.marker([job.p_lat, job.p_lng])
                     .bindPopup(`
                         <div style="padding:5px;">
-                            <strong style="display:block;margin-bottom:5px;">${job.title}</strong>
-                            <div style="font-size:0.8rem;color:#667;">From: ${job.pickup_location}${job.pickup_landmark ? '<br><span style="color:var(--primary);font-weight:600;">Reference Point: ' + job.pickup_landmark + '</span>' : ''}</div>
-                            <div style="font-size:0.8rem;color:#667;margin-top:5px;">To: ${job.order_address}${job.order_landmark ? '<br><span style="color:var(--primary);font-weight:600;">Reference Point: ' + job.order_landmark + '</span>' : ''}</div>
-                            <button onclick="claimJob(${job.id})" class="btn btn-primary btn-sm w-full" style="margin-top:10px;">Accept Now</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong style="font-size:1rem;">${job.title}</strong>
+                                <span style="background:${markerColor}; color:white; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:bold;">${job.job_type.toUpperCase()}</span>
+                            </div>
+                            <div style="font-size:0.8rem;color:#667;"><strong>Pickup:</strong> ${job.p_addr}</div>
+                            <div style="font-size:0.8rem;color:#667;margin-top:5px;"><strong>Drop:</strong> ${job.d_addr}</div>
+                            <button onclick="claimJob(${job.id})" class="btn btn-primary btn-sm w-full" style="margin-top:10px; background:${markerColor}; border:none;">Accept assignment</button>
                         </div>
                     `);
                 

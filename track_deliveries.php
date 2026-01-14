@@ -19,6 +19,8 @@ function getStatusLabel($status, $agentId) {
         case 'approved': return $agentId ? 'Agent Assigned' : 'Finding Agent';
         case 'active': return 'In Transit';
         case 'delivered': return 'Delivered & Verified';
+        case 'returning': return 'Return in Progress';
+        case 'returned': return 'Returned to Owner';
         default: return ucfirst($status);
     }
 }
@@ -73,6 +75,8 @@ function getStatusLabel($status, $agentId) {
         .status-badge.approved { background: #f0fdf4; color: #16a34a; }
         .status-badge.active { background: #fff7ed; color: #ea580c; }
         .status-badge.delivered { background: #f0fdf4; color: #16a34a; }
+        .status-badge.returning { background: #fff1f2; color: #e11d48; }
+        .status-badge.returned { background: #f8fafc; color: #64748b; }
 
         .credit-info-tag {
             background: #f8fafc; border: 1px solid #e2e8f0;
@@ -207,14 +211,22 @@ function getStatusLabel($status, $agentId) {
         $isBorrower = ($d['borrower_id'] == $userId);
         
         // Progress Logic
+        $isReturnPhase = (in_array($d['status'], ['returning', 'returned']));
         $steps = ['requested', 'approved', 'active', 'delivered'];
+        if ($isReturnPhase) {
+            $steps = ['delivered', 'returning', 'returned'];
+        }
+        
         $currentIndex = array_search($d['status'], $steps);
         if ($currentIndex === false) $currentIndex = 0;
         
         // Custom labels for the badge
-        $badgeLabel = getStatusLabel($d['status'], $d['delivery_agent_id']);
+        $badgeLabel = getStatusLabel($d['status'], $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id']);
         if ($d['status'] === 'active' && $d['agent_confirm_delivery_at']) {
             $badgeLabel = "Awaiting Your Confirmation";
+        }
+        if ($d['status'] === 'returning' && $d['return_agent_confirm_at']) {
+            $badgeLabel = "Awaiting Return Confirmation";
         }
         ?>
         <div class="delivery-card">
@@ -257,22 +269,37 @@ function getStatusLabel($status, $agentId) {
                     </div>
 
                     <div class="tracking-steps">
-                        <div class="step <?php echo $currentIndex >= 0 ? ($currentIndex > 0 ? 'completed' : 'active') : ''; ?>">
-                            <div class="step-dot"></div>
-                            <span class="step-label">Requested</span>
-                        </div>
-                        <div class="step <?php echo $currentIndex >= 1 ? ($currentIndex > 1 ? 'completed' : 'active') : ''; ?>">
-                            <div class="step-dot"></div>
-                            <span class="step-label">Assigned</span>
-                        </div>
-                        <div class="step <?php echo $currentIndex >= 2 ? ($currentIndex > 2 ? 'completed' : 'active') : ''; ?>">
-                            <div class="step-dot"></div>
-                            <span class="step-label">In Transit</span>
-                        </div>
-                        <div class="step <?php echo $currentIndex >= 3 ? 'completed' : ''; ?>">
-                            <div class="step-dot"></div>
-                            <span class="step-label">Delivered</span>
-                        </div>
+                        <?php if (!$isReturnPhase): ?>
+                            <div class="step <?php echo $currentIndex >= 0 ? ($currentIndex > 0 ? 'completed' : 'active') : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Requested</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 1 ? ($currentIndex > 1 ? 'completed' : 'active') : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Assigned</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 2 ? ($currentIndex > 2 ? 'completed' : 'active') : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">In Transit</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 3 ? 'completed' : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Delivered</span>
+                            </div>
+                        <?php else: ?>
+                            <div class="step completed">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Delivered</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 1 ? ($currentIndex > 1 ? 'completed' : 'active') : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Returning</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 2 ? 'completed' : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">Returned</span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -287,18 +314,33 @@ function getStatusLabel($status, $agentId) {
                 </div>
                 
                 <div class="confirm-badges">
-                    <div class="c-badge <?php echo !empty($d['lender_confirm_at']) ? 'verified' : ''; ?>">
-                        <i class='bx <?php echo !empty($d['lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                        <span>Sender Confirmation</span>
-                    </div>
-                    <div class="c-badge <?php echo !empty($d['agent_confirm_delivery_at']) ? 'verified' : ''; ?>">
-                        <i class='bx <?php echo !empty($d['agent_confirm_delivery_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                        <span>Agent Confirmation</span>
-                    </div>
-                    <div class="c-badge <?php echo !empty($d['borrower_confirm_at']) ? 'verified' : ''; ?>">
-                        <i class='bx <?php echo !empty($d['borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                        <span>Receiver Confirmation</span>
-                    </div>
+                    <?php if (!$isReturnPhase): ?>
+                        <div class="c-badge <?php echo !empty($d['lender_confirm_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Sender (Lender)</span>
+                        </div>
+                        <div class="c-badge <?php echo !empty($d['agent_confirm_delivery_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['agent_confirm_delivery_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Agent</span>
+                        </div>
+                        <div class="c-badge <?php echo !empty($d['borrower_confirm_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Receiver (You)</span>
+                        </div>
+                    <?php else: ?>
+                        <div class="c-badge <?php echo !empty($d['return_borrower_confirm_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['return_borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Sender (You)</span>
+                        </div>
+                        <div class="c-badge <?php echo !empty($d['return_agent_confirm_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['return_agent_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Agent</span>
+                        </div>
+                        <div class="c-badge <?php echo !empty($d['return_lender_confirm_at']) ? 'verified' : ''; ?>">
+                            <i class='bx <?php echo !empty($d['return_lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
+                            <span>Receiver (Owner)</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="actions">
@@ -317,30 +359,57 @@ function getStatusLabel($status, $agentId) {
                             <i class='bx bx-check-shield'></i> I Received My Book
                         </button>
                     
+                    <?php elseif ($isBorrower && $d['status'] === 'delivered' && ($d['transaction_type'] === 'borrow' || $d['transaction_type'] === 'exchange')): ?>
+                        <?php $btnLabel = ($d['transaction_type'] === 'exchange') ? 'Send Exchange Book via Agent' : 'Return Book via Agent'; ?>
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'request_return_delivery')" class="btn-confirm primary" style="background: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);">
+                            <i class='bx bx-undo'></i> <?php echo $btnLabel; ?> (10 Credits)
+                        </button>
+
+                    <?php elseif ($isBorrower && $d['status'] === 'returning' && empty($d['return_borrower_confirm_at'])): ?>
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
+                            <i class='bx bx-hand'></i> Handover to Return Agent
+                        </button>
+
                     <?php elseif (!$isBorrower && $d['status'] === 'active' && empty($d['lender_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
                             <i class='bx bx-hand'></i> Confirm Handover to Agent
                         </button>
 
+                    <?php elseif (!$isBorrower && $d['status'] === 'returning' && empty($d['return_lender_confirm_at'])): ?>
+                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
+                            <i class='bx bx-check-shield'></i> I Received My Returned Book
+                        </button>
+
+                    <?php elseif ($d['status'] === 'returned'): ?>
+                        <div style="text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
+                            <i class='bx bxs-badge-check'></i> <?php echo ($d['transaction_type'] === 'exchange') ? 'EXCHANGE COMPLETED' : 'BOOK RETURNED TO OWNER'; ?>
+                        </div>
+
                     <?php elseif ($d['status'] === 'delivered'): ?>
                         <div style="text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
                             <i class='bx bxs-badge-check'></i> TRANSACTION COMPLETED SUCCESSFULLY
                         </div>
+                    <?php endif; ?>
                     
-                    <?php elseif ($d['delivery_agent_id']): ?>
+                    <?php 
+                    $currentAgentId = $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id'];
+                    if ($currentAgentId): ?>
                         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <div style="width: 35px; height: 35px; background: #eef2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">
                                     <i class='bx bxs-user'></i>
                                 </div>
                                 <div>
-                                    <strong style="display: block;"><?php echo htmlspecialchars($d['agent_name']); ?></strong>
-                                    <span style="color: #64748b;">Delivery Agent Assigned</span>
+                                    <strong style="display: block;"><?php echo htmlspecialchars($isReturnPhase ? ($d['ret_agent_name'] ?? 'Agent') : ($d['agent_name'] ?? 'Agent')); ?></strong>
+                                    <span style="color: #64748b;"><?php echo $isReturnPhase ? 'Return Agent' : 'Delivery Agent'; ?> Assigned</span>
                                 </div>
                             </div>
-                            <a href="tel:<?php echo $d['agent_phone']; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 0.5rem;">
-                                <i class='bx bx-phone'></i> <?php echo htmlspecialchars($d['agent_phone']); ?>
-                            </a>
+                            <?php $phone = $isReturnPhase ? ($d['ret_agent_phone'] ?? '') : ($d['agent_phone'] ?? ''); ?>
+                            <?php if ($phone): ?>
+                                <a href="tel:<?php echo $phone; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class='bx bx-phone'></i> <?php echo htmlspecialchars($phone); ?>
+                                </a>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -416,7 +485,8 @@ function getStatusLabel($status, $agentId) {
             const msgs = {
                 'confirm_receipt': 'Confirming receipt will verify the delivery and build trust. Proceed?',
                 'confirm_handover': 'Confirm you have handed over the book to the agent?',
-                'accept_request': 'Accept this delivery request?'
+                'accept_request': 'Accept this delivery request?',
+                'request_return_delivery': 'Request a return delivery for this book? This will cost 10 credits.'
             };
             
             if (!confirm(msgs[action] || 'Confirm this action?')) return;

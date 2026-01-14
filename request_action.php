@@ -303,6 +303,47 @@ try {
         $dm->confirmReceipt($userId, $transactionId);
         echo json_encode(['success' => true, 'message' => 'Receipt confirmed! Waiting for final verification.']);
 
+    } elseif ($action === 'request_return_delivery') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        
+        // 1. Verify ownership (Borrower)
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? AND borrower_id = ?");
+        $stmt->execute([$transactionId, $userId]);
+        $tx = $stmt->fetch();
+        
+        if (!$tx) {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized or transaction not found.']);
+            exit;
+        }
+        
+        // 2. Check if already returning
+        if ($tx['status'] === 'returning' || $tx['return_delivery_method'] === 'delivery') {
+            echo json_encode(['success' => false, 'message' => 'Already requested return delivery.']);
+            exit;
+        }
+
+        // 3. Deduct Credits for return delivery (10 credits)
+        if (!checkSufficientCredits($userId, 10)) {
+            echo json_encode(['success' => false, 'message' => 'Insufficient credits for return delivery (Need 10 credits).']);
+            exit;
+        }
+        
+        deductCredits($userId, 10, 'spend', "Return delivery request for #ORD-{$transactionId}", $transactionId);
+        
+        // 4. Update transaction
+        $stmt = $pdo->prepare("UPDATE transactions SET status = 'returning', return_delivery_method = 'delivery' WHERE id = ?");
+        if ($stmt->execute([$transactionId])) {
+            // Notify Lender
+            $msg = "Borrower has requested a return delivery for '{$tx['listing_id']}'. A delivery agent will be assigned.";
+            $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'return_requested', ?, ?)")
+                ->execute([$tx['lender_id'], $msg, $transactionId]);
+                
+            echo json_encode(['success' => true, 'message' => 'Return delivery requested!']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to request return delivery.']);
+        }
+
     } elseif ($action === 'claim_job') {
         $transactionId = $_POST['transaction_id'] ?? 0;
         
@@ -358,6 +399,28 @@ try {
             echo json_encode(['success' => true, 'message' => 'Report updated']);
         } else {
             throw new Exception("Failed to update report");
+        }
+    } elseif ($action === 'adjust_tokens') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized");
+        $targetId = $_POST['user_id'] ?? 0;
+        $amount = (int)($_POST['amount'] ?? 0);
+        $reason = trim($_POST['reason'] ?? 'Admin adjustment');
+        
+        if (!$targetId || $amount === 0) throw new Exception("Invalid parameters");
+        
+        if ($amount > 0) {
+            if (addCredits($targetId, $amount, 'bonus', $reason)) {
+                echo json_encode(['success' => true, 'message' => "Successfully added $amount tokens"]);
+            } else {
+                throw new Exception("Failed to add tokens");
+            }
+        } else {
+            $absAmount = abs($amount);
+            if (deductCredits($targetId, $absAmount, 'penalty', $reason)) {
+                echo json_encode(['success' => true, 'message' => "Successfully removed $absAmount tokens"]);
+            } else {
+                throw new Exception("Failed to remove tokens");
+            }
         }
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid Action']);
