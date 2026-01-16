@@ -10,8 +10,34 @@ if (!$userId) {
 }
 
 $deliveries = getUserDeliveries($userId);
-$lending = array_filter($deliveries, fn($d) => $d['lender_id'] == $userId);
-$borrowing = array_filter($deliveries, fn($d) => $d['borrower_id'] == $userId);
+
+// Categorize deliveries
+$incoming = [];
+$outgoing = [];
+$returns = [];
+$exchanges = [];
+
+foreach ($deliveries as $d) {
+    // If it's an exchange transaction, it goes to Exchanges tab
+    if ($d['transaction_type'] === 'exchange') {
+        $exchanges[] = $d;
+        continue;
+    }
+
+    // If it's in a return phase, it goes to Returns tab
+    $isReturnPhase = (in_array($d['status'], ['returning', 'returned']));
+    if ($isReturnPhase) {
+        $returns[] = $d;
+        continue;
+    }
+
+    // Forward phase categorization
+    if ($d['borrower_id'] == $userId) {
+        $incoming[] = $d;
+    } else {
+        $outgoing[] = $d;
+    }
+}
 
 function getStatusLabel($status, $agentId) {
     switch ($status) {
@@ -168,36 +194,68 @@ function getStatusLabel($status, $agentId) {
                 </div>
 
                 <div class="tabs-header">
-                    <button class="tab-btn active" onclick="switchTab('borrowing', this)">
-                        Incoming <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($borrowing); ?>)</span>
+                    <button class="tab-btn active" onclick="switchTab('incoming', this)">
+                        Incoming <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($incoming); ?>)</span>
                     </button>
-                    <button class="tab-btn" onclick="switchTab('lending', this)">
-                        Outgoing <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($lending); ?>)</span>
+                    <button class="tab-btn" onclick="switchTab('outgoing', this)">
+                        Outgoing <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($outgoing); ?>)</span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('returns', this)">
+                        Return <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($returns); ?>)</span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('exchanges', this)">
+                        Exchange <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($exchanges); ?>)</span>
                     </button>
                 </div>
 
-                <div id="borrowing-list">
-                    <?php if (empty($borrowing)): ?>
+                <div id="incoming-list">
+                    <?php if (empty($incoming)): ?>
                         <div class="empty-state">
                             <i class='bx bx-package'></i>
                             <h3>No incoming deliveries</h3>
-                            <p>Books you borrow will appear here for tracking.</p>
+                            <p>Books you borrow or purchase will appear here.</p>
                         </div>
                     <?php endif; ?>
-                    <?php foreach ($borrowing as $d): ?>
+                    <?php foreach ($incoming as $d): ?>
                         <?php renderEnhancedDeliveryCard($d); ?>
                     <?php endforeach; ?>
                 </div>
 
-                <div id="lending-list" style="display: none;">
-                    <?php if (empty($lending)): ?>
+                <div id="outgoing-list" style="display: none;">
+                    <?php if (empty($outgoing)): ?>
                         <div class="empty-state">
                             <i class='bx bx-transfer-alt'></i>
                             <h3>No outgoing deliveries</h3>
-                            <p>Books you lend via delivery agents will appear here.</p>
+                            <p>Books you lend or sell will appear here.</p>
                         </div>
                     <?php endif; ?>
-                    <?php foreach ($lending as $d): ?>
+                    <?php foreach ($outgoing as $d): ?>
+                        <?php renderEnhancedDeliveryCard($d); ?>
+                    <?php endforeach; ?>
+                </div>
+
+                <div id="returns-list" style="display: none;">
+                    <?php if (empty($returns)): ?>
+                        <div class="empty-state">
+                            <i class='bx bx-undo'></i>
+                            <h3>No items in return phase</h3>
+                            <p>Books being returned to owners will appear here.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($returns as $d): ?>
+                        <?php renderEnhancedDeliveryCard($d); ?>
+                    <?php endforeach; ?>
+                </div>
+
+                <div id="exchanges-list" style="display: none;">
+                    <?php if (empty($exchanges)): ?>
+                        <div class="empty-state">
+                            <i class='bx bx-sync'></i>
+                            <h3>No exchange deliveries</h3>
+                            <p>Active book exchanges will appear here.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($exchanges as $d): ?>
                         <?php renderEnhancedDeliveryCard($d); ?>
                     <?php endforeach; ?>
                 </div>
@@ -354,7 +412,7 @@ function getStatusLabel($status, $agentId) {
                             </button>
                         </div>
 
-                    <?php elseif ($isBorrower && $d['status'] === 'active' && empty($d['borrower_confirm_at'])): ?>
+                    <?php elseif ($isBorrower && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['borrower_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
                             <i class='bx bx-check-shield'></i> I Received My Book
                         </button>
@@ -370,12 +428,12 @@ function getStatusLabel($status, $agentId) {
                             <i class='bx bx-hand'></i> Handover to Return Agent
                         </button>
 
-                    <?php elseif (!$isBorrower && $d['status'] === 'active' && empty($d['lender_confirm_at'])): ?>
+                    <?php elseif (!$isBorrower && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['lender_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
                             <i class='bx bx-hand'></i> Confirm Handover to Agent
                         </button>
 
-                    <?php elseif (!$isBorrower && $d['status'] === 'returning' && empty($d['return_lender_confirm_at'])): ?>
+                    <?php elseif (!$isBorrower && ($d['status'] === 'returning' || $d['status'] === 'returned') && empty($d['return_lender_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
                             <i class='bx bx-check-shield'></i> I Received My Returned Book
                         </button>
@@ -473,8 +531,10 @@ function getStatusLabel($status, $agentId) {
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
             
-            document.getElementById('borrowing-list').style.display = tab === 'borrowing' ? 'block' : 'none';
-            document.getElementById('lending-list').style.display = tab === 'lending' ? 'block' : 'none';
+            document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
+            document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
+            document.getElementById('returns-list').style.display = tab === 'returns' ? 'block' : 'none';
+            document.getElementById('exchanges-list').style.display = tab === 'exchanges' ? 'block' : 'none';
             
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize')); 

@@ -16,11 +16,13 @@ $pdo = getDBConnection();
 // Fetch all completed legs for this agent
 $stmt = $pdo->prepare("
     SELECT t.*, b.title, b.cover_image,
-           u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
-           u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
+           u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname, 
+           u_borrower.address as borrower_address, u_borrower.city as borrower_city, u_borrower.district as borrower_district,
+           u_lender.firstname as lender_fname, u_lender.lastname as lender_lname, 
+           u_lender.address as lender_address, u_lender.city as lender_city, u_lender.district as lender_district,
            l.location as listing_loc, l.city as listing_city, l.district as listing_dist,
            CASE 
-             WHEN t.delivery_agent_id = ? THEN 'Forward Mission'
+             WHEN t.delivery_agent_id = ? THEN 'Delivery Mission'
              WHEN t.return_agent_id = ? THEN 'Return Mission'
            END as job_type_label,
            CASE 
@@ -40,6 +42,14 @@ $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId]);
 $history = $stmt->fetchAll();
 
 $stats = getUserStatsEnhanced($userId);
+
+// Helper function to build location string
+function buildLocation($addr, $city, $dist) {
+    if (!empty($addr)) return $addr;
+    if (!empty($city) && !empty($dist)) return "$city, $dist";
+    if (!empty($city)) return $city;
+    return "Location not provided";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -92,9 +102,14 @@ $stats = getUserStatsEnhanced($userId);
                     <h1><i class='bx bx-history'></i> Delivery History</h1>
                     <p>Track all your completed delivery missions and earnings.</p>
                 </div>
-                <div style="background: white; padding: 1rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">Lifetime Earnings</div>
-                    <div style="font-size: 1.5rem; font-weight: 800; color: #059669;"><?php echo (count($history) * 10); ?> CR</div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button onclick="exportHistoryExcel()" class="btn" style="background: #10b981; color: white; display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.2rem;">
+                        <i class='bx bxs-file-export'></i> Export History
+                    </button>
+                    <div style="background: white; padding: 0.8rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Lifetime Earnings</div>
+                        <div style="font-size: 1.4rem; font-weight: 800; color: #059669;"><?php echo (count($history) * 10); ?> CR</div>
+                    </div>
                 </div>
             </div>
 
@@ -106,12 +121,44 @@ $stats = getUserStatsEnhanced($userId);
                     <a href="delivery_jobs.php" class="btn btn-primary" style="margin-top: 1.5rem;">Find Jobs</a>
                 </div>
             <?php else: ?>
-                <div style="margin-top: 2rem;">
+                <div style="margin-top: 2rem;" id="history-list">
                     <?php foreach ($history as $h): ?>
-                        <div class="history-card">
+                        <?php 
+                            // Robust Address Resolution Logic
+                            $borrowerLoc = buildLocation($h['borrower_address'], $h['borrower_city'], $h['borrower_district']);
+                            $lenderLoc = buildLocation($h['lender_address'], $h['lender_city'], $h['lender_district']);
+                            $listingLoc = buildLocation($h['listing_loc'], $h['listing_city'], $h['listing_dist']);
+                            
+                            // Determine Order Address (Borrower Side)
+                            // Priority: 1. Specific Order Addr, 2. Borrower Profile Addr, 3. Borrower City
+                            $toPoint = !empty($h['order_address']) ? $h['order_address'] : $borrowerLoc;
+
+                            // Determine Listing Address (Lender Side)
+                            // Priority: 1. Listing specific loc, 2. Listing City, 3. Lender Profile Addr, 4. Lender City
+                            $fromPoint = !empty($h['listing_loc']) ? $h['listing_loc'] : 
+                                         ($listingLoc !== 'Location not provided' ? $listingLoc : $lenderLoc);
+
+                            if ($h['job_type_label'] === 'Delivery Mission') {
+                                $fromAddr = $fromPoint;
+                                $toAddr = $toPoint;
+                            } else {
+                                // Return Mission: From Borrower -> To Lender
+                                $fromAddr = $toPoint; // Borrower is source
+                                $toAddr = $fromPoint; // Lender is dist
+                            }
+                        ?>
+                        <div class="history-card" 
+                             data-id="<?php echo $h['id']; ?>" 
+                             data-title="<?php echo htmlspecialchars($h['title']); ?>"
+                             data-type="<?php echo $h['job_type_label']; ?>"
+                             data-from="<?php echo htmlspecialchars($fromAddr); ?>"
+                             data-to="<?php echo htmlspecialchars($toAddr); ?>"
+                             data-date="<?php echo date('Y-m-d H:i:s', strtotime($h['completion_time'])); ?>"
+                             data-earnings="10">
+                            
                             <img src="<?php echo htmlspecialchars($h['cover_image'] ?: 'assets/images/book-placeholder.jpg'); ?>" class="book-img">
                             <div class="history-details">
-                                <span class="mission-tag <?php echo $h['job_type_label'] === 'Forward Mission' ? 'tag-forward' : 'tag-return'; ?>">
+                                <span class="mission-tag <?php echo $h['job_type_label'] === 'Delivery Mission' ? 'tag-forward' : 'tag-return'; ?>">
                                     <?php echo $h['job_type_label']; ?>
                                 </span>
                                 <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Order #ORD-<?php echo $h['id']; ?></div>
@@ -120,11 +167,11 @@ $stats = getUserStatsEnhanced($userId);
                                 <div class="address-box">
                                     <div class="addr-point">
                                         <i class='bx bx-radio-circle' style="color: #2563eb;"></i>
-                                        <span>From: <?php echo $h['job_type_label'] === 'Forward Mission' ? htmlspecialchars($h['listing_loc']) : htmlspecialchars($h['order_address']); ?></span>
+                                        <span>From: <?php echo htmlspecialchars($fromAddr); ?></span>
                                     </div>
                                     <div class="addr-point">
                                         <i class='bx bx-map' style="color: #e11d48;"></i>
-                                        <span>To: <?php echo $h['job_type_label'] === 'Forward Mission' ? htmlspecialchars($h['order_address']) : htmlspecialchars($h['listing_loc']); ?></span>
+                                        <span>To: <?php echo htmlspecialchars($toAddr); ?></span>
                                     </div>
                                 </div>
 
@@ -146,5 +193,47 @@ $stats = getUserStatsEnhanced($userId);
             <?php endif; ?>
         </main>
     </div>
+
+    <!-- Excel Export Script -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        function exportHistoryExcel() {
+            const container = document.getElementById('history-list');
+            if (!container) { alert('No history data to export.'); return; }
+
+            const cards = container.querySelectorAll('.history-card');
+            if (cards.length === 0) { alert('No history data to export.'); return; }
+
+            const data = [];
+            // Headers
+            data.push(['Order ID', 'Mission Type', 'Book Title', 'From Location', 'To Location', 'Completion Date', 'Earnings (CR)']);
+
+            cards.forEach(card => {
+                const row = [
+                    '#ORD-' + card.dataset.id,
+                    card.dataset.type,
+                    card.dataset.title,
+                    card.dataset.from,
+                    card.dataset.to,
+                    card.dataset.date,
+                    card.dataset.earnings
+                ];
+                data.push(row);
+            });
+
+            // Create Workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Auto-width for columns
+            const wscols = [
+                {wch: 15}, {wch: 20}, {wch: 30}, {wch: 30}, {wch: 30}, {wch: 25}, {wch: 15}
+            ];
+            ws['!cols'] = wscols;
+
+            XLSX.utils.book_append_sheet(wb, ws, "Delivery History");
+            XLSX.writeFile(wb, "My_Delivery_History_<?php echo date('Y-m-d'); ?>.xlsx");
+        }
+    </script>
 </body>
 </html>

@@ -5,6 +5,25 @@ require_once __DIR__ . '/../config/database.php';
 // Sync timezone for consistent expiration times
 date_default_timezone_set('Asia/Kolkata');
 
+// Token System Constants
+define('MIN_TOKEN_LIMIT', 30);
+define('MAX_TOKEN_LIMIT', 500);
+
+/**
+ * Check if user meets the minimum token requirement
+ */
+function hasMinimumTokens($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $credits = (int)$stmt->fetchColumn();
+        return $credits >= MIN_TOKEN_LIMIT;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 /**
  * Create a new user
  */
@@ -583,7 +602,7 @@ function addCredits($userId, $amount, $type, $description, $transactionId = null
         $stmt->execute([$userId]);
         $currentBalance = (int)$stmt->fetchColumn();
         
-        $newBalance = $currentBalance + $amount;
+        $newBalance = min($currentBalance + $amount, MAX_TOKEN_LIMIT);
         
         // Update user credits
         $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
@@ -630,6 +649,16 @@ function deductCredits($userId, $amount, $type, $description, $transactionId = n
             VALUES (?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([$userId, $transactionId, -$amount, $newBalance, $type, $description]);
+
+        // Trigger Notification if hitting minimum limit
+        if ($newBalance < MIN_TOKEN_LIMIT && $currentBalance >= MIN_TOKEN_LIMIT) {
+            $stmt = $pdo->prepare("
+                INSERT INTO notifications (user_id, type, message, is_read) 
+                VALUES (?, 'system', ?, 0)
+            ");
+            $msg = "Warning: Your token balance has dropped below " . MIN_TOKEN_LIMIT . ". You must increase your tokens to continue listing or borrowing books.";
+            $stmt->execute([$userId, $msg]);
+        }
         
         $pdo->commit();
         return true;
@@ -1422,11 +1451,15 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         
         $stats = [];
         
-        // Total Completed Missions (Both Legs)
+        // Total Completed Missions (Sum of Forward + Return counts)
         $stmt = $pdo->prepare("
-            SELECT COUNT(*) FROM transactions 
-            WHERE (delivery_agent_id = ? AND status IN ('delivered', 'returned') AND delivered_at BETWEEN ? AND ?)
-               OR (return_agent_id = ? AND status = 'returned' AND return_delivered_at BETWEEN ? AND ?)
+            SELECT 
+                (SELECT COUNT(*) FROM transactions 
+                 WHERE delivery_agent_id = ? AND agent_confirm_delivery_at BETWEEN ? AND ?)
+                +
+                (SELECT COUNT(*) FROM transactions 
+                 WHERE return_agent_id = ? AND return_agent_confirm_at BETWEEN ? AND ?)
+                as total_completed
         ");
         $stmt->execute([$agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
         $stats["total_completed"] = (int)$stmt->fetchColumn();
@@ -1461,27 +1494,40 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         $total_attempts = $stats["total_completed"] + $stats["total_abandoned"];
         $stats["success_rate"] = $total_attempts > 0 ? ($stats["total_completed"] / $total_attempts) * 100 : 100;
         
-        // Unified Activity Log
-        $stmt = $pdo->prepare("
-            SELECT t.*, b.title, b.cover_image, u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
-                   CASE 
-                     WHEN t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL THEN 'Forward'
-                     WHEN t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL THEN 'Return'
-                   END as mission_type,
-                   CASE 
-                     WHEN t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL THEN t.agent_confirm_delivery_at
-                     WHEN t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL THEN t.return_agent_confirm_at
-                   END as mission_timestamp
-            FROM transactions t
-            JOIN listings l ON t.listing_id = l.id
-            JOIN books b ON l.book_id = b.id
-            JOIN users u_lender ON t.lender_id = u_lender.id
-            JOIN users u_borrower ON t.borrower_id = u_borrower.id
-            WHERE (t.delivery_agent_id = ? AND t.agent_confirm_delivery_at BETWEEN ? AND ?)
-               OR (t.return_agent_id = ? AND t.return_agent_confirm_at BETWEEN ? AND ?)
+        // Unified Activity Log (UNION ALL to support separate Forward/Return entries)
+        $sql = "
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Forward' as mission_type,
+                    t.agent_confirm_delivery_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.delivery_agent_id = ? AND t.agent_confirm_delivery_at BETWEEN ? AND ?)
+            
+            UNION ALL
+            
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Return' as mission_type,
+                    t.return_agent_confirm_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.return_agent_id = ? AND t.return_agent_confirm_at BETWEEN ? AND ?)
+             
             ORDER BY mission_timestamp DESC
-        ");
-        $stmt->execute([$agentId, $agentId, $agentId, $agentId, $agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $agentId, $startStr, $endStr,
+            $agentId, $startStr, $endStr
+        ]);
         $stats["activity"] = $stmt->fetchAll();
         
         return $stats;

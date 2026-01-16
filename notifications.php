@@ -43,12 +43,32 @@ $status = $_GET['status'] ?? 'all';
             border: 1px solid transparent;
             text-decoration: none;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         .filter-pill:hover { background: #e2e8f0; }
         .filter-pill.active {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
+        }
+        .filter-badge {
+            background: var(--primary);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.1rem 0.5rem;
+            border-radius: 10px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .filter-pill.active .filter-badge {
+            background: white;
+            color: var(--primary);
         }
         .mark-read-btn {
             margin-left: auto;
@@ -86,11 +106,13 @@ $status = $_GET['status'] ?? 'all';
                     'all' => getUnreadNotificationsCount($userId),
                     'requests' => 0,
                     'delivery' => 0,
-                    'system' => 0
+                    'system' => 0,
+                    'action' => 0
                 ];
                 
                 try {
                     $pdo = getDBConnection();
+                    // 1. Unread counts by type
                     $stmt = $pdo->prepare("
                         SELECT type, COUNT(*) as count 
                         FROM notifications 
@@ -112,25 +134,40 @@ $status = $_GET['status'] ?? 'all';
                             $unreadCounts['system'] += $count;
                         }
                     }
+
+                    // 2. Action Required Count (Pending requests)
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(DISTINCT n.id) 
+                        FROM notifications n
+                        JOIN transactions t ON n.reference_id = t.id
+                        WHERE n.user_id = ? 
+                        AND n.type LIKE '%_request' 
+                        AND t.status = 'requested'
+                    ");
+                    $stmt->execute([$userId]);
+                    $unreadCounts['action'] = (int)$stmt->fetchColumn();
+
                 } catch (Exception $e) {}
                 ?>
 
                 <a href="?filter=all&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'all' ? 'active' : ''; ?>">
-                    All <?php echo $unreadCounts['all'] > 0 ? "<span class='badge' style='background: white; color: var(--primary); margin-left: 5px;'>{$unreadCounts['all']}</span>" : ''; ?>
+                    All <?php echo $unreadCounts['all'] > 0 ? "<span class='filter-badge'>{$unreadCounts['all']}</span>" : ''; ?>
                 </a>
                 <a href="?filter=requests&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'requests' ? 'active' : ''; ?>">
-                    Requests <?php echo $unreadCounts['requests'] > 0 ? "<span class='badge' style='background: white; color: var(--primary); margin-left: 5px;'>{$unreadCounts['requests']}</span>" : ''; ?>
+                    Requests <?php echo $unreadCounts['requests'] > 0 ? "<span class='filter-badge'>{$unreadCounts['requests']}</span>" : ''; ?>
                 </a>
                 <a href="?filter=delivery&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'delivery' ? 'active' : ''; ?>">
-                    Delivery <?php echo $unreadCounts['delivery'] > 0 ? "<span class='badge' style='background: white; color: var(--primary); margin-left: 5px;'>{$unreadCounts['delivery']}</span>" : ''; ?>
+                    Delivery <?php echo $unreadCounts['delivery'] > 0 ? "<span class='filter-badge'>{$unreadCounts['delivery']}</span>" : ''; ?>
                 </a>
                 <a href="?filter=system&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'system' ? 'active' : ''; ?>">
-                    System <?php echo $unreadCounts['system'] > 0 ? "<span class='badge' style='background: white; color: var(--primary); margin-left: 5px;'>{$unreadCounts['system']}</span>" : ''; ?>
+                    System <?php echo $unreadCounts['system'] > 0 ? "<span class='filter-badge'>{$unreadCounts['system']}</span>" : ''; ?>
                 </a>
                 
                 <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.5rem;"></div>
                 
-                <a href="?filter=<?php echo $filter; ?>&status=action" class="filter-pill <?php echo $status == 'action' ? 'active' : ''; ?>">Action Required</a>
+                <a href="?filter=<?php echo $filter; ?>&status=action" class="filter-pill <?php echo $status == 'action' ? 'active' : ''; ?>">
+                    Action Required <?php echo $unreadCounts['action'] > 0 ? "<span class='filter-badge'>{$unreadCounts['action']}</span>" : ''; ?>
+                </a>
                 <a href="?filter=<?php echo $filter; ?>&status=unread" class="filter-pill <?php echo $status == 'unread' ? 'active' : ''; ?>">Unread Only</a>
             </div>
             

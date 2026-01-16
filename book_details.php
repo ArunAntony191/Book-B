@@ -28,8 +28,10 @@ if ($userId) {
     if ($wStmt->fetch()) $inWishlist = true;
 }
 
-// Get user profile for default location
+// Check user tokens and requirement
 $currentUser = $userId ? getUserById($userId) : null;
+$hasMinTokens = $userId ? hasMinimumTokens($userId) : false;
+$userTokens = $userId ? getUserCredits($userId) : 0;
 
 // Check if delivery is available for this listing's location
 $deliveryAvailable = false;
@@ -248,6 +250,78 @@ if ($book['latitude'] && $book['longitude']) {
             font-weight: 800;
             color: var(--primary);
         }
+        .token-warning {
+            background: #fef2f2;
+            border: 1px solid #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+    </style>
+    <style>
+        /* Map Suggestions */
+        .map-search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            margin-top: 0.5rem;
+        }
+        .map-suggestion-item {
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        .map-suggestion-item:last-child { border-bottom: none; }
+        .map-suggestion-item:hover { background: #f8fafc; }
+        .map-suggestion-item i { color: var(--text-muted); font-size: 1.2rem; }
+
+        /* Pulsing Marker */
+        .pulsing-marker {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .pin {
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        .pulse {
+            background: rgba(37, 99, 235, 0.2);
+            border-radius: 50%;
+            height: 14px;
+            width: 14px;
+            position: absolute;
+            z-index: 1;
+            animation: pulse 2s ease-out infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -337,7 +411,15 @@ if ($book['latitude'] && $book['longitude']) {
                         <!-- Action Buttons -->
                         <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
                             <?php if ($book['quantity'] > 0): ?>
-                                <?php if ($book['listing_type'] === 'borrow'): ?>
+                                <?php if (!$hasMinTokens && $userId): ?>
+                                    <div class="token-warning">
+                                        <i class='bx bx-error-circle' style="font-size: 1.2rem;"></i>
+                                        <span>Min. <?php echo MIN_TOKEN_LIMIT; ?> tokens required to request books. (You have <?php echo $userTokens; ?>)</span>
+                                    </div>
+                                    <button class="btn btn-primary w-full disabled" style="justify-content: center; padding: 0.8rem; opacity: 0.6; cursor: not-allowed;" disabled>
+                                        Insufficient Tokens
+                                    </button>
+                                <?php elseif ($book['listing_type'] === 'borrow'): ?>
                                     <button onclick="openRequestModal('borrow')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
                                         Request to Borrow
                                     </button>
@@ -412,10 +494,11 @@ if ($book['latitude'] && $book['longitude']) {
                     
                     <div class="map-search-container">
                         <i class='bx bx-search map-search-icon'></i>
-                        <input type="text" id="map-search" class="map-search-input" placeholder="Search for area, street, or building...">
-                        <button type="button" class="locate-btn" onclick="getCurrentLocation()" title="Use my current location">
+                        <input type="text" id="map-search" class="map-search-input" placeholder="Search for area, street, or building..." autocomplete="off">
+                        <button type="button" class="locate-btn" onclick="getCurrentLocation()" title="Use my current location" style="right: 1rem;">
                             <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
                         </button>
+                        <div id="delivery-search-suggestions" class="map-search-suggestions"></div>
                     </div>
 
                     <div id="delivery-map"></div>
@@ -439,19 +522,19 @@ if ($book['latitude'] && $book['longitude']) {
                 </div>
             </div>
 
-            <!-- Credit Summary -->
+            <!-- Token Summary -->
             <div class="credit-summary">
                 <div class="credit-row">
                     <span>Base Cost</span>
-                    <span><span id="base-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Credits</span>
+                    <span><span id="base-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>
                 </div>
                 <div id="delivery-fee-row" class="credit-row" style="display: none;">
                     <span>Delivery Fee</span>
-                    <span>+10 Credits</span>
+                    <span>+10 Tokens</span>
                 </div>
                 <div class="credit-row credit-total">
                     <span>Total to Spend</span>
-                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Credits</span>
+                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>
                 </div>
             </div>
 
@@ -565,48 +648,111 @@ if ($book['latitude'] && $book['longitude']) {
                     dMap = L.map('delivery-map', {
                         zoomControl: true,
                         scrollWheelZoom: true
-                    }).setView([userLatDefault, userLngDefault], 15);
+                    }).setView([userLatDefault, userLngDefault], 14);
                     
-                    // Cleaner premium tiles
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                        attribution: '©OpenStreetMap ©CartoDB'
-                    }).addTo(dMap);
+                    const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+                    const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+                    L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(dMap);
                     
+                    // Custom Pulsing Pin Icon
+                    const pulsingIcon = L.divIcon({
+                        className: 'pulsing-marker',
+                        html: '<div class="pin"></div><div class="pulse"></div>',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+
+                    // Add click handler
                     dMap.on('click', (e) => {
                         updateMarkerAndAddress(e.latlng.lat, e.latlng.lng);
                     });
 
-                    // Handle Search
+                    // Handle Search Logic
                     const searchInput = document.getElementById('map-search');
+                    const suggestionsBox = document.getElementById('delivery-search-suggestions');
                     let searchTimeout;
+
                     searchInput.addEventListener('input', (e) => {
                         clearTimeout(searchTimeout);
-                        if(e.target.value.length > 3) {
-                            searchTimeout = setTimeout(() => searchAddress(e.target.value), 800);
+                        const query = e.target.value.trim();
+                        if(query.length < 3) {
+                            suggestionsBox.style.display = 'none';
+                            return;
+                        }
+
+                        searchTimeout = setTimeout(async () => {
+                            try {
+                                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`);
+                                const data = await res.json();
+                                
+                                suggestionsBox.innerHTML = '';
+                                if (data && data.length > 0) {
+                                    data.forEach(item => {
+                                        const div = document.createElement('div');
+                                        div.className = 'map-suggestion-item';
+                                        div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
+                                        div.onclick = () => {
+                                            dMap.setView([item.lat, item.lon], 17);
+                                            updateMarkerAndAddress(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                            suggestionsBox.style.display = 'none';
+                                            searchInput.value = item.display_name;
+                                        };
+                                        suggestionsBox.appendChild(div);
+                                    });
+                                    suggestionsBox.style.display = 'block';
+                                } else {
+                                    suggestionsBox.style.display = 'none';
+                                }
+                            } catch(e) { console.error(e); }
+                        }, 500);
+                    });
+                    
+                    // Enter key support
+                    searchInput.addEventListener('keydown', async (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const query = e.target.value.trim();
+                            if (query.length < 3) return;
+
+                            clearTimeout(searchTimeout);
+                            
+                            try {
+                                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in`);
+                                const data = await res.json();
+                                
+                                if (data.length > 0) {
+                                    const item = data[0];
+                                    dMap.setView([item.lat, item.lon], 17);
+                                    updateMarkerAndAddress(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                    suggestionsBox.style.display = 'none';
+                                    searchInput.value = item.display_name;
+                                } else {
+                                    alert("Location not found.");
+                                }
+                            } catch (e) {
+                                alert("Search failed.");
+                            }
                         }
                     });
+
+                    // Initial marker if valid location exists
+                    /* if (userLatDefault && userLngDefault) {
+                        // Optional: dMarker = L.marker... 
+                        // But usually we wait for user to click or use current location
+                    } */
+
                 }, 100);
             }
         }
 
-        async function searchAddress(query) {
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-                const data = await res.json();
-                if(data && data.length > 0) {
-                    const { lat, lon, display_name } = data[0];
-                    dMap.setView([lat, lon], 16);
-                    updateMarkerAndAddress(parseFloat(lat), parseFloat(lon), display_name);
-                }
-            } catch(e) {}
-        }
+        // Redundant searchAddress function (removed/integrated above)
 
         function getCurrentLocation() {
             if (navigator.geolocation) {
                 document.getElementById('geocoding-status').style.display = 'block';
                 navigator.geolocation.getCurrentPosition((position) => {
                     const { latitude, longitude } = position.coords;
-                    dMap.setView([latitude, longitude], 16);
+                    dMap.setView([latitude, longitude], 17);
                     updateMarkerAndAddress(latitude, longitude);
                 }, () => {
                     document.getElementById('geocoding-status').style.display = 'none';
@@ -616,34 +762,54 @@ if ($book['latitude'] && $book['longitude']) {
         }
 
         async function updateMarkerAndAddress(lat, lng, manualAddress = null) {
+            const pulsingIcon = L.divIcon({
+                className: 'pulsing-marker',
+                html: '<div class="pin"></div><div class="pulse"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
             if(dMarker) dMap.removeLayer(dMarker);
-            dMarker = L.marker([lat, lng], {
-                icon: L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-                })
-            }).addTo(dMap);
+            dMarker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(dMap);
 
             document.getElementById('order-lat').value = lat;
             document.getElementById('order-lng').value = lng;
             document.getElementById('coord-display').innerText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
             
-            // Re-check delivery availability
+            // Re-check availability
             checkAvailabilityGlobal(lenderLat, lenderLng, lat, lng);
 
-            if(manualAddress) {
-                document.getElementById('delivery-address').value = manualAddress;
-            } else {
-                // Reverse Geocoding
-                document.getElementById('geocoding-status').style.display = 'block';
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                    const data = await res.json();
-                    if(data && data.display_name) {
-                        document.getElementById('delivery-address').value = data.display_name;
-                    }
-                } catch(e) {}
+            document.getElementById('geocoding-status').style.display = 'block';
+            
+            try {
+                // Reverse geocoding for deep parsing
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                
+                if (manualAddress) {
+                    document.getElementById('delivery-address').value = manualAddress;
+                } else if(data && data.address) {
+                     const addr = data.address;
+                    // Deep parsing logic
+                    const house = addr.house_number || '';
+                    const road = addr.road || addr.pedestrian || '';
+                    const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
+                    const city = addr.city || addr.town || addr.village || '';
+                    const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
+
+                    let parts = [];
+                    if (house) parts.push(house);
+                    if (road) parts.push(road);
+                    if (suburb) parts.push(suburb);
+                    if (city) parts.push(city);
+                    if (!city && rural) parts.push(rural);
+
+                    const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
+                    document.getElementById('delivery-address').value = shortAddr;
+                }
+            } catch(e) {
+                if(manualAddress) document.getElementById('delivery-address').value = manualAddress;
+            } finally {
                 document.getElementById('geocoding-status').style.display = 'none';
             }
         }

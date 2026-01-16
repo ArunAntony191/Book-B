@@ -23,14 +23,15 @@ if ($editId) {
     }
 }
 
-// Check current credits
-$currentCredits = getUserCredits($userId);
-// Requirement: If editing, no credit check needed. If new, need 10.
-$canList = ($user['role'] === 'admin') || ($currentCredits >= 10) || $editId;
+// Check current tokens
+$currentTokens = getUserCredits($userId);
+$hasMinTokens = hasMinimumTokens($userId);
+// Requirement: If editing, no token check needed. If new, need 10 to pay fee AND must have at least MIN_TOKEN_LIMIT (30) total balance.
+$canList = ($user['role'] === 'admin') || ($currentTokens >= 10 && $hasMinTokens) || $editId;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$canList) {
-        $error = "Insufficient credits. You need at least 10 credits to list a new book.";
+        $error = "Insufficient tokens. You need at least 10 tokens to list a new book, and maintain a minimum balance of " . MIN_TOKEN_LIMIT . " tokens.";
     } else {
         $postEditId = $_POST['edit_id'] ?? 0;
         $title = $_POST['title'] ?? '';
@@ -92,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Create Logic
                     if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
                         deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
-                        $success = "Successfully listed your book! 10 credits have been deducted.";
+                        $success = "Successfully listed your book! 10 tokens have been deducted.";
                     } else {
                         $error = "Failed to add listing.";
                     }
@@ -130,9 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         #picker-map {
             height: 350px;
-            border-radius: var(--radius-md);
-            margin-top: 1rem;
-            border: 2px solid var(--border-color);
+            width: 100%;
+            border-radius: 18px;
+            margin-top: 1.25rem;
+            border: 1.5px solid #e2e8f0;
+            z-index: 1;
         }
         .step-title {
             font-size: 1.1rem;
@@ -143,25 +146,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 0.5rem;
             color: var(--primary);
         }
-        #picker-map {
-            height: 350px;
-            width: 100%;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-        }
+
         .map-search-container {
             position: relative;
             margin-bottom: 1rem;
             z-index: 1001;
         }
-        #map-search-input-new {
+
+        .map-search-input {
             width: 100%;
-            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            padding: 0.8rem 1rem 0.8rem 2.75rem; /* Increased left padding for icon */
+            padding-right: 3rem; /* Space for target button */
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
             font-size: 0.9rem;
             box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
         }
+        
+        .map-search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+            outline: none;
+        }
+
+        .map-search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1.2rem;
+            pointer-events: none;
+        }
+
+        .locate-btn {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            background: #eef2ff;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .locate-btn:hover { background: var(--primary); color: white; }
         .search-suggestions-map {
             position: absolute;
             top: 100%;
@@ -191,33 +227,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .map-suggestion-item i { color: var(--text-muted); font-size: 1.1rem; }
         
         /* Pulsing Pin Marker */
-        .pulsing-marker {
-            position: relative;
-        }
-        .pulsing-marker .pin {
-            width: 14px;
-            height: 14px;
-            background: var(--primary);
-            border: 2px solid white;
-            border-radius: 50%;
-            position: absolute;
-            z-index: 10;
-        }
-        .pulsing-marker .pulse {
-            width: 30px;
-            height: 30px;
-            background: var(--primary);
-            border-radius: 50%;
-            position: absolute;
-            top: -8px;
-            left: -8px;
-            opacity: 0.4;
-            animation: pin-pulse 1.5s infinite;
-        }
-        @keyframes pin-pulse {
-            0% { transform: scale(0.5); opacity: 0.5; }
-            100% { transform: scale(2.5); opacity: 0; }
-        }
+        /* Pulsing Pin Marker */
+        .pulsing-marker { position: relative; }
+        .pin { width: 14px; height: 14px; background: var(--primary); border: 2.5px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .pulse { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; position: absolute; top: -8.5px; left: -8.5px; opacity: 0.3; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.5); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
+
 
         /* Accuracy Circle */
         .accuracy-circle {
@@ -359,11 +374,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label class="form-label">Book Title *</label>
-                                    <input type="text" name="title" id="input_title" class="form-input" required placeholder="Book Title" value="<?php echo htmlspecialchars($editData['title'] ?? ''); ?>">
+                                    <input type="text" name="title" id="input_title" class="form-input" required placeholder="Book Title" value="<?php echo htmlspecialchars($editData['title'] ?? ''); ?>" minlength="2" title="Book title must be at least 2 characters long.">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Author Name *</label>
-                                    <input type="text" name="author" id="input_author" class="form-input" required placeholder="Author Name" value="<?php echo htmlspecialchars($editData['author'] ?? ''); ?>">
+                                    <input type="text" name="author" id="input_author" class="form-input" required placeholder="Author Name" value="<?php echo htmlspecialchars($editData['author'] ?? ''); ?>" minlength="2" title="Author name must be at least 2 characters long.">
                                 </div>
                             </div>
 
@@ -387,33 +402,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="form-group">
                                 <label class="form-label">Description</label>
-                                <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..."><?php echo htmlspecialchars($editData['description'] ?? ''); ?></textarea>
+                                <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..." minlength="10" title="Description must be at least 10 characters long to provide enough detail."><?php echo htmlspecialchars($editData['description'] ?? ''); ?></textarea>
                             </div>
                             <!-- Location Picker -->
                             <div class="form-group">
                                 <!-- High Precision Search -->
+                                <label class="form-label">Current Pin Location</label>
                                 <div class="map-search-container">
-                                    <i class='bx bx-search' style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                                    <input type="text" id="map-search-input-new" placeholder="Search area, street, or landmark..." autocomplete="off">
-                                    <button type="button" class="locate-btn" onclick="useMyLocation()" title="Use my current location" style="position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary); cursor: pointer;">
+                                    <i class='bx bx-search map-search-icon'></i>
+                                    <input type="text" id="map-search-input-new" class="map-search-input" placeholder="Search for your building or street..." autocomplete="off">
+                                    <button type="button" class="locate-btn" onclick="useMyLocation()" title="Use my current location">
                                         <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
                                     </button>
                                     <div id="search-suggestions-map" class="search-suggestions-map"></div>
                                 </div>
                                 
                                 <div id="picker-map"></div>
+                                <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.75rem; font-weight: 600;">
+                                    <i class='bx bxs-info-circle'></i> Accurate GPS location ensures delivery partners find you without calls.
+                                </p>
+                                
+                                <div class="form-group" style="margin-top: 1rem;">
+                                    <label class="form-label" style="font-size: 0.9rem;">Full Address / Location *</label>
+                                    <textarea name="location_name" id="location_name" class="form-input" rows="2" required placeholder="Address will appear here..." readonly><?php echo htmlspecialchars($editData['location'] ?? ''); ?></textarea>
+                                </div>
+
                                 <div class="form-group" style="margin-top: 1rem;">
                                     <label class="form-label" style="font-size: 0.9rem;">Nearby Reference Point *</label>
                                     <input type="text" name="landmark" class="form-input" placeholder="e.g. Near City Hospital, Opposite SBI Bank" value="<?php echo htmlspecialchars($editData['landmark'] ?? ''); ?>" required>
                                     <p class="form-hint" style="font-size: 0.8rem; margin-top: 0.25rem;"><i class='bx bx-info-circle'></i> This helps delivery agents find the pickup spot faster.</p>
                                 </div>
-                                <input type="hidden" name="location_name" id="location_name" value="<?php echo htmlspecialchars($editData['location'] ?? ''); ?>" required>
                                 <input type="hidden" name="district" id="district" value="<?php echo htmlspecialchars($editData['district'] ?? ''); ?>">
                                 <input type="hidden" name="city" id="city" value="<?php echo htmlspecialchars($editData['city'] ?? ''); ?>">
                                 <input type="hidden" name="pincode" id="pincode" value="<?php echo htmlspecialchars($editData['pincode'] ?? ''); ?>">
                                 <input type="hidden" name="latitude" id="lat" value="<?php echo htmlspecialchars($editData['latitude'] ?? ''); ?>" required>
                                 <input type="hidden" name="longitude" id="lng" value="<?php echo htmlspecialchars($editData['longitude'] ?? ''); ?>" required>
-                                <p class="form-hint" style="margin-top: 0.5rem;"><i class='bx bx-map'></i> Search for your city, then click the exact spot.</p>
                             </div>
 
                             <div class="form-group">
@@ -443,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             
                              <div class="form-group" id="price-group" style="display: <?php echo ($listingType === 'sell') ? 'block' : 'none'; ?>;">
                                 <label class="form-label">Selling Price (₹)</label>
-                                <input type="number" name="price" id="input_price" class="form-input" value="<?php echo htmlspecialchars($editData['price'] ?? 0); ?>" min="0" oninput="validity.valid||(value='');">
+                                <input type="number" name="price" id="input_price" class="form-input" value="<?php echo htmlspecialchars($editData['price'] ?? 0); ?>" min="0" oninput="validity.valid||(value='');" title="Price cannot be negative.">
                                 <p style="color: red; font-size: 0.8rem; display: none;" id="price-error">Price cannot be less than 0</p>
                             </div>
 
@@ -452,20 +475,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">
                                     <i class='bx bx-package'></i> Quantity Available
                                 </label>
-                                <input type="number" name="quantity" class="form-input" value="<?php echo htmlspecialchars($editData['quantity'] ?? 1); ?>" min="1" placeholder="Number of copies">
+                                <input type="number" name="quantity" class="form-input" value="<?php echo htmlspecialchars($editData['quantity'] ?? 1); ?>" min="1" placeholder="Number of copies" title="Quantity must be at least 1.">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
                                     <i class='bx bx-info-circle'></i> Number of copies you have to share
                                 </p>
                             </div>
 
-                            <!-- Credit Cost Field -->
+                            <!-- Token Cost Field -->
                             <div class="form-group">
                                 <label class="form-label">
-                                    <i class='bx bx-wallet'></i> Credit Cost
+                                    <i class='bx bx-wallet'></i> Token Cost
                                 </label>
-                                <input type="number" name="credit_cost" class="form-input" value="<?php echo htmlspecialchars($editData['credit_cost'] ?? 10); ?>" min="1" placeholder="Credits required">
+                                <input type="number" name="credit_cost" class="form-input" value="<?php echo htmlspecialchars($editData['credit_cost'] ?? 10); ?>" min="1" placeholder="Tokens required">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
-                                    <i class='bx bx-info-circle'></i> Credits borrowers need to pay (default: 10)
+                                    <i class='bx bx-info-circle'></i> Tokens borrowers need to pay (default: 10)
                                 </p>
                             </div>
 
@@ -536,238 +559,265 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const initialLat = <?php echo ($editData['latitude'] ?? 12.9716); ?>;
-        const initialLng = <?php echo ($editData['longitude'] ?? 77.5946); ?>;
-        const map = L.map('picker-map').setView([initialLat, initialLng], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
-
-        let accuracyCircle = null;
-
-        // Custom Pulsing Pin Icon
-        const pulsingIcon = L.divIcon({
-            className: 'pulsing-marker',
-            html: '<div class="pin"></div><div class="pulse"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-
-        let marker;
-        if (<?php echo $editId ? 'true' : 'false'; ?>) {
-            marker = L.marker([initialLat, initialLng], { icon: pulsingIcon }).addTo(map);
-        }
-
-        map.on('click', function(e) {
-            updateLocation(e.latlng.lat, e.latlng.lng);
-        });
-
-        const mapSearchInput = document.getElementById('map-search-input-new');
-        const searchSuggestions = document.getElementById('search-suggestions-map');
-        let searchTimeout;
-
-        mapSearchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            const query = e.target.value.trim();
-            if (query.length < 3) {
-                searchSuggestions.style.display = 'none';
-                return;
-            }
-
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`);
-                    const data = await res.json();
-                    
-                    searchSuggestions.innerHTML = '';
-                    if (data && data.length > 0) {
-                        data.forEach(item => {
-                            const div = document.createElement('div');
-                            div.className = 'suggestion-item';
-                            div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
-                            div.onclick = () => {
-                                map.setView([item.lat, item.lon], 17);
-                                updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
-                                searchSuggestions.style.display = 'none';
-                                mapSearchInput.value = item.display_name;
-                            };
-                            searchSuggestions.appendChild(div);
-                        });
-                        searchSuggestions.style.display = 'block';
-                    } else {
-                        searchSuggestions.style.display = 'none';
-                    }
-                } catch (e) {
-                    console.error("Search failed", e);
-                }
-            }, 500);
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!mapSearchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
-                searchSuggestions.style.display = 'none';
-            }
-        });
-
-        function updateLocation(lat, lng, manualAddress = null) {
-            if (marker) map.removeLayer(marker);
-            marker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(map);
-
-            document.getElementById('lat').value = lat;
-            document.getElementById('lng').value = lng;
-
-            // Reverse geocoding
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                .then(res => res.json())
-                .then(data => {
-                    const addr = data.address;
-                    
-                    // Deep parsing
-                    const house = addr.house_number || '';
-                    const road = addr.road || addr.pedestrian || '';
-                    const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
-                    const city = addr.city || addr.town || addr.village || '';
-                    const district = addr.state_district || addr.county || '';
-                    const pincode = addr.postcode || '';
-
-                    // Deep parsing for rural areas
-                    const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
-
-                    let parts = [];
-                    if (house) parts.push(house);
-                    if (road) parts.push(road);
-                    if (suburb) parts.push(suburb);
-                    if (city) parts.push(city);
-                    if (!city && rural) parts.push(rural);
-
-                    const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
-                    document.getElementById('location_name').value = manualAddress || shortAddr;
-                    
-                    if (district) document.getElementById('district').value = district.replace(' District', '').replace(' district', '');
-                    if (city) document.getElementById('city').value = city;
-                    if (pincode) document.getElementById('pincode').value = pincode;
-                });
-        }
-
-        // Redundant search function removed, now using high-precision autocomplete above.
-
-        function useMyLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
-
-                    if (accuracyCircle) map.removeLayer(accuracyCircle);
-                    accuracyCircle = L.circle([lat, lng], {
-                        radius: accuracy,
-                        color: 'var(--primary)',
-                        fillOpacity: 0.1,
-                        weight: 1,
-                        className: 'accuracy-circle'
-                    }).addTo(map);
-
-                    map.setView([lat, lng], 16);
-                    updateLocation(lat, lng);
-                }, () => {
-                    alert('Unable to retrieve your location');
-                });
-            } else {
-                alert('Geolocation is not supported by your browser');
-            }
-        }
-
-        // --- New Logic for Auto-fill & UI ---
-        
-        // 1. Debounce function to limit API calls
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-        // 2. Book Search Integration - wrap in DOM ready
         document.addEventListener('DOMContentLoaded', function() {
+            // --- Map Initialization ---
+            const initialLat = <?php echo ($editData['latitude'] ?? 12.9716); ?>;
+            const initialLng = <?php echo ($editData['longitude'] ?? 77.5946); ?>;
+            const map = L.map('picker-map').setView([initialLat, initialLng], 12);
+            
+            const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+            const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+            L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(map);
+    
+            let accuracyCircle = null;
+    
+            // Custom Pulsing Pin Icon
+            const pulsingIcon = L.divIcon({
+                className: 'pulsing-marker',
+                html: '<div class="pin"></div><div class="pulse"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+    
+            let marker;
+            if (<?php echo $editId ? 'true' : 'false'; ?>) {
+                marker = L.marker([initialLat, initialLng], { icon: pulsingIcon }).addTo(map);
+            }
+    
+            map.on('click', function(e) {
+                updateLocation(e.latlng.lat, e.latlng.lng);
+            });
+    
+            window.updateLocation = function(lat, lng, manualAddress = null) {
+                if (marker) map.removeLayer(marker);
+                marker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(map);
+    
+                document.getElementById('lat').value = lat;
+                document.getElementById('lng').value = lng;
+    
+                // Reverse geocoding
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const addr = data.address;
+                        
+                        // Deep parsing
+                        const house = addr.house_number || '';
+                        const road = addr.road || addr.pedestrian || '';
+                        const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
+                        const city = addr.city || addr.town || addr.village || '';
+                        const district = addr.state_district || addr.county || '';
+                        const pincode = addr.postcode || '';
+    
+                        // Deep parsing for rural areas
+                        const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
+    
+                        let parts = [];
+                        if (house) parts.push(house);
+                        if (road) parts.push(road);
+                        if (suburb) parts.push(suburb);
+                        if (city && city !== suburb) parts.push(city);
+                        if (!city && rural) parts.push(rural);
+    
+                        const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
+                        
+                        const locNameInput = document.getElementById('location_name');
+                        if (locNameInput) locNameInput.value = manualAddress || shortAddr;
+                        
+                        if (district) document.getElementById('district').value = district.replace(' District', '').replace(' district', '');
+                        if (city) document.getElementById('city').value = city;
+                        if (pincode) document.getElementById('pincode').value = pincode;
+                    })
+                    .catch(err => console.error("Reverse geocoding failed", err));
+            };
+            
+            // Expose map functions globally if needed for button clicks
+            window.useMyLocation = function() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const accuracy = position.coords.accuracy;
+    
+                        if (accuracyCircle) map.removeLayer(accuracyCircle);
+                        accuracyCircle = L.circle([lat, lng], {
+                            radius: accuracy,
+                            color: 'var(--primary)',
+                            fillOpacity: 0.1,
+                            weight: 1,
+                            className: 'accuracy-circle'
+                        }).addTo(map);
+    
+                        map.setView([lat, lng], 16);
+                        window.updateLocation(lat, lng);
+                    }, () => {
+                        alert('Unable to retrieve your location. Please check browser permissions.');
+                    });
+                } else {
+                    alert('Geolocation is not supported by your browser');
+                }
+            };
+    
+            // Map Search Logic
+            const mapSearchInput = document.getElementById('map-search-input-new');
+            const searchSuggestionsMap = document.getElementById('search-suggestions-map');
+            let mapSearchTimeout;
+    
+            if (mapSearchInput && searchSuggestionsMap) {
+                mapSearchInput.addEventListener('input', (e) => {
+                    clearTimeout(mapSearchTimeout);
+                    const query = e.target.value.trim();
+                    if (query.length < 3) {
+                        searchSuggestionsMap.style.display = 'none';
+                        return;
+                    }
+    
+                    mapSearchTimeout = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`);
+                            const data = await res.json();
+                            
+                            searchSuggestionsMap.innerHTML = '';
+                            if (data && data.length > 0) {
+                                data.forEach(item => {
+                                    const div = document.createElement('div');
+                                    div.className = 'map-suggestion-item';
+                                    div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
+                                    div.onclick = () => {
+                                        map.setView([item.lat, item.lon], 17);
+                                        window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                        searchSuggestionsMap.style.display = 'none';
+                                        mapSearchInput.value = item.display_name;
+                                    };
+                                    searchSuggestionsMap.appendChild(div);
+                                });
+                                searchSuggestionsMap.style.display = 'block';
+                            } else {
+                                searchSuggestionsMap.style.display = 'none';
+                            }
+                        } catch (e) {
+                            console.error("Map search failed", e);
+                        }
+                    }, 500);
+                });
+    
+                mapSearchInput.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const query = e.target.value.trim();
+                        if (query.length < 3) return;
+    
+                        clearTimeout(mapSearchTimeout);
+                        
+                        try {
+                            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in`);
+                            const data = await res.json();
+                            
+                            if (data.length > 0) {
+                                const item = data[0];
+                                map.setView([item.lat, item.lon], 17);
+                                window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                searchSuggestionsMap.style.display = 'none';
+                                mapSearchInput.value = item.display_name;
+                            } else {
+                                alert("Location not found. Please try a different query.");
+                            }
+                        } catch (e) {
+                            console.error("Enter search failed", e);
+                            alert("Something went wrong while searching. Please try again.");
+                        }
+                    }
+                });
+    
+                document.addEventListener('click', (e) => {
+                    if (!mapSearchInput.contains(e.target) && !searchSuggestionsMap.contains(e.target)) {
+                        searchSuggestionsMap.style.display = 'none';
+                    }
+                });
+            }
+
+            // 1. Debounce function to limit API calls
+            function debounce(func, wait) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            }
+
+            // --- Book Auto-Fill Logic (Existing) ---
             const searchInput = document.getElementById('book-search');
             const suggestions = document.getElementById('suggestions');
             
-            if (!searchInput || !suggestions) {
-                console.error('Book search elements not found');
-                return;
-            }
-
-            searchInput.addEventListener('input', debounce(async (e) => {
-                const q = e.target.value;
-                if (q.length < 3) { suggestions.style.display = 'none'; return; }
-                
-                try {
-                    // Using Google Books API (Public)
-                    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
-                    const data = await res.json();
+            if (searchInput && suggestions) {
+                searchInput.addEventListener('input', debounce(async (e) => {
+                    const q = e.target.value;
+                    if (q.length < 3) { suggestions.style.display = 'none'; return; }
                     
-                    suggestions.innerHTML = '';
-                    if (data.items) {
-                        data.items.forEach(book => {
-                            const info = book.volumeInfo;
-                            const thumb = info.imageLinks?.thumbnail || 'assets/images/book-placeholder.jpg';
-                            const title = info.title;
-                            const author = info.authors ? info.authors[0] : 'Unknown Author';
-                            
-                            const div = document.createElement('div');
-                            div.className = 'suggestion-item';
-                            div.innerHTML = `
-                                <img src="${thumb}" class="suggestion-thumb" onerror="this.src='https://via.placeholder.com/45x65?text=?'">
-                                <div>
-                                    <div style="font-weight: 600; font-size: 0.95rem;">${title}</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted);">${author}</div>
-                                </div>
-                            `;
-                            div.onclick = () => fillBook(info);
-                            suggestions.appendChild(div);
-                        });
-                        suggestions.style.display = 'block';
-                    }
-                } catch (err) {
-                    console.error('Book search error:', err);
-                }
-            }, 400));
-
-            // Hide suggestions when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
-                    suggestions.style.display = 'none';
-                }
-            });
-
-            function fillBook(info) {
-                document.getElementById('input_title').value = info.title;
-                document.getElementById('input_author').value = info.authors ? info.authors[0] : '';
-                document.getElementById('input_description').value = info.description ? info.description : '';
-                
-                // Get higher quality image
-                let imgUrl = info.imageLinks?.thumbnail || '';
-                if (imgUrl) imgUrl = imgUrl.replace('http:', 'https:').replace('&edge=curl', '');
-                
-                document.getElementById('input_cover_url').value = imgUrl; // Store as backup
-                showPreview(imgUrl);
-                
-                // Try to auto-select categories if available
-                if (info.categories) {
-                    const cats = info.categories.map(c => c.toLowerCase());
-                    document.querySelectorAll('.cat-checkbox').forEach(box => {
-                        if (cats.some(c => c.includes(box.value.toLowerCase()))) {
-                            box.checked = true;
-                            box.parentElement.classList.add('selected');
+                    try {
+                        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+                        const data = await res.json();
+                        
+                        suggestions.innerHTML = '';
+                        if (data.items) {
+                            data.items.forEach(book => {
+                                const info = book.volumeInfo;
+                                const thumb = info.imageLinks?.thumbnail || 'assets/images/book-placeholder.jpg';
+                                const title = info.title;
+                                const author = info.authors ? info.authors[0] : 'Unknown Author';
+                                
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                div.innerHTML = `
+                                    <img src="${thumb}" class="suggestion-thumb" onerror="this.src='https://via.placeholder.com/45x65?text=?'">
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 0.95rem;">${title}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">${author}</div>
+                                    </div>
+                                `;
+                                div.onclick = () => fillBook(info);
+                                suggestions.appendChild(div);
+                            });
+                            suggestions.style.display = 'block';
                         }
-                    });
-                }
-
-                suggestions.style.display = 'none';
-                searchInput.value = ''; 
+                    } catch (err) {
+                        console.error('Book search error:', err);
+                    }
+                }, 400));
+    
+                document.addEventListener('click', (e) => {
+                    if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+                        suggestions.style.display = 'none';
+                    }
+                });
+    
+                window.fillBook = function(info) {
+                    document.getElementById('input_title').value = info.title;
+                    document.getElementById('input_author').value = info.authors ? info.authors[0] : '';
+                    document.getElementById('input_description').value = info.description ? info.description : '';
+                    
+                    let imgUrl = info.imageLinks?.thumbnail || '';
+                    if (imgUrl) imgUrl = imgUrl.replace('http:', 'https:').replace('&edge=curl', '');
+                    
+                    document.getElementById('input_cover_url').value = imgUrl; 
+                    showPreview(imgUrl);
+                    
+                    if (info.categories) {
+                        const cats = info.categories.map(c => c.toLowerCase());
+                        document.querySelectorAll('.cat-checkbox').forEach(box => {
+                            if (cats.some(c => c.includes(box.value.toLowerCase()))) {
+                                box.checked = true;
+                                box.parentElement.classList.add('selected');
+                            }
+                        });
+                    }
+    
+                    suggestions.style.display = 'none';
+                    searchInput.value = ''; 
+                };
             }
-        }); // End of DOMContentLoaded
-
-        // Toggle category style
+        }); // End DOMContentLoaded
+        // Toggle category style, File Upload, and other helper functions
         function toggleCat(checkbox) {
             if (checkbox.checked) checkbox.parentElement.classList.add('selected');
             else checkbox.parentElement.classList.remove('selected');

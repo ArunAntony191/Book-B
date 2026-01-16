@@ -374,21 +374,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="grid-2">
                                     <div class="form-group">
                                         <label class="form-label">First Name</label>
-                                        <input type="text" name="firstname" class="form-input" value="<?php echo htmlspecialchars($user['firstname']); ?>" required>
+                                        <input type="text" name="firstname" class="form-input" value="<?php echo htmlspecialchars($user['firstname']); ?>" required pattern="[A-Za-z\s'\-]{2,50}" title="Name should contain only letters and be at least 2 characters long">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Last Name</label>
-                                        <input type="text" name="lastname" class="form-input" value="<?php echo htmlspecialchars($user['lastname']); ?>" required>
+                                        <input type="text" name="lastname" class="form-input" value="<?php echo htmlspecialchars($user['lastname']); ?>" required pattern="[A-Za-z\s'\-]{1,50}" title="Name should contain only letters">
                                     </div>
                                 </div>
                                 <div class="form-group" style="margin-top: 1.25rem;">
                                     <label class="form-label">Email Address</label>
-                                    <input type="email" name="email" class="form-input" value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                                    <input type="email" name="email" class="form-input" value="<?php echo htmlspecialchars($user['email']); ?>" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address (e.g. user@example.com)">
                                 </div>
                                 <div class="form-group" style="margin-top: 1.25rem;">
                                     <label class="form-label">Phone Number</label>
                                     <input type="tel" name="phone" class="form-input" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" required
-                                           pattern="^\+?[0-9]{10,15}$" title="Enter a valid phone number">
+                                           pattern="[\d\s\-\+\(\)]{10,20}" title="Phone number must contain only digits, spaces, and symbols (+, -, parenthesis). Letters are not allowed.">
                                 </div>
                             </div>
 
@@ -412,7 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">City / Area</label>
-                                        <input type="text" name="city" id="city-input" list="city-suggestions" class="form-input" placeholder="e.g. Aluva" value="<?php echo htmlspecialchars($user['city'] ?? ''); ?>">
+                                        <input type="text" name="city" id="city-input" list="city-suggestions" class="form-input" placeholder="e.g. Aluva" value="<?php echo htmlspecialchars($user['city'] ?? ''); ?>" pattern="[A-Za-z\s\.\-]+" title="City name should contain only letters">
                                         <datalist id="city-suggestions"></datalist>
                                     </div>
                                 </div>
@@ -420,7 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="grid-2" style="margin-top: 1.25rem;">
                                     <div class="form-group">
                                         <label class="form-label">Pincode</label>
-                                        <input type="text" name="pincode" id="pincode-input" class="form-input" placeholder="68xxxx" value="<?php echo htmlspecialchars($user['pincode'] ?? ''); ?>">
+                                        <input type="text" name="pincode" id="pincode-input" class="form-input" placeholder="68xxxx" value="<?php echo htmlspecialchars($user['pincode'] ?? ''); ?>" pattern="\d{6}" maxlength="6" title="Pincode must be exactly 6 digits">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">State</label>
@@ -537,6 +537,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     searchSuggestions.style.display = 'block';
                 }
             }, 500);
+        });
+
+        addrSearch.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const query = e.target.value.trim();
+                if (query.length < 3) return;
+
+                clearTimeout(searchTimeout);
+                
+                // Show loading state implicitly by not doing anything yet or maybe a spinner could be added later
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in`);
+                const data = await res.json();
+                
+                if (data.length > 0) {
+                    const item = data[0];
+                    addressMap.setView([item.lat, item.lon], 17);
+                    updateAddressFromCoords(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                    searchSuggestions.style.display = 'none';
+                    // Optional: keep the user's typed query or replace with the formatted one? 
+                    // Usually replacing with the official name is better for confirmation
+                    addrSearch.value = item.display_name;
+                }
+            }
         });
 
         function getCurrentLocation() {

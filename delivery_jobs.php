@@ -28,7 +28,7 @@ $stmt = $pdo->prepare("
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
            l.location as listing_loc, l.latitude as listing_lat, l.longitude as listing_lng,
-           l.district as listing_dist, l.city as listing_city, 
+           l.district as listing_dist, l.city as listing_city, l.landmark as listing_landmark,
            CASE 
              WHEN t.status = 'approved' AND t.delivery_agent_id IS NULL THEN 'forward'
              ELSE 'return'
@@ -54,9 +54,11 @@ foreach ($all_raw_jobs as $job) {
         $job['p_lat'] = $job['listing_lat'];
         $job['p_lng'] = $job['listing_lng'];
         $job['p_addr'] = $job['listing_loc'];
+        $job['pickup_landmark'] = $job['listing_landmark'] ?? '';
         $job['d_lat'] = $job['order_lat'];
         $job['d_lng'] = $job['order_lng'];
         $job['d_addr'] = $job['order_address'];
+        $job['order_landmark'] = $job['order_landmark'] ?? ''; 
         $job['p_city'] = $job['listing_city'];
         $job['p_dist'] = $job['listing_dist'];
     } else {
@@ -64,9 +66,11 @@ foreach ($all_raw_jobs as $job) {
         $job['p_lat'] = $job['order_lat'];
         $job['p_lng'] = $job['order_lng'];
         $job['p_addr'] = $job['order_address'];
+        $job['pickup_landmark'] = $job['order_landmark'] ?? '';
         $job['d_lat'] = $job['listing_lat'];
         $job['d_lng'] = $job['listing_lng'];
         $job['d_addr'] = $job['listing_loc'];
+        $job['order_landmark'] = $job['listing_landmark'] ?? '';
         $job['p_city'] = $job['city']; // Borrower city? Transactions doesn't have it, but we can assume listing city for filtering or fetch borrower's city
         $job['p_dist'] = $job['district']; // Same
     }

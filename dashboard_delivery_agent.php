@@ -33,8 +33,8 @@ $stmt = $pdo->prepare("
            l.location as pickup_location, l.landmark as pickup_landmark, l.latitude as pickup_lat, l.longitude as pickup_lng,
            l.district as pickup_district, l.city as pickup_city, l.pincode as pickup_pincode, t.order_landmark,
            CASE 
-             WHEN t.delivery_agent_id = ? THEN 'forward'
              WHEN t.return_agent_id = ? THEN 'return'
+             WHEN t.delivery_agent_id = ? THEN 'forward'
              ELSE 'forward'
            END as job_type
     FROM transactions t
@@ -433,12 +433,12 @@ $total_delivered = $stmt->fetchColumn();
                             <?php if ($job['job_type'] === 'forward'): ?>
                                 <?php if ($job['status'] == 'approved'): ?>
                                     <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
-                                        <i class='bx bx-box'></i> Confirm Pickup
+                                        <i class='bx bx-box'></i> Verify Pickup (Handover)
                                     </button>
                                 <?php elseif ($job['status'] == 'active'): ?>
                                     <?php if (!$job['agent_confirm_delivery_at']): ?>
                                         <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                            <i class='bx bx-check-circle'></i> Mark Delivered
+                                            <i class='bx bx-check-circle'></i> Verify Delivery (Dropoff)
                                         </button>
                                     <?php else: ?>
                                         <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
@@ -454,12 +454,12 @@ $total_delivered = $stmt->fetchColumn();
                                 <!-- Return Leg Actions - Only show if current agent is the return agent -->
                                 <?php if ($job['status'] == 'returning' && !$job['return_picked_up_at']): ?>
                                     <button onclick="updateStatus(<?php echo $job['id']; ?>, 'returning_active')" class="btn-action btn-primary-action">
-                                        <i class='bx bx-box'></i> Confirm Return Pickup
+                                        <i class='bx bx-box'></i> Verify Return Pickup
                                     </button>
                                 <?php elseif ($job['status'] == 'returning' && $job['return_picked_up_at']): ?>
                                     <?php if (!$job['return_agent_confirm_at']): ?>
                                         <button onclick="updateStatus(<?php echo $job['id']; ?>, 'return_delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                            <i class='bx bx-check-circle'></i> Mark Return Delivered
+                                            <i class='bx bx-check-circle'></i> Verify Return Delivery
                                         </button>
                                     <?php else: ?>
                                         <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">

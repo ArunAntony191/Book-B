@@ -358,12 +358,12 @@
                         <div>
                             <label class="form-label">First Name</label>
                             <input type="text" name="firstname" class="form-input" placeholder="First Name" required 
-                                   pattern="[A-Za-z\s'\-]+" title="Only letters, spaces, hyphens and apostrophes allowed">
+                                   pattern="[A-Za-z\s'\-]{2,50}" title="Only letters, spaces, hyphens and apostrophes allowed (min 2 chars)">
                         </div>
                         <div>
                             <label class="form-label">Last Name</label>
                             <input type="text" name="lastname" class="form-input" placeholder="Last Name" required
-                                   pattern="[A-Za-z\s'\-]+" title="Only letters, spaces, hyphens and apostrophes allowed">
+                                   pattern="[A-Za-z\s'\-]{1,50}" title="Only letters, spaces, hyphens and apostrophes allowed">
                         </div>
                     </div>
                 </div>
@@ -373,12 +373,12 @@
                     <div class="form-row">
                         <div>
                             <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required>
+                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address (e.g. user@example.com)">
                         </div>
                         <div>
                             <label class="form-label">Phone Number</label>
                             <input type="tel" name="phone" class="form-input" placeholder="+1234567890" required
-                                   pattern="^\+?[0-9]{10,15}$" title="Enter a valid phone number (10-15 digits)">
+                                   pattern="[\d\s\-\+\(\)]{10,20}" title="Phone number must contain only digits, spaces, and symbols (+, -, parenthesis). Letters are not allowed.">
                         </div>
                     </div>
                 </div>
@@ -388,7 +388,7 @@
                     <label class="form-label">Create Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required
-                               minlength="4">
+                               minlength="4" title="Password must be at least 4 characters long.">
                         <i class='bx bx-hide password-toggle' id="togglePassword"></i>
                     </div>
                     <p class="form-hint" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;">Minimal 4 characters for testing</p>

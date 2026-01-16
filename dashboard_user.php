@@ -8,6 +8,7 @@ $userId = $_SESSION['user_id'] ?? 0;
 $stats = getUserStatsEnhanced($userId);
 $books = getAllBooks(4);
 $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
+$hasMinTokens = hasMinimumTokens($userId);
 ?>
 
 <div class="dashboard-wrapper">
@@ -19,9 +20,17 @@ $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
                 <h1>Welcome back, <?php echo $user['firstname']; ?>! 👋</h1>
                 <p>Here's your reading journey and community impact today.</p>
             </div>
-            <a href="add_listing.php" class="btn btn-primary">
-                <i class='bx bx-plus-circle'></i> List a Book
-            </a>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <?php if (!$hasMinTokens): ?>
+                    <div style="background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-error-circle'></i>
+                        Maintenance Required: Min. <?php echo MIN_TOKEN_LIMIT; ?> tokens needed to list/borrow.
+                    </div>
+                <?php endif; ?>
+                <a href="add_listing.php" class="btn btn-primary <?php echo !$hasMinTokens ? 'disabled' : ''; ?>" <?php echo !$hasMinTokens ? 'style="opacity: 0.6; pointer-events: none;"' : ''; ?>>
+                    <i class='bx bx-plus-circle'></i> List a Book
+                </a>
+            </div>
         </div>
 
         <!-- Enhanced Widgets Grid -->
@@ -29,13 +38,13 @@ $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
             <!-- Credits Widget -->
             <div class="widget-card gradient-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
                 <div class="widget-title" style="justify-content: center; color: rgba(255,255,255,0.9);">
-                    <span><i class='bx bx-wallet'></i> Credit Balance</span>
+                    <span><i class='bx bx-wallet'></i> Token Balance</span>
                 </div>
                 <div style="font-size: 3rem; font-weight: 900; text-align: center; margin: 1rem 0;">
                     <?php echo $stats['credits'] ?? 100; ?>
                 </div>
                 <div style="text-align: center; opacity: 0.9; font-size: 0.85rem;">
-                    Use to borrow books
+                    Minimum required: <?php echo MIN_TOKEN_LIMIT; ?>
                 </div>
                 <a href="credit_history.php" style="display: block; text-align: center; margin-top: 1rem; color: white; text-decoration: underline; font-size: 0.85rem;">
                     View History →
@@ -150,7 +159,7 @@ $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
                     <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
                         <span style="color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> credits
+                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                             Borrow
