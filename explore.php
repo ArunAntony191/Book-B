@@ -508,7 +508,16 @@ $results = searchListingsAdvanced($filters);
                         .bindPopup("Your estimated location").openPopup();
 
                     map.setView([latitude, longitude], 16);
-                }, () => alert('Unable to retrieve your location'));
+                }, (error) => {
+                    let msg = "Unable to retrieve your location.";
+                    if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
+                    else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
+                    alert(msg);
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
             } else {
                 alert('Geolocation is not supported by your browser');
             }

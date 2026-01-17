@@ -170,7 +170,7 @@ if ($book['latitude'] && $book['longitude']) {
         }
         .map-search-input {
             padding-left: 2.5rem;
-            padding-right: 2.5rem;
+            padding-right: 6rem;
         }
         .map-search-icon {
             position: absolute;
@@ -495,8 +495,11 @@ if ($book['latitude'] && $book['longitude']) {
                     <div class="map-search-container">
                         <i class='bx bx-search map-search-icon'></i>
                         <input type="text" id="map-search" class="map-search-input" placeholder="Search for area, street, or building..." autocomplete="off">
-                        <button type="button" class="locate-btn" onclick="getCurrentLocation()" title="Use my current location" style="right: 1rem;">
+                        <button type="button" class="locate-btn" onclick="getCurrentLocation()" title="Use my current location" style="right: 0.8rem;">
                             <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
+                        </button>
+                        <button type="button" class="locate-btn" onclick="useProfileLocation()" title="Use my home location" style="right: 3.2rem;">
+                            <i class='bx bxs-home' style="font-size: 1.2rem;"></i>
                         </button>
                         <div id="delivery-search-suggestions" class="map-search-suggestions"></div>
                     </div>
@@ -512,10 +515,10 @@ if ($book['latitude'] && $book['longitude']) {
                     </div>
 
                     <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Specific Address Details</label>
-                    <textarea id="delivery-address" class="form-input" rows="2" placeholder="Building name, Street, Apartment number..."><?php echo htmlspecialchars($currentUser['address'] ?? ''); ?></textarea>
+                    <textarea id="delivery-address" class="form-input" rows="2" placeholder="Building name, Street, Apartment number..."></textarea>
                     
                     <label style="display: block; font-weight: 600; margin: 1rem 0 0.5rem;">Nearby Reference Point *</label>
-                    <input type="text" id="delivery-landmark" class="form-input" placeholder="e.g. Opposite Big Bazaar, Near Green Park" value="<?php echo htmlspecialchars($currentUser['landmark'] ?? ''); ?>">
+                    <input type="text" id="delivery-landmark" class="form-input" placeholder="e.g. Opposite Big Bazaar, Near Green Park" value="">
                     
                     <input type="hidden" id="order-lat" value="">
                     <input type="hidden" id="order-lng" value="">
@@ -754,11 +757,37 @@ if ($book['latitude'] && $book['longitude']) {
                     const { latitude, longitude } = position.coords;
                     dMap.setView([latitude, longitude], 17);
                     updateMarkerAndAddress(latitude, longitude);
-                }, () => {
+                }, (error) => {
                     document.getElementById('geocoding-status').style.display = 'none';
-                    alert("Unable to retrieve your location");
+                    let msg = "Unable to retrieve your location.";
+                    if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
+                    else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
+                    alert(msg);
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 });
+            } else {
+                alert("Geolocation is not supported by your browser.");
             }
+        }
+
+        function useProfileLocation() {
+            if (!dMap) return;
+            const profileLat = <?php echo $currentUser['service_start_lat'] ?? 'null'; ?>;
+            const profileLng = <?php echo $currentUser['service_start_lng'] ?? 'null'; ?>;
+            const profileAddr = <?php echo json_encode($currentUser['address'] ?? ''); ?>;
+            const profileLandmark = <?php echo json_encode($currentUser['landmark'] ?? ''); ?>;
+
+            if (!profileLat || !profileLng) {
+                alert("No home location saved in your profile!");
+                return;
+            }
+
+            dMap.setView([profileLat, profileLng], 17);
+            updateMarkerAndAddress(profileLat, profileLng, profileAddr);
+            document.getElementById('delivery-landmark').value = profileLandmark;
         }
 
         async function updateMarkerAndAddress(lat, lng, manualAddress = null) {
@@ -779,6 +808,13 @@ if ($book['latitude'] && $book['longitude']) {
             // Re-check availability
             checkAvailabilityGlobal(lenderLat, lenderLng, lat, lng);
 
+            // If manual address is provided (including empty string), set it immediately and skip fetch
+            if (manualAddress !== null) {
+                document.getElementById('delivery-address').value = manualAddress;
+                document.getElementById('geocoding-status').style.display = 'none';
+                return;
+            }
+
             document.getElementById('geocoding-status').style.display = 'block';
             
             try {
@@ -786,9 +822,7 @@ if ($book['latitude'] && $book['longitude']) {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                 const data = await res.json();
                 
-                if (manualAddress) {
-                    document.getElementById('delivery-address').value = manualAddress;
-                } else if(data && data.address) {
+                if(data && data.address) {
                      const addr = data.address;
                     // Deep parsing logic
                     const house = addr.house_number || '';
@@ -808,7 +842,7 @@ if ($book['latitude'] && $book['longitude']) {
                     document.getElementById('delivery-address').value = shortAddr;
                 }
             } catch(e) {
-                if(manualAddress) document.getElementById('delivery-address').value = manualAddress;
+                console.error("Geocoding failed", e);
             } finally {
                 document.getElementById('geocoding-status').style.display = 'none';
             }

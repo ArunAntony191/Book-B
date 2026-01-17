@@ -569,7 +569,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     const { latitude, longitude } = pos.coords;
                     addressMap.setView([latitude, longitude], 17);
                     updateAddressFromCoords(latitude, longitude);
-                }, () => alert("GPS access denied."), { enableHighAccuracy: true });
+                }, (error) => {
+                    let msg = "GPS access denied.";
+                    if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again or search manually.";
+                    else if (error.code === error.POSITION_UNAVAILABLE) msg = "Location information is unavailable.";
+                    alert(msg);
+                }, { 
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                alert("Geolocation is not supported by your browser.");
             }
         }
 

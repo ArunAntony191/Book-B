@@ -1260,6 +1260,43 @@ function getUnreadDeliveryUpdatesCount($userId) {
     }
 }
 
+/**
+ * Get unread "System" notifications count (excluding deals and deliveries)
+ */
+function getUnreadSystemNotificationsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type NOT IN (
+                'borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined',
+                'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'
+            )
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Mark specific types of notifications as read
+ */
+function markNotificationsAsReadByType($userId, $types) {
+    if (empty($types)) return false;
+    try {
+        $pdo = getDBConnection();
+        $placeholders = implode(',', array_fill(0, count($types), '?'));
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0 AND type IN ($placeholders)");
+        return $stmt->execute(array_merge([$userId], $types));
+    } catch (Exception $e) {
+        error_log("Mark notifications read by type error: " . $e->getMessage());
+        return false;
+    }
+}
+
 // ==================== DELIVERY & SMART ASSIGN FUNCTIONS ====================
 
 /**

@@ -9,6 +9,9 @@ if (!$userId) {
     exit();
 }
 
+// Mark delivery notifications as read when visiting this page
+markNotificationsAsReadByType($userId, ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed']);
+
 $deliveries = getUserDeliveries($userId);
 
 // Categorize deliveries

@@ -169,7 +169,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         function useCurrentLocation() {
             if (navigator.geolocation) {
-                // Show loading state if desired, or simpler alert
                 navigator.geolocation.getCurrentPosition(function(position) {
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
@@ -190,7 +189,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         map.fitBounds(group.getBounds().pad(0.1));
                     }
                 }, function(error) {
-                    alert("Error getting location: " + error.message);
+                    let msg = "Error getting location.";
+                    if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
+                    else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
+                    alert(msg);
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 });
             } else {
                 alert("Geolocation is not supported by this browser.");

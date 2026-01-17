@@ -3,7 +3,7 @@ require_once __DIR__ . '/db_helper.php';
 $current_page = basename($_SERVER['PHP_SELF']);
 $user_role = $_SESSION['role'] ?? 'user';
 $total_unread = isset($_SESSION['user_id']) ? getTotalUnreadCount($_SESSION['user_id']) : 0;
-$total_notifs = isset($_SESSION['user_id']) ? getUnreadNotificationsCount($_SESSION['user_id']) : 0;
+$total_notifs = isset($_SESSION['user_id']) ? getUnreadSystemNotificationsCount($_SESSION['user_id']) : 0;
 $deals_notifs = isset($_SESSION['user_id']) ? getUnreadRequestsCount($_SESSION['user_id']) : 0;
 $delivery_notifs = isset($_SESSION['user_id']) ? getUnreadDeliveryUpdatesCount($_SESSION['user_id']) : 0;
 ?>

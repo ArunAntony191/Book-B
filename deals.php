@@ -9,6 +9,9 @@ if (!$userId) {
     exit();
 }
 
+// Mark request notifications as read when visiting this page
+markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined']);
+
 $deals = getUserDeals($userId);
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);

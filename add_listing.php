@@ -650,8 +650,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
                         map.setView([lat, lng], 16);
                         window.updateLocation(lat, lng);
-                    }, () => {
-                        alert('Unable to retrieve your location. Please check browser permissions.');
+                    }, (error) => {
+                        let msg = "Unable to retrieve your location.";
+                        if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
+                        else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
+                        alert(msg);
+                    }, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
                     });
                 } else {
                     alert('Geolocation is not supported by your browser');
