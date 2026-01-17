@@ -53,12 +53,28 @@ try {
     $stmt = $pdo->query("SELECT role, COUNT(*) as count FROM users GROUP BY role");
     $roleDistribution = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     
+    // Support Requests (Notifications with type='support')
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM notifications WHERE type = 'support' AND is_read = 0");
+    $pendingSupport = $stmt->fetch()['total'];
+    
+    // Recent support notifications
+    $stmt = $pdo->query("
+        SELECT n.*, u.firstname, u.lastname, u.email, n.reference_id as sender_id
+        FROM notifications n
+        JOIN users u ON n.reference_id = u.id 
+        WHERE n.type = 'support' 
+        ORDER BY n.created_at DESC LIMIT 5
+    ");
+    $recentSupport = $stmt->fetchAll();
+    
 } catch (Exception $e) {
     error_log("Admin dashboard error: " . $e->getMessage());
     $totalUsers = $totalBooks = $totalListings = $activeTransactions = 0;
     $totalCredits = $recentJoins = $lowTrustUsers = $overdueTransactions = 0;
     $recentUsers = [];
     $roleDistribution = [];
+    $pendingSupport = 0;
+    $recentSupport = [];
 }
 ?>
 
@@ -80,6 +96,40 @@ try {
                 </button>
             </div>
         </div>
+
+        <!-- Support Requests Widget -->
+        <?php if ($pendingSupport > 0): ?>
+        <div class="settings-card" style="margin-bottom: 2rem; border: 2px solid var(--primary); background: var(--bg-card);">
+            <div class="section-header" style="border-bottom: none; margin-bottom: 0.5rem; padding-bottom: 0;">
+                <i class='bx bx-support' style="color: var(--primary);"></i>
+                <h2 style="margin: 0; font-size: 1.2rem;">Pending Support Requests (<?php echo $pendingSupport; ?>)</h2>
+            </div>
+            <div class="chat-list" style="margin-top: 1rem;">
+                <?php foreach ($recentSupport as $msg): ?>
+                    <div class="chat-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem 0; display: flex; align-items: flex-start; gap: 1rem;">
+                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($msg['firstname']); ?>&background=random" style="width: 40px; height: 40px; border-radius: 50%;">
+                        <div class="setting-info" style="flex: 1;">
+                            <h3 style="font-size: 0.95rem; margin: 0;"><?php echo htmlspecialchars($msg['firstname'] . ' ' . $msg['lastname']); ?> <span style="font-weight: 400; font-size: 0.8rem; color: var(--text-muted);">(<?php echo htmlspecialchars($msg['email']); ?>)</span></h3>
+                            <p style="margin: 0.25rem 0; font-size: 0.9rem; color: var(--text-body);">
+                                <?php 
+                                    $cleanMsg = $msg['message'];
+                                    // Remove various prefixes for a cleaner view
+                                    $cleanMsg = preg_replace('/^SUPPORT REQUEST:\s*/i', '', $cleanMsg);
+                                    $cleanMsg = preg_replace('/^Support request from.*?: /i', '', $cleanMsg);
+                                    echo htmlspecialchars(trim($cleanMsg, '" ')); 
+                                ?>
+                            </p>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);"><?php echo date('M d, H:i', strtotime($n['created_at'] ?? $msg['created_at'])); ?></span>
+                        </div>
+                        <a href="chat/index.php?user_id=<?php echo $msg['sender_id']; ?>" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reply</a>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div style="margin-top: 1rem; text-align: right;">
+                <a href="chat/index.php" style="font-size: 0.85rem; color: var(--primary); font-weight: 600;">View All Messages <i class='bx bx-right-arrow-alt'></i></a>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Platform Stats -->
         <div class="widgets-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
@@ -161,8 +211,8 @@ try {
         </div>
 
         <!-- User Role Distribution -->
-        <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="background: var(--section-bg); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 <i class='bx bx-pie-chart-alt-2' style="color: var(--primary);"></i> User Distribution
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
@@ -175,7 +225,7 @@ try {
                     ];
                     $info = $roleColors[$role] ?? ['color' => '#6b7280', 'icon' => 'bx-user'];
                 ?>
-                <div style="text-align: center; padding: 1rem; background: white; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div style="text-align: center; padding: 1rem; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                     <i class='bx <?php echo $info['icon']; ?>' style="font-size: 2rem; color: <?php echo $info['color']; ?>; margin-bottom: 0.5rem;"></i>
                     <div style="font-size: 1.8rem; font-weight: 800; color: <?php echo $info['color']; ?>;"><?php echo $count; ?></div>
                     <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: capitalize;"><?php echo $role; ?>s</div>
@@ -185,8 +235,8 @@ try {
         </div>
 
         <!-- Quick Actions -->
-        <div style="background: white; padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 <i class='bx bx-zap' style="color: #f59e0b;"></i> Quick Actions
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
@@ -207,7 +257,7 @@ try {
 
         <!-- Recent Users -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 <i class='bx bx-user-plus' style="color: var(--primary);"></i>
                 Recent User Registrations
             </h2>
@@ -217,9 +267,9 @@ try {
         </div>
 
         <?php if (count($recentUsers) > 0): ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-md);">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-md);">
             <table style="width: 100%; border-collapse: collapse;">
-                <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                <thead style="background: var(--section-bg); border-bottom: 1px solid var(--border-color);">
                     <tr>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">User</th>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Role</th>
@@ -232,17 +282,17 @@ try {
                     <?php foreach ($recentUsers as $u): 
                         $trustRating = getTrustScoreRating($u['trust_score']);
                     ?>
-                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--section-bg)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 1.25rem;">
                             <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($u['firstname'] . ' ' . $u['lastname']); ?></div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo htmlspecialchars($u['email']); ?></div>
                         </td>
                         <td style="padding: 1.25rem;">
-                            <span style="padding: 0.3rem 0.8rem; background: #e2e8f0; color: var(--text-main); border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;">
+                            <span style="padding: 0.3rem 0.8rem; background: var(--section-bg); color: var(--text-main); border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;">
                                 <?php echo $u['role']; ?>
                             </span>
                         </td>
-                        <td style="padding: 1.25rem; text-align: center; font-weight: 600;">
+                        <td style="padding: 1.25rem; text-align: center; font-weight: 600; color: var(--text-main);">
                             <?php echo $u['credits']; ?>
                         </td>
                         <td style="padding: 1.25rem; text-align: center;">
@@ -259,7 +309,7 @@ try {
             </table>
         </div>
         <?php else: ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
             <i class='bx bx-user-plus' style="font-size: 4rem; color: var(--text-muted); opacity: 0.3;"></i>
             <p style="color: var(--text-muted); margin-top: 1rem;">No recent user activity</p>
         </div>

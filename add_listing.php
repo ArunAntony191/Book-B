@@ -106,23 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Listing | BOOK-B</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
         .add-container {
             max-width: 900px;
             margin: 2rem auto;
-            background: white;
+            background: var(--bg-card);
             padding: 2.5rem;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-lg);
+            color: var(--text-main);
         }
         .form-grid {
             display: grid;
@@ -244,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         /* New Styles */
         .search-hero {
-            background: #f8fafc;
+            background: var(--section-bg);
             padding: 1.5rem;
             border-radius: var(--radius-md);
             margin-bottom: 2rem;
@@ -254,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: absolute;
             top: 100%;
             left: 0; right: 0;
-            background: white;
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             max-height: 300px;
@@ -298,13 +291,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         /* Upload Zone */
         .upload-zone {
-            border: 2px dashed #cbd5e1;
+            border: 2px dashed var(--border-color);
             border-radius: var(--radius-md);
             padding: 2rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
-            background: #f8fafc;
+            background: var(--section-bg);
             position: relative;
         }
         .upload-zone:hover { border-color: var(--primary); background: #eff6ff; }
@@ -328,8 +321,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .cat-pill.selected { background: var(--primary); color: white; border-color: var(--primary); }
         .cat-checkbox { display: none; }
     </style>
-</head>
-<body>
     <div class="dashboard-wrapper">
         <?php include 'includes/dashboard_sidebar.php'; ?>
 

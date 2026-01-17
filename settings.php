@@ -13,145 +13,183 @@ $user = getUserById($userId);
 $success = '';
 $error = '';
 
-// Handle Settings Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['update_settings'])) {
-        $emailNotifs = isset($_POST['email_notifications']) ? 1 : 0;
-        $privacyMode = $_POST['privacy_mode'] ?? 'public';
-        
-        try {
-            $pdo = getDBConnection();
-            $stmt = $pdo->prepare("UPDATE users SET email_notifications = ?, privacy_mode = ? WHERE id = ?");
-            if ($stmt->execute([$emailNotifs, $privacyMode, $userId])) {
-                $success = "Settings updated successfully!";
-                $user = getUserById($userId); // Refresh
-            }
-        } catch (Exception $e) {
-            $error = "Failed to update settings.";
-        }
-    }
-
-    if (isset($_POST['change_password'])) {
+    if (isset($_POST['update_password'])) {
         $oldPass = $_POST['old_password'];
         $newPass = $_POST['new_password'];
         $confirmPass = $_POST['confirm_password'];
-
-        if ($newPass !== $confirmPass) {
-            $error = "New passwords do not match.";
-        } else {
-            try {
-                $pdo = getDBConnection();
-                $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
-                $stmt->execute([$userId]);
-                $hash = $stmt->fetchColumn();
-
-                if (password_verify($oldPass, $hash)) {
-                    $newHash = password_hash($newPass, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-                    $stmt->execute([$newHash, $userId]);
-                    $success = "Password changed successfully!";
+        
+        // Verify old password (simplification: assuming we have password in $user)
+        // Note: getUserById doesn't return password by default for security, 
+        // but for this flow we need it. Let's fetch it specifically.
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $storedPass = $stmt->fetchColumn();
+        
+        if (password_verify($oldPass, $storedPass)) {
+            if ($newPass === $confirmPass) {
+                if (updateUserPassword($userId, $newPass)) {
+                    $success = "Password updated successfully!";
                 } else {
-                    $error = "Current password is incorrect.";
+                    $error = "Failed to update password.";
                 }
-            } catch (Exception $e) {
-                $error = "Failed to change password.";
+            } else {
+                $error = "New passwords do not match.";
+            }
+        } else {
+            $error = "Current password is incorrect.";
+        }
+    } 
+    elseif (isset($_POST['update_preferences'])) {
+        $settings = [
+            'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
+            'theme_mode' => $_POST['theme_mode'] ?? 'light'
+        ];
+        
+        if (updateUserSettings($userId, $settings)) {
+            $success = "Preferences updated!";
+            $user = getUserById($userId);
+            $_SESSION['theme_mode'] = $user['theme_mode'];
+        } else {
+            $error = "Failed to update preferences.";
+        }
+    }
+    elseif (isset($_POST['contact_admin'])) {
+        $message = trim($_POST['admin_message']);
+        if (!empty($message)) {
+            // Find admin ID (defaulting to 1 as per current logic, or searching for admin role)
+            $pdo = getDBConnection();
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+            $stmt->execute();
+            $adminId = $stmt->fetchColumn() ?: 1;
+            
+            // Add notification for admin instead of chat message to prevent spam
+            $userName = $user['firstname'] . ' ' . $user['lastname'];
+            $msgSnippet = mb_strimwidth($message, 0, 100, "...");
+            if (createNotification($adminId, 'support', "Support request from $userName: \"$msgSnippet\"", $userId)) {
+                $success = "Your message has been sent to the admin team.";
+            } else {
+                $error = "Failed to send message.";
             }
         }
     }
-
-    if (isset($_POST['contact_admin'])) {
-        $message = trim($_POST['admin_message']);
-        if (empty($message)) {
-            $error = "Please enter a message.";
-        } else {
-            try {
-                $pdo = getDBConnection();
-                // Get all admins
-                $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'admin'");
-                $stmt->execute();
-                $admins = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-                $displayName = htmlspecialchars($user['firstname'] . ' ' . $user['lastname']);
-                $notifMsg = "Support Request from {$displayName}: " . (strlen($message) > 100 ? substr($message, 0, 97) . '...' : $message);
-
-                foreach ($admins as $adminId) {
-                    $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'system', ?, ?)")
-                        ->execute([$adminId, $notifMsg, $userId]);
-                }
-                $success = "Your message has been sent to the administrators.";
-            } catch (Exception $e) {
-                $error = "Failed to send message.";
+    elseif (isset($_POST['delete_account'])) {
+        if ($_POST['confirm_delete'] === 'DELETE') {
+            if (deleteUserAccount($userId)) {
+                session_destroy();
+                header("Location: login.php?deleted=1");
+                exit();
+            } else {
+                $error = "Failed to delete account.";
             }
+        } else {
+            $error = "Please type 'DELETE' to confirm account closure.";
         }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo $user['theme_mode'] ?? 'light'; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings | BOOK-B</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=1.1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .settings-container {
             max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
         }
+
         .settings-card {
-            background: white;
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-color);
-            padding: 2rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: var(--shadow-md);
             margin-bottom: 2rem;
         }
-        .settings-section-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
+
+        .settings-section {
+            margin-bottom: 3rem;
+        }
+
+        .settings-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-header {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            color: var(--text-main);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
         }
-        .settings-section-title i {
+
+        .section-header i {
+            font-size: 1.5rem;
             color: var(--primary);
         }
-        .settings-row {
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.25rem 0;
-            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color, #eef2f6);
         }
-        .settings-row:last-child {
+
+        .setting-row:last-child {
             border-bottom: none;
         }
-        .settings-info {
-            flex: 1;
-        }
-        .settings-label {
+
+        .setting-info h3 {
+            font-size: 1rem;
             font-weight: 600;
-            display: block;
             margin-bottom: 0.25rem;
         }
-        .settings-desc {
+
+        .setting-info p {
             font-size: 0.85rem;
             color: var(--text-muted);
         }
-        .toggle-switch {
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .btn-danger:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Toggle Switch */
+        .switch {
             position: relative;
             display: inline-block;
             width: 50px;
             height: 26px;
         }
-        .toggle-switch input {
+
+        .switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
+
         .slider {
             position: absolute;
             cursor: pointer;
@@ -159,10 +197,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #e2e8f0;
+            background-color: #ccc;
             transition: .4s;
             border-radius: 34px;
         }
+
         .slider:before {
             position: absolute;
             content: "";
@@ -174,40 +213,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: .4s;
             border-radius: 50%;
         }
+
         input:checked + .slider {
             background-color: var(--primary);
         }
+
         input:checked + .slider:before {
             transform: translateX(24px);
         }
+
         .form-group {
             margin-bottom: 1.25rem;
         }
-        .form-group label {
+
+        .form-label {
             display: block;
+            font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
-            font-size: 0.9rem;
+            color: var(--text-muted);
         }
-        .form-control {
+
+        .form-input {
             width: 100%;
             padding: 0.75rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            font-size: 0.95rem;
-        }
-        .btn-danger-outline {
-            color: #ef4444;
-            border: 1px solid #ef4444;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-color);
             background: transparent;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-danger-outline:hover {
-            background: #fef2f2;
+            color: var(--text-main);
         }
     </style>
 </head>
@@ -217,109 +250,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <main class="main-content">
             <div class="settings-container">
-                <h1 style="margin-bottom: 2rem;">Settings</h1>
+                <div class="page-header" style="margin-bottom: 2rem;">
+                    <h1>Settings</h1>
+                    <p>Customize your experience and manage account security</p>
+                </div>
 
                 <?php if ($success): ?>
-                    <div class="alert alert-success" style="background: #f0fdf4; color: #16a34a; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #dcfce7;">
+                    <div class="alert alert-success">
                         <i class='bx bxs-check-circle'></i> <?php echo $success; ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($error): ?>
-                    <div class="alert alert-danger" style="background: #fef2f2; color: #dc2626; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #fee2e2;">
+                    <div class="alert alert-danger">
                         <i class='bx bxs-error-circle'></i> <?php echo $error; ?>
                     </div>
                 <?php endif; ?>
 
-                <!-- General Preferences -->
-                <form method="POST">
-                    <div class="settings-card">
-                        <h2 class="settings-section-title"><i class='bx bx-slider-alt'></i> Preferences</h2>
-                        
-                        <div class="settings-row">
-                            <div class="settings-info">
-                                <span class="settings-label">Email Notifications</span>
-                                <span class="settings-desc">Receive updates about requests and deliveries via email.</span>
+                <div class="settings-card">
+                    <!-- Display & Appearance -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <i class='bx bx-palette'></i>
+                            <h2>Appearance</h2>
+                        </div>
+                        <form method="POST">
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <h3>Dark Mode</h3>
+                                    <p>Switch between light and dark themes</p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <select name="theme_mode" class="form-input" style="width: auto;" onchange="this.form.submit()">
+                                        <option value="light" <?php echo ($user['theme_mode'] ?? 'light') === 'light' ? 'selected' : ''; ?>>Light</option>
+                                        <option value="dark" <?php echo ($user['theme_mode'] ?? 'light') === 'dark' ? 'selected' : ''; ?>>Dark</option>
+                                    </select>
+                                    <input type="hidden" name="update_preferences" value="1">
+                                </div>
                             </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="email_notifications" <?php echo ($user['email_notifications'] ?? 1) ? 'checked' : ''; ?>>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="settings-row">
-                            <div class="settings-info">
-                                <span class="settings-label">Privacy Mode</span>
-                                <span class="settings-desc">Hide your profile details from non-community members.</span>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <h3>Email Notifications</h3>
+                                    <p>Receive updates about your requests and deliveries</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" name="email_notifications" <?php echo ($user['email_notifications'] ?? 1) ? 'checked' : ''; ?> onchange="this.form.submit()">
+                                    <span class="slider"></span>
+                                </label>
                             </div>
-                            <select name="privacy_mode" class="form-control" style="width: auto;">
-                                <option value="public" <?php echo ($user['privacy_mode'] ?? 'public') === 'public' ? 'selected' : ''; ?>>Public</option>
-                                <option value="private" <?php echo ($user['privacy_mode'] ?? 'public') === 'private' ? 'selected' : ''; ?>>Private</option>
-                            </select>
-                        </div>
-
-                        <div style="margin-top: 1.5rem; text-align: right;">
-                            <button type="submit" name="update_settings" class="btn btn-primary">Save Preferences</button>
-                        </div>
+                        </form>
                     </div>
-                </form>
 
-                <!-- Security Settings -->
-                <form method="POST">
-                    <div class="settings-card">
-                        <h2 class="settings-section-title"><i class='bx bx-lock-alt'></i> Security</h2>
-                        
-                        <div class="form-group">
-                            <label>Current Password</label>
-                            <input type="password" name="old_password" class="form-control" placeholder="••••••••" required>
+                    <!-- Security -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <i class='bx bx-shield-lock'></i>
+                            <h2>Security</h2>
                         </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <form method="POST">
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Current Password</label>
+                                    <input type="password" name="old_password" class="form-input" required>
+                                </div>
+                            </div>
+                            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="form-group">
+                                    <label class="form-label">New Password</label>
+                                    <input type="password" name="new_password" class="form-input" required minlength="6">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Confirm New Password</label>
+                                    <input type="password" name="confirm_password" class="form-input" required minlength="6">
+                                </div>
+                            </div>
+                            <button type="submit" name="update_password" class="btn btn-primary">Update Password</button>
+                        </form>
+                    </div>
+
+                    <!-- Support -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <i class='bx bx-support'></i>
+                            <h2>Support & Feedback</h2>
+                        </div>
+                        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Have an issue or suggestion? Send a message directly to the admin team.</p>
+                        <form method="POST">
                             <div class="form-group">
-                                <label>New Password</label>
-                                <input type="password" name="new_password" class="form-control" placeholder="••••••••" required minlength="6">
+                                <textarea name="admin_message" class="form-input" rows="3" placeholder="How can we help you?" required></textarea>
                             </div>
-                            <div class="form-group">
-                                <label>Confirm New Password</label>
-                                <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" required minlength="6">
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 1rem; text-align: right;">
-                            <button type="submit" name="change_password" class="btn btn-primary">Update Password</button>
-                        </div>
+                            <button type="submit" name="contact_admin" class="btn btn-outline">Send Message to Admin</button>
+                        </form>
                     </div>
-                </form>
 
-                <!-- Contact Admin Section -->
-                <form method="POST">
-                    <div class="settings-card">
-                        <h2 class="settings-section-title"><i class='bx bx-support'></i> Contact Admin</h2>
-                        <p class="settings-desc" style="margin-bottom: 1rem;">Need help or have a suggestion? Send a message to our administrators.</p>
+                    <!-- Danger Zone -->
+                    <div class="settings-section" style="margin-top: 4rem; padding-top: 2rem; border-top: 2px dashed #fee2e2;">
+                        <div class="section-header" style="border-bottom-color: #fee2e2;">
+                            <i class='bx bx-error' style="color: #ef4444;"></i>
+                            <h2 style="color: #ef4444;">Danger Zone</h2>
+                        </div>
+                        <div class="setting-row" style="border-bottom: none;">
+                            <div class="setting-info">
+                                <h3 style="color: #ef4444;">Delete Account</h3>
+                                <p>Permanently remove your account and all associated data. This cannot be undone.</p>
+                            </div>
+                            <button type="button" class="btn btn-danger" onclick="document.getElementById('delete-confirm').style.display='block'">Delete Account</button>
+                        </div>
                         
-                        <div class="form-group">
-                            <label>Your Message</label>
-                            <textarea name="admin_message" class="form-control" rows="4" placeholder="How can we help you today?" required></textarea>
-                        </div>
-
-                        <div style="margin-top: 1rem; text-align: right;">
-                            <button type="submit" name="contact_admin" class="btn btn-primary">
-                                <i class='bx bx-send'></i> Send Message
-                            </button>
+                        <div id="delete-confirm" style="display: none; margin-top: 1.5rem; background: #fff1f2; padding: 1.5rem; border-radius: 16px; border: 1px solid #fecaca;">
+                            <p style="color: #991b1b; font-weight: 600; font-size: 0.9rem; margin-bottom: 1rem;">
+                                Are you absolutely sure? This will delete all your listings, history, and ratings.
+                                <br>Please type <strong>DELETE</strong> below to confirm.
+                            </p>
+                            <form method="POST">
+                                <input type="text" name="confirm_delete" class="form-input" placeholder="Type DELETE" required style="border-color: #fecaca; margin-bottom: 1rem;">
+                                <div style="display: flex; gap: 1rem;">
+                                    <button type="submit" name="delete_account" class="btn btn-danger">Yes, Delete Everything</button>
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('delete-confirm').style.display='none'">Cancel</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
-                </form>
-
-                <!-- Danger Zone -->
-                <div class="settings-card" style="border-color: #fee2e2;">
-                    <h2 class="settings-section-title" style="color: #dc2626;"><i class='bx bx-trash'></i> Danger Zone</h2>
-                    <p class="settings-desc" style="margin-bottom: 1.5rem;">Once you delete your account, there is no going back. Please be certain.</p>
-                    <button class="btn-danger-outline" onclick="if(confirm('Are you absolutely sure you want to delete your account? This cannot be undone.')) window.location.href='logout.php?delete=true';">
-                        Delete Account
-                    </button>
                 </div>
             </div>
         </main>
     </div>
+
+    <script>
+        // Optional: Theme live preview
+        document.querySelector('select[name="theme_mode"]').addEventListener('change', function(e) {
+            document.documentElement.setAttribute('data-theme', e.target.value);
+        });
+    </script>
 </body>
 </html>

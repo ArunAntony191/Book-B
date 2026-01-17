@@ -73,6 +73,36 @@ function getStatusLabel($status, $agentId) {
         .tracking-wrapper { max-width: 1000px; margin: 0 auto; padding: 0 1.5rem; }
         .page-header { margin-bottom: 2.5rem; text-align: left; }
         
+        .confirmation-box .actions {
+            display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;
+        }
+
+        /* Feedback Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white; border-radius: var(--radius-lg); width: 450px;
+            box-shadow: var(--shadow-xl); overflow: hidden;
+        }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer { padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; }
+        
+        .rating-stars {
+            display: flex; gap: 0.5rem; font-size: 2rem; color: #cbd5e1; cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+        .rating-stars i.bxs-star { color: #f59e0b; }
+        .review-textarea {
+            width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            padding: 1rem; font-family: inherit; resize: none; outline: none;
+        }
+        .review-textarea:focus { border-color: var(--primary); }
+        
         .tabs-header {
             display: flex; gap: 1rem; margin-bottom: 2.5rem;
             background: rgba(241, 245, 249, 0.8); backdrop-filter: blur(8px);
@@ -264,6 +294,30 @@ function getStatusLabel($status, $agentId) {
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Rate Your Experience</h2>
+                <p id="rating-target-name" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">with Delivery Agent</p>
+            </div>
+            <div class="modal-body">
+                <div class="rating-stars" id="feedback-rating">
+                    <i class='bx bx-star' data-value="1"></i>
+                    <i class='bx bx-star' data-value="2"></i>
+                    <i class='bx bx-star' data-value="3"></i>
+                    <i class='bx bx-star' data-value="4"></i>
+                    <i class='bx bx-star' data-value="5"></i>
+                </div>
+                <textarea id="feedback-comment" class="review-textarea" rows="4" placeholder="Share your experience (optional)..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeFeedbackModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="submitFeedback()" class="btn btn-primary">Submit Review</button>
+            </div>
+        </div>
     </div>
 
     <?php
@@ -473,6 +527,28 @@ function getStatusLabel($status, $agentId) {
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
+
+                    <?php 
+                    // Feedback Button Logic
+                    $showRateBtn = false;
+                    $revieweeId = 0;
+                    $revieweeName = '';
+                    
+                    if ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at'])) {
+                        $showRateBtn = true;
+                        $revieweeId = $d['delivery_agent_id'];
+                        $revieweeName = 'Delivery Agent';
+                    } elseif ($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])) {
+                        $showRateBtn = true;
+                        $revieweeId = $d['return_agent_id'];
+                        $revieweeName = 'Return Agent';
+                    }
+
+                    if ($showRateBtn && $revieweeId): ?>
+                        <button onclick="openFeedbackModal(<?php echo $d['id']; ?>, <?php echo $revieweeId; ?>, '<?php echo $revieweeName; ?>')" class="btn-confirm" style="background: #f8fafc; color: var(--text-main); border: 1px solid var(--border-color);">
+                            <i class='bx bx-star'></i> Rate Agent
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -542,6 +618,95 @@ function getStatusLabel($status, $agentId) {
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize')); 
             }, 100);
+        }
+
+        function showMsg(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-msg ${type}`;
+            messageDiv.innerHTML = `<i class='bx ${type === 'success' ? 'bx-check-circle' : 'bx-error-circle'}'></i> ${text}`;
+            document.body.appendChild(messageDiv);
+            setTimeout(() => messageDiv.remove(), 3000);
+        }
+
+        /* Feedback Functions */
+        let currentFeedbackTx = 0;
+        let currentFeedbackReviewee = 0;
+        let currentRatingValue = 0;
+
+        function openFeedbackModal(txId, revieweeId, name) {
+            currentFeedbackTx = txId;
+            currentFeedbackReviewee = revieweeId;
+            document.getElementById('rating-target-name').textContent = `Rating: ${name}`;
+            document.getElementById('feedback-modal').style.display = 'flex';
+            resetRating();
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+
+        function resetRating() {
+            currentRatingValue = 0;
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                star.className = 'bx bx-star';
+            });
+            document.getElementById('feedback-comment').value = '';
+        }
+
+        document.querySelectorAll('#feedback-rating i').forEach(star => {
+            star.addEventListener('mouseover', function() {
+                const val = this.dataset.value;
+                highlightStars(val);
+            });
+            star.addEventListener('mouseout', function() {
+                highlightStars(currentRatingValue);
+            });
+            star.addEventListener('click', function() {
+                currentRatingValue = this.dataset.value;
+                highlightStars(currentRatingValue);
+            });
+        });
+
+        function highlightStars(val) {
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                if (star.dataset.value <= val) {
+                    star.className = 'bx bxs-star';
+                } else {
+                    star.className = 'bx bx-star';
+                }
+            });
+        }
+
+        async function submitFeedback() {
+            if (currentRatingValue === 0) {
+                alert('Please select a rating');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_feedback');
+            formData.append('transaction_id', currentFeedbackTx);
+            formData.append('reviewee_id', currentFeedbackReviewee);
+            formData.append('rating', currentRatingValue);
+            formData.append('comment', document.getElementById('feedback-comment').value);
+
+            try {
+                const response = await fetch('feedback_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showMsg(result.message, 'success');
+                    closeFeedbackModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showMsg(result.message, 'error');
+                }
+            } catch (err) {
+                showMsg('Network error. Please try again.', 'error');
+            }
         }
 
         function confirmAction(txId, action) {

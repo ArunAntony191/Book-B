@@ -86,6 +86,10 @@ if ($method === 'GET') {
         // Mark as read (user1 is usually the receiver fetching the messages)
         $stmtMark = $pdo->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0");
         $stmtMark->execute([$user2, $user1]);
+        
+        // Also mark related notifications as read
+        $stmtNotif = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND reference_id = ? AND (type = 'message' OR type = 'support' OR type = 'support_reply')");
+        $stmtNotif->execute([$user1, $user2]);
 
         $stmt = $pdo->prepare("SELECT * FROM messages WHERE 
             (sender_id = ? AND receiver_id = ?) OR 
@@ -114,10 +118,49 @@ if ($method === 'GET') {
     }
 
     if ($sender_id && $receiver_id && ($message || $attachment_url)) {
+        // Block non-admin users from sending messages to admins (Prevent spam)
+        $stmtCheck = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $stmtCheck->execute([$receiver_id]);
+        $receiverRole = $stmtCheck->fetchColumn();
+        
+        if ($receiverRole === 'admin') {
+            $stmtSender = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+            $stmtSender->execute([$sender_id]);
+            if ($stmtSender->fetchColumn() !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['status' => 'error', 'message' => 'Direct messages to admin are disabled. Please use the Support section in Settings.']);
+                exit();
+            }
+        }
+
         $is_read = ($sender_id === $receiver_id) ? 1 : 0;
         $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message, attachment_url, is_read) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$sender_id, $receiver_id, $message, $attachment_url, $is_read]);
-        echo json_encode(['status' => 'success']);
+        if ($stmt->execute([$sender_id, $receiver_id, $message, $attachment_url, $is_read])) {
+            // Add notification for receiver (if not a self-message)
+            if ($sender_id !== $receiver_id) {
+                $stmtUser = $pdo->prepare("SELECT firstname, lastname FROM users WHERE id = ?");
+                $stmtUser->execute([$sender_id]);
+                $sender = $stmtUser->fetch();
+                $senderName = $sender ? ($sender['firstname'] . ' ' . $sender['lastname']) : 'Someone';
+                
+                $notifType = 'message';
+                $msgSnippet = $message ? mb_strimwidth($message, 0, 80, "...") : 'sent an image';
+                $notifMsg = "$senderName: $msgSnippet";
+                
+                // Special handling for admin messages
+                $stmtAdmin = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+                $stmtAdmin->execute([$sender_id]);
+                if ($stmtAdmin->fetchColumn() === 'admin') {
+                    $notifType = 'support_reply';
+                    $notifMsg = "Admin response: $msgSnippet";
+                }
+                
+                createNotification($receiver_id, $notifType, $notifMsg, $sender_id);
+            }
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Failed to send message']);
+        }
     } else {
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Invalid data or empty message']);

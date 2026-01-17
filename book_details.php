@@ -438,23 +438,28 @@ if ($book['latitude'] && $book['longitude']) {
                                 </button>
                             <?php endif; ?>
 
-                            <a href="chat/index.php?user=<?php echo $book['user_id']; ?>" class="btn btn-outline w-full" style="justify-content: center; padding: 0.8rem;">
-                                <i class='bx bx-message-rounded-dots'></i> Chat with Owner
-                            </a>
+                            <?php if ($book['role'] !== 'admin'): ?>
+                                <a href="chat/index.php?user=<?php echo $book['user_id']; ?>" class="btn btn-outline w-full" style="justify-content: center; padding: 0.8rem;">
+                                    <i class='bx bx-message-rounded-dots'></i> Chat with Owner
+                                </a>
+                            <?php endif; ?>
                         </div>
 
                         <hr style="border:0; border-top:1px solid var(--border-color); margin: 2rem 0;">
 
                         <div style="font-weight: 700; margin-bottom: 1rem;">Provider</div>
-                        <div style="display:flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                            <div style="width:45px; height:45px; background: #e2e8f0; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-weight: 700; color: var(--text-muted);">
+                        <a href="user_profile.php?id=<?php echo $book['user_id']; ?>" style="display:flex; align-items: center; gap: 1rem; margin-bottom: 1rem; text-decoration: none;">
+                            <div style="width:45px; height:45px; background: #e2e8f0; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-weight: 700; color: var(--text-muted); text-decoration: none;">
                                 <?php echo strtoupper(substr($book['firstname'], 0, 1)); ?>
                             </div>
                             <div>
                                 <div style="font-weight: 700; color: var(--text-main);"><?php echo $book['firstname'] . ' ' . $book['lastname']; ?></div>
                                 <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo ucfirst($book['role']); ?></div>
+                                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-top: 2px;">
+                                    <i class='bx bx-star'></i> View Ratings & Feedback
+                                </div>
                             </div>
-                        </div>
+                        </a>
 
                         <?php if ($book['latitude'] && $book['longitude']): ?>
                             <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-top: 1.5rem;">Pick-up Location</div>
@@ -527,9 +532,12 @@ if ($book['latitude'] && $book['longitude']) {
 
             <!-- Token Summary -->
             <div class="credit-summary">
-                <div class="credit-row">
-                    <span>Base Cost</span>
-                    <span><span id="base-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>
+                <div class="profile-main-info">
+                    <h1><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></h1>
+                    <p class="role-badge"><?php echo ucfirst($user['role']); ?></p>
+                    <a href="user_profile.php?id=<?php echo $userId; ?>" class="btn btn-outline btn-sm" style="margin-top: 1rem;">
+                        <i class='bx bx-show'></i> View My Public Profile
+                    </a>
                 </div>
                 <div id="delivery-fee-row" class="credit-row" style="display: none;">
                     <span>Delivery Fee</span>

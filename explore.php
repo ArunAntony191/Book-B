@@ -47,12 +47,12 @@ $filters = [
 $results = searchListingsAdvanced($filters);
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Explore Books | BOOK-B</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=1.1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -270,14 +270,17 @@ $results = searchListingsAdvanced($filters);
                                         <div>
                                             <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;"><?php echo htmlspecialchars($item['title']); ?></div>
                                             <div style="font-size: 0.8rem; color: var(--text-muted);">by <?php echo htmlspecialchars($item['author']); ?></div>
-                                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 4px;">
-                                                <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
-                                                    <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
-                                                </div>
-                                                <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
-                                                    <i class='bx bxs-shield-check'></i> <?php echo $item['trust_score']; ?>
-                                                </div>
-                                            </div>
+                                                <a href="user_profile.php?id=<?php echo $item['user_id']; ?>" onclick="event.stopPropagation();" style="display: flex; flex-direction: column; gap: 2px; text-decoration: none;">
+                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                        <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
+                                                            <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
+                                                        </div>
+                                                        <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
+                                                            <i class='bx bxs-shield-check'></i> <?php echo $item['trust_score']; ?>
+                                                        </div>
+                                                    </div>
+                                                    <span style="font-size: 0.65rem; color: var(--primary); font-weight: 600;">View Feedback</span>
+                                                </a>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -370,6 +373,7 @@ $results = searchListingsAdvanced($filters);
                                 </div>
                                 <div style="display: grid; gap: 0.5rem;">
                                     <a href="book_details.php?id=${m.id}" class="btn btn-primary btn-sm" style="text-decoration: none; color: white;">Get Book</a>
+                                    <a href="user_profile.php?id=${m.user_id}" class="btn btn-outline btn-sm" style="text-decoration: none; font-size: 0.75rem;">View User Reviews</a>
                                 </div>
                             </div>
                         `);
@@ -388,14 +392,17 @@ $results = searchListingsAdvanced($filters);
                         <div>
                             <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;">${m.title}</div>
                             <div style="font-size: 0.8rem; color: var(--text-muted);">by ${m.author}</div>
-                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 4px;">
-                                <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
-                                    <i class='bx bxs-star'></i> ${m.average_rating}
-                                </div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
-                                    <i class='bx bxs-shield-check'></i> ${m.trust_score}
-                                </div>
-                            </div>
+                                <a href="user_profile.php?id=${m.user_id}" style="display: flex; flex-direction: column; gap: 2px; text-decoration: none;" onclick="event.stopPropagation();">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
+                                            <i class='bx bxs-star'></i> ${m.average_rating}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
+                                            <i class='bx bxs-shield-check'></i> ${m.trust_score}
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 0.65rem; color: var(--primary); font-weight: 600;">View Reviews</div>
+                                </a>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; flex-direction: column; gap: 2px;">

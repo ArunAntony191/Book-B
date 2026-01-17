@@ -232,10 +232,30 @@ $status = $_GET['status'] ?? 'all';
                                 $icon = 'bx-coin-stack';
                                 $iconColor = '#10b981';
                                 $bgType = '#ecfdf5';
+                            } elseif ($n['type'] === 'support') {
+                                $icon = 'bx-support';
+                                $iconColor = 'var(--primary)';
+                                $bgType = 'var(--primary-light)15';
+                            } elseif ($n['type'] === 'message') {
+                                $icon = 'bx-message-square-dots';
+                                $iconColor = '#6366f1';
+                                $bgType = '#eef2ff';
+                            } elseif ($n['type'] === 'support_reply') {
+                                $icon = 'bx-support';
+                                $iconColor = 'var(--primary)';
+                                $bgType = 'var(--primary-light)15';
+                            }
+
+                            // Determine Link
+                            $link = '#';
+                            if ($n['type'] === 'message' || $n['type'] === 'support' || $n['type'] === 'support_reply') {
+                                $link = "chat/index.php?user=" . $n['reference_id'];
+                            } elseif (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) {
+                                $link = "delivery_details.php?id=" . $n['reference_id'];
                             }
 
                             echo "
-                            <div style='padding: 1.5rem; border-bottom: 1px solid var(--border-color); $highlight transition: all 0.2s;' id='notif-{$n['id']}'>
+                            <a href='{$link}' style='text-decoration: none; display: block; padding: 1.5rem; border-bottom: 1px solid var(--border-color); $highlight transition: all 0.2s;' id='notif-{$n['id']}'>
                                 <div style='display: flex; gap: 1rem; align-items: start;'>
                                     <div style='width: 45px; height: 45px; background: {$bgType}; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.05);'>
                                         <i class='bx {$icon}' style='font-size: 1.4rem; color: {$iconColor};'></i>
@@ -243,7 +263,7 @@ $status = $_GET['status'] ?? 'all';
                                     <div style='flex: 1;'>
                                         <div style='display: flex; justify-content: space-between; align-items: start; gap: 1rem;'>
                                             <div style='font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem; line-height: 1.5; font-weight: 500;'>{$n['message']}</div>
-                                            " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' ? "
+                                            " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' && (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) ? "
                                                 <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
                                             " : "") . "
                                         </div>
@@ -262,7 +282,7 @@ $status = $_GET['status'] ?? 'all';
                                 </div>";
                             }
                             
-                            echo "</div>";
+                            echo "</a>";
                         }
                     } else {
                         echo "<div style='padding: 4rem; text-align: center; color: var(--text-muted);'>

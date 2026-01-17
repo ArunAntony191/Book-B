@@ -13,13 +13,25 @@
     --danger: #ef4444;
     --info: #3b82f6;
 
-    /* Neutral Colors */
+    /* Theme-aware Alert Colors */
+    --alert-success-bg: #f0fdf4;
+    --alert-success-text: #16a34a;
+    --alert-success-border: #dcfce7;
+    --alert-danger-bg: #fef2f2;
+    --alert-danger-text: #dc2626;
+    --alert-danger-border: #fee2e2;
+
+    /* Neutral Colors - Light (Default) */
     --text-main: #0f172a;
     --text-body: #334155;
     --text-muted: #64748b;
     --bg-body: #f8fafc;
     --bg-card: #ffffff;
     --border-color: #e2e8f0;
+    --bg-sidebar: #ffffff;
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(226, 232, 240, 0.8);
+    --section-bg: #f8fafc;
 
     /* Spacing */
     --radius-sm: 6px;
@@ -30,6 +42,29 @@
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] {
+    --text-main: #f8fafc;
+    --text-body: #cbd5e1;
+    --text-muted: #94a3b8;
+    --bg-body: #0f172a;
+    --bg-card: #1e293b;
+    --border-color: #334155;
+    --bg-sidebar: #1e293b;
+    --glass-bg: rgba(30, 41, 59, 0.95);
+    --glass-border: rgba(51, 65, 85, 0.8);
+    --section-bg: #1e293b;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+    /* Dark Mode Alert Overrides */
+    --alert-success-bg: rgba(22, 163, 74, 0.1);
+    --alert-success-text: #4ade80;
+    --alert-success-border: rgba(22, 163, 74, 0.2);
+    --alert-danger-bg: rgba(220, 38, 38, 0.1);
+    --alert-danger-text: #f87171;
+    --alert-danger-border: rgba(220, 38, 38, 0.2);
 }
 
 /* Forms */
@@ -52,7 +87,8 @@
     border-radius: var(--radius-md);
     font-size: 0.95rem;
     transition: all 0.2s;
-    background: white;
+    background: var(--bg-card);
+    color: var(--text-main);
 }
 
 .form-input:focus {
@@ -144,6 +180,30 @@ body {
     }
 }
 
+/* Alerts */
+.alert {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.5rem;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+
+.alert-success {
+    background: var(--alert-success-bg);
+    color: var(--alert-success-text);
+    border-color: var(--alert-success-border);
+}
+
+.alert-danger {
+    background: var(--alert-danger-bg);
+    color: var(--alert-danger-text);
+    border-color: var(--alert-danger-border);
+}
+
 .reveal {
     opacity: 0;
     transform: translateY(30px);
@@ -164,7 +224,7 @@ body {
 
 /* Navbar */
 .navbar {
-    background: white;
+    background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
@@ -213,7 +273,7 @@ body {
 
 .sidebar {
     width: 260px;
-    background: white;
+    background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     padding: 2rem 0;
     position: sticky;
@@ -253,7 +313,8 @@ body {
 }
 
 .nav-item.active {
-    background: #eef2ff;
+    background: var(--primary-light);
+    background-color: rgba(79, 70, 229, 0.1);
     color: var(--primary);
     font-weight: 600;
     border-right: 3px solid var(--primary);
@@ -295,7 +356,7 @@ body {
 }
 
 .widget-card {
-    background: white;
+    background: var(--bg-card);
     padding: 1.5rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
@@ -344,7 +405,7 @@ body {
 }
 
 .book-card {
-    background: white;
+    background: var(--bg-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid var(--border-color);
@@ -374,7 +435,8 @@ body {
     position: absolute;
     top: 12px;
     right: 12px;
-    background: white;
+    background: var(--bg-card);
+    color: var(--text-main);
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -576,7 +638,7 @@ body {
 .feature-item {
     text-align: center;
     padding: 3rem 2rem;
-    background: white;
+    background: var(--bg-card);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -622,7 +684,7 @@ body {
 /* How It Works */
 .how-it-works-section {
     padding: 5rem 0;
-    background: white;
+    background: var(--bg-body);
 }
 
 .steps-grid {
@@ -640,7 +702,7 @@ body {
 }
 
 .step-card:hover {
-    background: white;
+    background: var(--bg-card);
     box-shadow: var(--shadow-md);
     transform: translateY(-5px);
 }

@@ -75,7 +75,8 @@ function authenticateUser($email, $password) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, password, firstname, lastname, role, reputation_score, is_accepting_deliveries, is_banned 
+            SELECT id, email, password, firstname, lastname, role, reputation_score, 
+                   is_accepting_deliveries, is_banned, theme_mode, email_notifications
             FROM users 
             WHERE email = ?
         ");
@@ -108,8 +109,11 @@ function getUserById($userId) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, firstname, lastname, phone, role, reputation_score, created_at,
-                   address, landmark, service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
+            SELECT id, email, firstname, lastname, phone, role, reputation_score, trust_score, 
+                   total_lends, total_borrows, average_rating, total_ratings, created_at,
+                   address, landmark, district, city, pincode, state, 
+                   theme_mode, email_notifications,
+                   service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
             FROM users 
             WHERE id = ?
         ");
@@ -192,7 +196,8 @@ function authenticateUserByEmail($email) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, firstname, lastname, role, reputation_score, is_banned 
+            SELECT id, email, firstname, lastname, role, reputation_score, 
+                   is_banned, theme_mode, email_notifications
             FROM users 
             WHERE email = ?
         ");
@@ -251,7 +256,7 @@ function getAllUsers($excludeId = 0) {
         $sql = "SELECT u.id, u.email, u.firstname, u.lastname, u.role,
                 (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.is_read = 0) as unread_count,
                 (SELECT MAX(created_at) FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id)) as last_activity
-                FROM users u WHERE u.id != ? 
+                FROM users u WHERE u.id != ? AND u.role != 'admin'
                 ORDER BY last_activity DESC, firstname ASC";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$excludeId, $excludeId, $excludeId, $excludeId]);
@@ -292,7 +297,7 @@ function searchUsers($query, $excludeId = 0) {
     try {
         $pdo = getDBConnection();
         $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role FROM users 
-                              WHERE id != ? AND (firstname LIKE ? OR lastname LIKE ? OR email LIKE ?)
+                              WHERE id != ? AND role != 'admin' AND (firstname LIKE ? OR lastname LIKE ? OR email LIKE ?)
                               LIMIT 10");
         $q = "%$query%";
         $stmt->execute([$excludeId, $q, $q, $q]);
@@ -1570,6 +1575,91 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         return $stats;
     } catch (PDOException $e) {
         error_log("Get agent report stats error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update user password
+ */
+function updateUserPassword($userId, $newPassword) {
+    try {
+        $pdo = getDBConnection();
+        $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+        return $stmt->execute([$hashed, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update password error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update user settings (notifications, theme, etc.)
+ */
+function updateUserSettings($userId, $settings) {
+    try {
+        $pdo = getDBConnection();
+        $fields = [];
+        $params = [];
+        
+        if (isset($settings['email_notifications'])) {
+            $fields[] = "email_notifications = ?";
+            $params[] = $settings['email_notifications'];
+        }
+        
+        if (isset($settings['theme_mode'])) {
+            $fields[] = "theme_mode = ?";
+            $params[] = $settings['theme_mode'];
+        }
+        
+        if (empty($fields)) return true;
+        
+        $params[] = $userId;
+        $sql = "UPDATE users SET " . implode(", ", $fields) . " WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute($params);
+    } catch (PDOException $e) {
+        error_log("Update settings error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Delete user account
+ */
+function deleteUserAccount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // This will cascade to listings, transactions, etc. if foreign keys are set correctly
+        // (Our schema uses ON DELETE CASCADE for most things)
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+        $success = $stmt->execute([$userId]);
+        
+        $pdo->commit();
+        return $success;
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete account error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Global function to create a notification
+ */
+function createNotification($userId, $type, $message, $referenceId = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, type, message, reference_id, is_read) 
+            VALUES (?, ?, ?, ?, 0)
+        ");
+        return $stmt->execute([$userId, $type, $message, $referenceId]);
+    } catch (PDOException $e) {
+        error_log("Create notification error: " . $e->getMessage());
         return false;
     }
 }

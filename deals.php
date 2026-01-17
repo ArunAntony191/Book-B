@@ -208,6 +208,32 @@ try {
             padding: 5rem 2rem;
             color: var(--text-muted);
         }
+
+        /* Feedback Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white; border-radius: var(--radius-lg); width: 450px;
+            box-shadow: var(--shadow-xl); overflow: hidden;
+        }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer { padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; }
+        
+        .rating-stars {
+            display: flex; gap: 0.5rem; font-size: 2rem; color: #cbd5e1; cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+        .rating-stars i.bxs-star { color: #f59e0b; }
+        .review-textarea {
+            width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            padding: 1rem; font-family: inherit; resize: none; outline: none;
+        }
+        .review-textarea:focus { border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -252,7 +278,13 @@ try {
                             <div class="deal-main">
                                 <div class="deal-title"><?php echo htmlspecialchars($deal['title']); ?></div>
                                 <div class="deal-meta">
-                                    <div class="meta-item"><i class='bx bx-user'></i> From: <strong><?php echo htmlspecialchars($deal['borrower_name']); ?></strong></div>
+                                    <div class="meta-item">
+                                        <i class='bx bx-user'></i> From: 
+                                        <a href="user_profile.php?id=<?php echo $deal['borrower_id']; ?>" style="color: var(--primary); text-decoration: none; font-weight: 700;">
+                                            <?php echo htmlspecialchars($deal['borrower_name']); ?>
+                                            <span style="display: block; font-size: 0.7rem; font-weight: 500; margin-top: 2px;">(Click to view reviews)</span>
+                                        </a>
+                                    </div>
                                     <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($deal['created_at'])); ?></div>
                                 </div>
                             </div>
@@ -266,6 +298,10 @@ try {
                                 <?php elseif ($deal['status'] === 'approved' || $deal['status'] === 'active'): ?>
                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
                                         <i class='bx bx-check-circle'></i> Mark Returned
+                                    </button>
+                                <?php elseif ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
+                                    <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="btn btn-outline btn-sm">
+                                        <i class='bx bx-star'></i> Rate Partner
                                     </button>
                                 <?php endif; ?>
                             </div>
@@ -290,15 +326,28 @@ try {
                             <div class="deal-main">
                                 <div class="deal-title"><?php echo htmlspecialchars($deal['title']); ?></div>
                                 <div class="deal-meta">
-                                    <div class="meta-item"><i class='bx bx-store-alt'></i> Owner: <strong><?php echo htmlspecialchars($deal['lender_name']); ?></strong></div>
+                                    <div class="meta-item">
+                                        <i class='bx bx-store-alt'></i> Owner: 
+                                        <a href="user_profile.php?id=<?php echo $deal['lender_id']; ?>" style="color: var(--primary); text-decoration: none; font-weight: 700;">
+                                            <?php echo htmlspecialchars($deal['lender_name']); ?>
+                                            <span style="display: block; font-size: 0.7rem; font-weight: 500; margin-top: 2px;">(Click to view reviews)</span>
+                                        </a>
+                                    </div>
                                     <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($deal['created_at'])); ?></div>
                                 </div>
                             </div>
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
-                                <a href="chat/index.php?user=<?php echo $deal['lender_id']; ?>" class="btn btn-outline btn-sm">
-                                    <i class='bx bx-message-square-dots'></i> Chat
-                                </a>
+                                <div class="btn-group">
+                                    <a href="chat/index.php?user=<?php echo $deal['lender_id']; ?>" class="btn btn-outline btn-sm">
+                                        <i class='bx bx-message-square-dots'></i> Chat
+                                    </a>
+                                    <?php if ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
+                                        <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-primary btn-sm">
+                                            <i class='bx bx-star'></i> Rate
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -345,6 +394,30 @@ try {
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Rate Your Experience</h2>
+                <p id="rating-target-name" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">with Alex</p>
+            </div>
+            <div class="modal-body">
+                <div class="rating-stars" id="feedback-rating">
+                    <i class='bx bx-star' data-value="1"></i>
+                    <i class='bx bx-star' data-value="2"></i>
+                    <i class='bx bx-star' data-value="3"></i>
+                    <i class='bx bx-star' data-value="4"></i>
+                    <i class='bx bx-star' data-value="5"></i>
+                </div>
+                <textarea id="feedback-comment" class="review-textarea" rows="4" placeholder="Share your experience (optional)..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeFeedbackModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="submitFeedback()" class="btn btn-primary">Submit Review</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -432,6 +505,87 @@ try {
                 }
             } else {
                 card.style.opacity = '1';
+            }
+        }
+
+        /* Feedback Functions */
+        let currentFeedbackTx = 0;
+        let currentFeedbackReviewee = 0;
+        let currentRatingValue = 0;
+
+        function openFeedbackModal(txId, revieweeId, name) {
+            currentFeedbackTx = txId;
+            currentFeedbackReviewee = revieweeId;
+            document.getElementById('rating-target-name').textContent = `Rating: ${name}`;
+            document.getElementById('feedback-modal').style.display = 'flex';
+            resetRating();
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+
+        function resetRating() {
+            currentRatingValue = 0;
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                star.className = 'bx bx-star';
+            });
+            document.getElementById('feedback-comment').value = '';
+        }
+
+        document.querySelectorAll('#feedback-rating i').forEach(star => {
+            star.addEventListener('mouseover', function() {
+                const val = this.dataset.value;
+                highlightStars(val);
+            });
+            star.addEventListener('mouseout', function() {
+                highlightStars(currentRatingValue);
+            });
+            star.addEventListener('click', function() {
+                currentRatingValue = this.dataset.value;
+                highlightStars(currentRatingValue);
+            });
+        });
+
+        function highlightStars(val) {
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                if (star.dataset.value <= val) {
+                    star.className = 'bx bxs-star';
+                } else {
+                    star.className = 'bx bx-star';
+                }
+            });
+        }
+
+        async function submitFeedback() {
+            if (currentRatingValue === 0) {
+                alert('Please select a rating');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_feedback');
+            formData.append('transaction_id', currentFeedbackTx);
+            formData.append('reviewee_id', currentFeedbackReviewee);
+            formData.append('rating', currentRatingValue);
+            formData.append('comment', document.getElementById('feedback-comment').value);
+
+            try {
+                const response = await fetch('feedback_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    closeFeedbackModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (err) {
+                showMessage('Network error. Please try again.', 'error');
             }
         }
     </script>

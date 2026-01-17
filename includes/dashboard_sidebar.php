@@ -6,7 +6,11 @@ $total_unread = isset($_SESSION['user_id']) ? getTotalUnreadCount($_SESSION['use
 $total_notifs = isset($_SESSION['user_id']) ? getUnreadSystemNotificationsCount($_SESSION['user_id']) : 0;
 $deals_notifs = isset($_SESSION['user_id']) ? getUnreadRequestsCount($_SESSION['user_id']) : 0;
 $delivery_notifs = isset($_SESSION['user_id']) ? getUnreadDeliveryUpdatesCount($_SESSION['user_id']) : 0;
+$theme_mode = $_SESSION['theme_mode'] ?? 'light';
 ?>
+<script>
+    document.documentElement.setAttribute('data-theme', '<?php echo $theme_mode; ?>');
+</script>
 <style>
     .nav-item { position: relative; }
     .nav-badge {

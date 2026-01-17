@@ -21,10 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone' => trim($_POST['phone']),
         'address' => trim($_POST['address'] ?? ''),
         'landmark' => trim($_POST['landmark'] ?? ''),
-        'district' => trim($_POST['district'] ?? ''),
+        'district' => ($_POST['district'] === 'Other' && !empty($_POST['manual_district'])) ? trim($_POST['manual_district']) : trim($_POST['district'] ?? ''),
         'city' => trim($_POST['city'] ?? ''),
         'pincode' => trim($_POST['pincode'] ?? ''),
-        'state' => trim($_POST['state'] ?? 'Kerala'),
+        'state' => ($_POST['state'] === 'Other' && !empty($_POST['manual_state'])) ? trim($_POST['manual_state']) : trim($_POST['state'] ?? 'Kerala'),
         'service_start_lat' => !empty($_POST['service_start_lat']) ? $_POST['service_start_lat'] : null,
         'service_start_lng' => !empty($_POST['service_start_lng']) ? $_POST['service_start_lng'] : null,
         'service_end_lat' => !empty($_POST['service_end_lat']) ? $_POST['service_end_lat'] : null,
@@ -44,22 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Profile | BOOK-B</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=1.1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root {
-            --glass-bg: rgba(255, 255, 255, 0.95);
-            --glass-border: rgba(226, 232, 240, 0.8);
-            --section-bg: #f8fafc;
-        }
-
         .profile-wrapper {
             max-width: 850px;
             margin: 0 auto;
@@ -72,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 2.5rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+            box-shadow: var(--shadow-md);
             position: relative;
             overflow: hidden;
         }
@@ -300,6 +294,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .btn-save:active { transform: translateY(0); }
 
+        .btn-discard {
+            background: rgba(241, 245, 249, 0.8);
+            color: #64748b;
+            padding: 1.25rem;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .btn-discard:hover {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
+        }
+
+        .form-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-top: 2.5rem;
+        }
+
         /* Status Pills */
         .status-pill {
             display: inline-flex;
@@ -401,33 +425,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 
                                 <div class="grid-2">
                                     <div class="form-group">
-                                        <label class="form-label">District</label>
-                                        <select name="district" id="district-select" class="form-input">
-                                            <?php 
-                                            $districts = ['Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod', 'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad', 'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad'];
-                                            foreach($districts as $d): ?>
-                                                <option value="<?php echo $d; ?>" <?php echo ($user['district'] ?? '') === $d ? 'selected' : ''; ?>><?php echo $d; ?></option>
-                                            <?php endforeach; ?>
+                                        <label class="form-label">State</label>
+                                        <select name="state" id="state-select" class="form-input">
+                                            <!-- Dynamically populated by JS (defaulted to Kerala if new) -->
                                         </select>
+                                        <input type="text" name="manual_state" id="manual-state" class="form-input" style="display: none; margin-top: 0.5rem;" placeholder="Type your state...">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">City / Area</label>
-                                        <input type="text" name="city" id="city-input" list="city-suggestions" class="form-input" placeholder="e.g. Aluva" value="<?php echo htmlspecialchars($user['city'] ?? ''); ?>" pattern="[A-Za-z\s\.\-]+" title="City name should contain only letters">
-                                        <datalist id="city-suggestions"></datalist>
+                                        <label class="form-label">District</label>
+                                        <select name="district" id="district-select" class="form-input">
+                                            <!-- Dynamically populated by JS -->
+                                        </select>
+                                        <input type="text" name="manual_district" id="manual-district" class="form-input" style="display: none; margin-top: 0.5rem;" placeholder="Type your district...">
                                     </div>
                                 </div>
 
                                 <div class="grid-2" style="margin-top: 1.25rem;">
                                     <div class="form-group">
-                                        <label class="form-label">Pincode</label>
-                                        <input type="text" name="pincode" id="pincode-input" class="form-input" placeholder="68xxxx" value="<?php echo htmlspecialchars($user['pincode'] ?? ''); ?>" pattern="\d{6}" maxlength="6" title="Pincode must be exactly 6 digits">
+                                        <label class="form-label">City / Area</label>
+                                        <input type="text" name="city" id="city-input" list="city-suggestions" class="form-input" placeholder="e.g. Aluva" value="<?php echo htmlspecialchars($user['city'] ?? ''); ?>" pattern="[A-Za-z\s\.\-]+" title="City name should contain only letters">
+                                        <datalist id="city-suggestions"></datalist>
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">State</label>
-                                        <select name="state" id="state-select" class="form-input">
-                                            <option value="Kerala" selected>Kerala</option>
-                                            <option value="Other">Other</option>
-                                        </select>
+                                        <label class="form-label">Pincode</label>
+                                        <input type="text" name="pincode" id="pincode-input" class="form-input" placeholder="68xxxx" value="<?php echo htmlspecialchars($user['pincode'] ?? ''); ?>" pattern="\d{6}" maxlength="6" title="Pincode must be exactly 6 digits">
                                     </div>
                                 </div>
 
@@ -478,9 +499,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="hidden" name="service_start_lat" id="lat" value="<?php echo $user['service_start_lat'] ?? ''; ?>">
                         <input type="hidden" name="service_start_lng" id="lng" value="<?php echo $user['service_start_lng'] ?? ''; ?>">
 
-                        <button type="submit" class="btn-save">
-                            <i class='bx bx-save'></i> Save Changes
-                        </button>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-save" style="margin-top: 0;">
+                                <i class='bx bx-save'></i> Save Changes
+                            </button>
+                            <a href="profile.php" class="btn-discard" style="text-decoration: none;">
+                                <i class='bx bx-refresh'></i> Discard Changes
+                            </a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -488,6 +514,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
+        const locationData = {
+            "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari", "Guntur", "Krishna", "Kurnool", "Prakasam", "Srikakulam", "Sri Potti Sriramulu Nellore", "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"],
+            "Bihar": ["Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar", "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar", "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda", "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Saran", "Sheikhpura", "Sheohar", "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran"],
+            "Delhi": ["Central Delhi", "East Delhi", "New Delhi", "North Delhi", "North East Delhi", "North West Delhi", "Shahdara", "South Delhi", "South East Delhi", "South West Delhi", "West Delhi"],
+            "Karnataka": ["Bagalkot", "Ballari", "Belagavi", "Bengaluru Rural", "Bengaluru Urban", "Bidar", "Chamarajanagar", "Chikkaballapur", "Chikkamagaluru", "Chitradurga", "Dakshina Kannada", "Davanagere", "Dharwad", "Gadag", "Hassan", "Haveri", "Kalaburagi", "Kodagu", "Kolar", "Koppal", "Mandya", "Mysuru", "Raichur", "Ramanagara", "Shivamogga", "Tumakuru", "Udupi", "Uttara Kannada", "Vijayapura", "Yadgir"],
+            "Kerala": ["Alappuzha", "Ernakulam", "Idukki", "Kannur", "Kasaragod", "Kollam", "Kottayam", "Kozhikode", "Malappuram", "Palakkad", "Pathanamthitta", "Thiruvananthapuram", "Thrissur", "Wayanad"],
+            "Maharashtra": ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"],
+            "Tamil Nadu": ["Ariyalur", "Chengalpattu", "Chennai", "Coimbatore", "Cuddalore", "Dharmapuri", "Dindigul", "Erode", "Kallakurichi", "Kanchipuram", "Kanyakumari", "Karur", "Krishnagiri", "Madurai", "Mayiladuthurai", "Nagapattinam", "Namakkal", "Nilgiris", "Perambalur", "Pudukkottai", "Ramanathapuram", "Ranipet", "Salem", "Sivaganga", "Tenkasi", "Thanjavur", "Theni", "Thoothukudi", "Tiruchirappalli", "Tirunelveli", "Tirupathur", "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur", "Vellore", "Viluppuram", "Virudhunagar"],
+            "Telangana": ["Adilabad", "Bhadradri Kothagudem", "Hyderabad", "Jagtial", "Jangaon", "Jayashankar Bhupalpally", "Jogulamba Gadwal", "Kamareddy", "Karimnagar", "Khammam", "Kumuram Bheem", "Mahabubabad", "Mahabubnagar", "Mancherial", "Medak", "Medchal", "Mulugu", "Nagarkurnool", "Nalgonda", "Narayanpet", "Nirmal", "Nizamabad", "Peddapalli", "Rajanna Sircilla", "Rangareddy", "Sangareddy", "Siddipet", "Suryapet", "Vikarabad", "Wanaparthy", "Warangal Rural", "Warangal Urban", "Yadadri Bhuvanagiri"]
+        };
+
+        const stateSelect = document.getElementById('state-select');
+        const districtSelect = document.getElementById('district-select');
+        const manualState = document.getElementById('manual-state');
+        const manualDistrict = document.getElementById('manual-district');
+
+        // Initial mapping and setup
+        const currentUserState = "<?php echo $user['state'] ?? 'Kerala'; ?>";
+        const currentUserDistrict = "<?php echo $user['district'] ?? 'Alappuzha'; ?>";
+
+        function initLocationSelectors() {
+            // Populate states
+            stateSelect.innerHTML = '';
+            Object.keys(locationData).sort().forEach(state => {
+                const opt = new Option(state, state);
+                if (state === currentUserState) opt.selected = true;
+                stateSelect.add(opt);
+            });
+            stateSelect.add(new Option("Other", "Other"));
+            
+            // If current state is not in list but not empty, it's "Other"
+            if (currentUserState && !locationData[currentUserState]) {
+                stateSelect.value = "Other";
+                manualState.value = currentUserState;
+                manualState.style.display = 'block';
+            }
+
+            updateDistricts();
+            
+            // Set initial district
+            if (currentUserDistrict && !Array.from(districtSelect.options).some(o => o.value === currentUserDistrict)) {
+                districtSelect.value = "Other";
+                manualDistrict.value = currentUserDistrict;
+                manualDistrict.style.display = 'block';
+            } else {
+                districtSelect.value = currentUserDistrict;
+            }
+        }
+
+        function updateDistricts() {
+            const selectedState = stateSelect.value;
+            districtSelect.innerHTML = '';
+            
+            if (selectedState !== "Other") {
+                manualState.style.display = 'none';
+                const districts = locationData[selectedState] || [];
+                districts.sort().forEach(d => {
+                    districtSelect.add(new Option(d, d));
+                });
+                districtSelect.add(new Option("Other", "Other"));
+            } else {
+                manualState.style.display = 'block';
+                districtSelect.add(new Option("Other", "Other"));
+                districtSelect.value = "Other";
+            }
+            
+            toggleManualDistrict();
+        }
+
+        function toggleManualDistrict() {
+            if (districtSelect.value === "Other") {
+                manualDistrict.style.display = 'block';
+            } else {
+                manualDistrict.style.display = 'none';
+            }
+        }
+
+        stateSelect.addEventListener('change', updateDistricts);
+        districtSelect.addEventListener('change', toggleManualDistrict);
+
+        // Run on load
+        initLocationSelectors();
+
         const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
         const cartoAttr = '©OpenStreetMap ©CartoDB';
 

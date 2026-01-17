@@ -83,6 +83,8 @@ if ($user) {
     $_SESSION['firstname'] = $user['firstname'];
     $_SESSION['lastname'] = $user['lastname'];
     $_SESSION['role'] = $user['role'];
+    $_SESSION['theme_mode'] = $user['theme_mode'] ?? 'light';
+    $_SESSION['email_notifications'] = $user['email_notifications'] ?? 1;
     
     // Redirect based on role
     switch ($user['role']) {
