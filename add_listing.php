@@ -9,6 +9,11 @@ if (!$userId) {
     exit();
 }
 
+// Fetch user details for auto-fill
+$userQuery = getDBConnection()->prepare("SELECT address, service_start_lat as latitude, service_start_lng as longitude, district, city, pincode, landmark FROM users WHERE id = ?");
+$userQuery->execute([$userId]);
+$userData = $userQuery->fetch(PDO::FETCH_ASSOC);
+
 $error = '';
 $success = '';
 
@@ -107,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         .add-container {
             max-width: 900px;
@@ -405,6 +411,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <button type="button" class="locate-btn" onclick="useMyLocation()" title="Use my current location">
                                         <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
                                     </button>
+                                    <button type="button" class="locate-btn" onclick="useHomeLocation()" title="Use my registered Home address" style="right: 3.5rem; background: #f0fdf4; color: #16a34a;">
+                                        <i class='bx bx-home' style="font-size: 1.2rem;"></i>
+                                    </button>
                                     <div id="search-suggestions-map" class="search-suggestions-map"></div>
                                 </div>
                                 
@@ -646,6 +655,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     });
                 } else {
                     alert('Geolocation is not supported by your browser');
+                }
+            };
+            
+            // --- Home Location Logic ---
+            window.useHomeLocation = function() {
+                const homeLat = <?php echo floatval($userData['latitude'] ?? 0); ?>;
+                const homeLng = <?php echo floatval($userData['longitude'] ?? 0); ?>;
+                const homeAddr = <?php echo json_encode($userData['address'] ?? ''); ?>;
+                const homeLandmark = <?php echo json_encode($userData['landmark'] ?? ''); ?>;
+                
+                // Pre-fill hidden fields from DB if we have better data than reverse geocoding
+                const dbDistrict = <?php echo json_encode($userData['district'] ?? ''); ?>;
+                const dbCity = <?php echo json_encode($userData['city'] ?? ''); ?>;
+                const dbPincode = <?php echo json_encode($userData['pincode'] ?? ''); ?>;
+
+                if (homeLat && homeLng) {
+                    map.setView([homeLat, homeLng], 16);
+                    window.updateLocation(homeLat, homeLng, homeAddr);
+                    
+                    // Explicitly override with DB data if available (since updateLocation acts asynchronously with reverse geocoding)
+                    setTimeout(() => {
+                        if (homeAddr) document.getElementById('location_name').value = homeAddr;
+                        if (homeLandmark) document.querySelector('input[name="landmark"]').value = homeLandmark;
+                        if (dbDistrict) document.getElementById('district').value = dbDistrict;
+                        if (dbCity) document.getElementById('city').value = dbCity;
+                        if (dbPincode) document.getElementById('pincode').value = dbPincode;
+                    }, 800); // Small delay to overwrite reverse geocoding results
+                } else {
+                    alert('Your profile does not have a saved location. Please update your profile first.');
                 }
             };
     
