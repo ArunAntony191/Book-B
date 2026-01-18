@@ -26,6 +26,8 @@ $aPincode = $agent['pincode'] ?? null;
 $stmt = $pdo->prepare("
     SELECT t.*, b.title, b.cover_image,
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
+           u_borrower.service_start_lat as borrower_lat, u_borrower.service_start_lng as borrower_lng,
+           u_borrower.address as borrower_addr, u_borrower.city as borrower_city, u_borrower.district as borrower_dist,
            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
            l.location as listing_loc, l.latitude as listing_lat, l.longitude as listing_lng,
            l.district as listing_dist, l.city as listing_city, l.landmark as listing_landmark,
@@ -62,17 +64,19 @@ foreach ($all_raw_jobs as $job) {
         $job['p_city'] = $job['listing_city'];
         $job['p_dist'] = $job['listing_dist'];
     } else {
-        // Return Leg: Pickup from Borrower (order_address), Dropoff at Lender (listing_loc)
-        $job['p_lat'] = $job['order_lat'];
-        $job['p_lng'] = $job['order_lng'];
-        $job['p_addr'] = $job['order_address'];
-        $job['pickup_landmark'] = $job['order_landmark'] ?? '';
+        // Return Leg: Pickup from Borrower (order_address or profile), Dropoff at Lender (listing_loc)
+        $job['p_lat'] = $job['order_lat'] ?: $job['borrower_lat'];
+        $job['p_lng'] = $job['order_lng'] ?: $job['borrower_lng'];
+        $job['p_addr'] = $job['order_address'] ?: $job['borrower_addr'];
+        $job['pickup_landmark'] = $job['order_landmark'] ?? ''; 
+        
         $job['d_lat'] = $job['listing_lat'];
         $job['d_lng'] = $job['listing_lng'];
         $job['d_addr'] = $job['listing_loc'];
-        $job['order_landmark'] = $job['listing_landmark'] ?? '';
-        $job['p_city'] = $job['city']; // Borrower city? Transactions doesn't have it, but we can assume listing city for filtering or fetch borrower's city
-        $job['p_dist'] = $job['district']; // Same
+        $job['order_landmark'] = $job['listing_landmark'] ?? ''; // Destination landmark for return is listing landmark
+        
+        $job['p_city'] = $job['borrower_city'];
+        $job['p_dist'] = $job['borrower_dist'];
     }
 
     if (!$location_set || $area_filter === 'all') {

@@ -432,7 +432,7 @@ function getStatusLabel($status, $agentId) {
                     <?php if (!$isReturnPhase): ?>
                         <div class="c-badge <?php echo !empty($d['lender_confirm_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                            <span>Sender (Lender)</span>
+                            <span><?php echo $isBorrower ? 'Sender (Lender)' : 'Sender (You)'; ?></span>
                         </div>
                         <div class="c-badge <?php echo !empty($d['agent_confirm_delivery_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['agent_confirm_delivery_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
@@ -440,12 +440,12 @@ function getStatusLabel($status, $agentId) {
                         </div>
                         <div class="c-badge <?php echo !empty($d['borrower_confirm_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                            <span>Receiver (You)</span>
+                            <span><?php echo $isBorrower ? 'Receiver (You)' : 'Receiver (Borrower)'; ?></span>
                         </div>
                     <?php else: ?>
                         <div class="c-badge <?php echo !empty($d['return_borrower_confirm_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['return_borrower_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                            <span>Sender (You)</span>
+                            <span><?php echo $isBorrower ? 'Sender (You)' : 'Sender (Borrower)'; ?></span>
                         </div>
                         <div class="c-badge <?php echo !empty($d['return_agent_confirm_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['return_agent_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
@@ -453,7 +453,7 @@ function getStatusLabel($status, $agentId) {
                         </div>
                         <div class="c-badge <?php echo !empty($d['return_lender_confirm_at']) ? 'verified' : ''; ?>">
                             <i class='bx <?php echo !empty($d['return_lender_confirm_at']) ? 'bxs-check-circle' : 'bx-circle'; ?>'></i>
-                            <span>Receiver (Owner)</span>
+                            <span><?php echo $isBorrower ? 'Receiver (Owner)' : 'Receiver (You)'; ?></span>
                         </div>
                     <?php endif; ?>
                 </div>

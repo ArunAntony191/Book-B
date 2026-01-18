@@ -726,10 +726,11 @@ function updateTrustScore($userId, $change, $reason) {
  * Get trust score rating label
  */
 function getTrustScoreRating($score) {
-    if ($score >= 80) return ['label' => 'Excellent', 'color' => '#10b981'];
-    if ($score >= 60) return ['label' => 'Good', 'color' => '#3b82f6'];
-    if ($score >= 40) return ['label' => 'Fair', 'color' => '#f59e0b'];
-    return ['label' => 'Poor', 'color' => '#ef4444'];
+    if ($score >= 90) return ['label' => 'Elite', 'color' => '#16a34a'];
+    if ($score >= 70) return ['label' => 'Trusted', 'color' => '#2563eb'];
+    if ($score >= 50) return ['label' => 'Standard', 'color' => '#ca8a04'];
+    if ($score >= 30) return ['label' => 'Probation', 'color' => '#ea580c'];
+    return ['label' => 'Risk', 'color' => '#dc2626'];
 }
 
 /**
@@ -1104,7 +1105,11 @@ function getUserStatsEnhanced($userId) {
             WHERE id = ?
         ");
         $stmt->execute([$userId]);
-        $user = $stmt->fetch();
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($stats) {
+            $stats['trust_rating'] = getTrustScoreRating($stats['trust_score']);
+        }
         
         // Get total listings
         $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM listings WHERE user_id = ?");
@@ -1129,11 +1134,11 @@ function getUserStatsEnhanced($userId) {
         $stmt->execute([$userId]);
         $pendingRequests = $stmt->fetch()['total'];
         
-        return array_merge($user ?: [], [
+        return array_merge($stats ?: [], [
             'total_listings' => $listings,
             'active_borrows' => $activeBorrows,
             'pending_requests' => $pendingRequests,
-            'trust_rating' => getTrustScoreRating($user['trust_score'] ?? 50)
+            'trust_rating' => getTrustScoreRating($stats['trust_score'] ?? 50)
         ]);
         
     } catch (PDOException $e) {
@@ -1293,11 +1298,23 @@ function markNotificationsAsReadByType($userId, $types) {
     if (empty($types)) return false;
     try {
         $pdo = getDBConnection();
-        $placeholders = implode(',', array_fill(0, count($types), '?'));
-        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0 AND type IN ($placeholders)");
-        return $stmt->execute(array_merge([$userId], $types));
+        $placeholders = str_repeat('?,', count($types) - 1) . '?';
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type IN ($placeholders)");
+        $params = array_merge([$userId], $types);
+        return $stmt->execute($params);
     } catch (Exception $e) {
-        error_log("Mark notifications read by type error: " . $e->getMessage());
+        return false;
+    }
+}
+
+function markSpecificNotificationAsRead($userId, $referenceId, $types) {
+    try {
+        $pdo = getDBConnection();
+        $placeholders = str_repeat('?,', count($types) - 1) . '?';
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND reference_id = ? AND type IN ($placeholders)");
+        $params = array_merge([$userId, $referenceId], $types);
+        return $stmt->execute($params);
+    } catch (Exception $e) {
         return false;
     }
 }
@@ -1663,4 +1680,3 @@ function createNotification($userId, $type, $message, $referenceId = null) {
         return false;
     }
 }
-?>

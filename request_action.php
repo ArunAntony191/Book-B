@@ -114,13 +114,51 @@ try {
         } elseif ($type === 'sell') {
             $chatMsg .= "buy '{$bookTitle}'.";
         } else {
-            $chatMsg .= "swap for '{$bookTitle}'.";
+            $chatMsg .= "exchange '{$bookTitle}'.";
         }
         
         $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)")
             ->execute([$userId, $ownerId, $chatMsg]);
 
-        echo json_encode(['success' => true, 'message' => 'Request sent to owner!']);
+        echo json_encode(['success' => true, 'message' => 'Request sent successfully!']);
+
+    } elseif ($action === 'request_return_delivery') {
+        $transId = $_POST['transaction_id'] ?? 0;
+        if (!$transId) throw new Exception("Invalid Transaction ID");
+
+        // Validate Transaction
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? AND borrower_id = ?");
+        $stmt->execute([$transId, $userId]);
+        $tx = $stmt->fetch();
+
+        if (!$tx) throw new Exception("Transaction not found or unauthorized");
+        if ($tx['status'] !== 'delivered' && $tx['status'] !== 'returning') throw new Exception("Invalid status for return");
+        if (!empty($tx['return_agent_id'])) throw new Exception("Return agent already assigned");
+
+        // Check Credits (10 credits for return delivery)
+        $cost = 10;
+        if (!checkSufficientCredits($userId, $cost)) {
+            throw new Exception("Insufficient credits for return delivery fee (10 credits required)");
+        }
+
+        // Deduct Credits
+        deductCredits($userId, $cost, 'service_fee', "Return Delivery Fee for #{$transId}", $transId);
+
+        // Update Transaction
+        // Set return_delivery_method to 'delivery' and status to 'returning' (waiting for agent)
+        // If it was just 'delivered', we move it to a state where it's waiting for an agent.
+        // Usually 'returning' implies the process has started. 
+        // We need to make sure agents can see this job. Agents look for:
+        // (return_delivery_method = 'delivery' AND return_agent_id IS NULL)
+        
+        $stmt = $pdo->prepare("UPDATE transactions SET 
+            return_delivery_method = 'delivery',
+            status = 'returning',
+            return_date = CURDATE()
+            WHERE id = ?");
+        $stmt->execute([$transId]);
+
+        echo json_encode(['success' => true, 'message' => 'Return delivery requested! Searching for nearby agents...']);
 
     } elseif ($action === 'accept_request') {
         $transactionId = $_POST['transaction_id'] ?? 0;

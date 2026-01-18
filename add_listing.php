@@ -603,14 +603,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Deep parsing for rural areas
                         const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
     
-                        let parts = [];
-                        if (house) parts.push(house);
-                        if (road) parts.push(road);
-                        if (suburb) parts.push(suburb);
-                        if (city && city !== suburb) parts.push(city);
-                        if (!city && rural) parts.push(rural);
-    
-                        const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
+                        const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
                         
                         const locNameInput = document.getElementById('location_name');
                         if (locNameInput) locNameInput.value = manualAddress || shortAddr;

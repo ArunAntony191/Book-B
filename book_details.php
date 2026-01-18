@@ -383,23 +383,20 @@ if ($book['latitude'] && $book['longitude']) {
                         </div>
 
                         <!-- Delivery Status -->
-                        <?php if ($deliveryAvailable): ?>
-                            <div class="delivery-banner">
-                                <i class='bx bxs-truck bx-tada'></i>
-                                <div>
-                                    <strong style="display: block;">Delivery Available</strong>
-                                    <span style="font-size: 0.85rem;">Local agents cover this route!</span>
-                                </div>
+                        <div id="delivery-info" class="delivery-banner" style="display: <?php echo $deliveryAvailable ? 'flex' : 'none'; ?>;">
+                            <i class='bx bxs-truck bx-tada'></i>
+                            <div>
+                                <strong style="display: block;">Delivery Available</strong>
+                                <span style="font-size: 0.85rem;">Local agents cover this route!</span>
                             </div>
-                        <?php else: ?>
-                            <div class="delivery-banner delivery-unavailable">
-                                <i class='bx bx-x-circle'></i>
-                                <div>
-                                    <strong style="display: block;">Pickup Only</strong>
-                                    <span style="font-size: 0.85rem;">No active agents in this area.</span>
-                                </div>
+                        </div>
+                        <div id="delivery-none" class="delivery-banner delivery-unavailable" style="display: <?php echo !$deliveryAvailable ? 'flex' : 'none'; ?>;">
+                            <i class='bx bx-x-circle'></i>
+                            <div>
+                                <strong style="display: block;">Pickup Only</strong>
+                                <span style="font-size: 0.85rem;">No active agents in this area.</span>
                             </div>
-                        <?php endif; ?>
+                        </div>
 
                         <div style="display:flex; justify-content: space-between; margin-bottom: 2rem; align-items: center;">
                             <span style="color: var(--text-muted);">Availability</span>
@@ -532,19 +529,22 @@ if ($book['latitude'] && $book['longitude']) {
 
             <!-- Token Summary -->
             <div class="credit-summary">
+                <?php if ($currentUser): ?>
                 <div class="profile-main-info">
-                    <h1><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></h1>
-                    <p class="role-badge"><?php echo ucfirst($user['role']); ?></p>
+                    <h1><?php echo htmlspecialchars($currentUser['firstname'] . ' ' . $currentUser['lastname']); ?></h1>
+                    <p class="role-badge"><?php echo ucfirst($currentUser['role']); ?></p>
                     <a href="user_profile.php?id=<?php echo $userId; ?>" class="btn btn-outline btn-sm" style="margin-top: 1rem;">
                         <i class='bx bx-show'></i> View My Public Profile
                     </a>
                 </div>
+                <?php endif; ?>
                 <div id="delivery-fee-row" class="credit-row" style="display: none;">
                     <span>Delivery Fee</span>
                     <span>+10 Tokens</span>
                 </div>
                 <div class="credit-row credit-total">
                     <span>Total to Spend</span>
+                    <span id="base-cost" style="display:none;"><?php echo $book['credit_cost'] ?? 10; ?></span>
                     <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>
                 </div>
             </div>
@@ -561,11 +561,11 @@ if ($book['latitude'] && $book['longitude']) {
     <script>
         const listingId = <?php echo $listingId; ?>;
         const ownerId = <?php echo $book['user_id']; ?>;
-        const bookTitle = "<?php echo addslashes($book['title']); ?>";
+        const bookTitle = <?php echo json_encode($book['title']); ?>;
         const lenderLat = <?php echo $book['latitude'] ?: 'null'; ?>;
         const lenderLng = <?php echo $book['longitude'] ?: 'null'; ?>;
-        const userLatDefault = <?php echo $currentUser['service_start_lat'] ?? '9.4124'; ?>;
-        const userLngDefault = <?php echo $currentUser['service_start_lng'] ?? '76.6946'; ?>;
+        const userLatDefault = <?php echo $currentUser['service_start_lat'] ?? 9.4124; ?>;
+        const userLngDefault = <?php echo $currentUser['service_start_lng'] ?? 76.6946; ?>;
         let currentType = '';
         let dMap = null;
         let dMarker = null;
@@ -577,6 +577,10 @@ if ($book['latitude'] && $book['longitude']) {
 
         async function checkAvailabilityGlobal(lLat, lLng, bLat, bLng) {
             if(!lLat || !lLng) return;
+            const dInfo = document.getElementById('delivery-info');
+            const dNone = document.getElementById('delivery-none');
+            const dSect = document.getElementById('delivery-section');
+
             try {
                 const res = await fetch('request_action.php', {
                     method: 'POST',
@@ -585,13 +589,13 @@ if ($book['latitude'] && $book['longitude']) {
                 });
                 const data = await res.json();
                 if(data.available) {
-                    document.getElementById('delivery-info').style.display = 'flex';
-                    document.getElementById('delivery-none').style.display = 'none';
-                    document.getElementById('delivery-section').style.display = 'block';
+                    if(dInfo) dInfo.style.display = 'flex';
+                    if(dNone) dNone.style.display = 'none';
+                    if(dSect) dSect.style.display = 'block';
                 } else {
-                    document.getElementById('delivery-info').style.display = 'none';
-                    document.getElementById('delivery-none').style.display = 'flex';
-                    document.getElementById('delivery-section').style.display = 'none';
+                    if(dInfo) dInfo.style.display = 'none';
+                    if(dNone) dNone.style.display = 'flex';
+                    if(dSect) dSect.style.display = 'none';
                 }
             } catch(e) {}
         }
@@ -649,17 +653,32 @@ if ($book['latitude'] && $book['longitude']) {
             document.getElementById('delivery-setup').style.display = isChecked ? 'block' : 'none';
             
             // Update Credit Summary
-            const baseCost = parseInt(document.getElementById('base-cost').innerText);
+            const baseCostEl = document.getElementById('base-cost');
+            const baseCost = baseCostEl ? parseInt(baseCostEl.innerText) : 10;
             const deliveryFee = isChecked ? 10 : 0;
             document.getElementById('delivery-fee-row').style.display = isChecked ? 'flex' : 'none';
             document.getElementById('total-cost').innerText = baseCost + deliveryFee;
 
-            if(isChecked && !dMap) {
-                setTimeout(() => {
-                    dMap = L.map('delivery-map', {
-                        zoomControl: true,
-                        scrollWheelZoom: true
-                    }).setView([userLatDefault, userLngDefault], 14);
+            if (isChecked) {
+                if (!dMap) {
+                    setTimeout(() => {
+                        initDeliveryMap();
+                    }, 100);
+                } else {
+                    setTimeout(() => {
+                        dMap.invalidateSize();
+                    }, 50);
+                }
+            }
+        }
+
+        function initDeliveryMap() {
+            if (dMap) return;
+            
+            dMap = L.map('delivery-map', {
+                zoomControl: true,
+                scrollWheelZoom: true
+            }).setView([userLatDefault, userLngDefault], 14);
                     
                     const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
                     const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
@@ -752,8 +771,6 @@ if ($book['latitude'] && $book['longitude']) {
                         // But usually we wait for user to click or use current location
                     } */
 
-                }, 100);
-            }
         }
 
         // Redundant searchAddress function (removed/integrated above)
@@ -846,7 +863,7 @@ if ($book['latitude'] && $book['longitude']) {
                     if (city) parts.push(city);
                     if (!city && rural) parts.push(rural);
 
-                    const shortAddr = parts.join(', ') + (parts.length > 0 ? ', ' : '') + data.display_name;
+                    const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
                     document.getElementById('delivery-address').value = shortAddr;
                 }
             } catch(e) {

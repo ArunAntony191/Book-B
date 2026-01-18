@@ -3,6 +3,9 @@ require_once 'includes/db_helper.php';
 require_once 'paths.php';
 session_start();
 
+$userId = $_SESSION['user_id'] ?? 0;
+$user = $userId ? getUserById($userId) : null;
+
 // Handle AJAX requests for live map updates
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     $filters = [
@@ -328,7 +331,9 @@ $results = searchListingsAdvanced($filters);
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
-        const map = L.map('map').setView([12.9716, 77.5946], 12); // Default to Bangalore center
+        const initialLat = <?php echo ($user['service_start_lat'] ?? 9.4124); ?>;
+        const initialLng = <?php echo ($user['service_start_lng'] ?? 76.6946); ?>;
+        const map = L.map('map').setView([initialLat, initialLng], 12);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '©OpenStreetMap ©CartoDB'

@@ -250,7 +250,7 @@ $status = $_GET['status'] ?? 'all';
                             $link = '#';
                             if ($n['type'] === 'message' || $n['type'] === 'support' || $n['type'] === 'support_reply') {
                                 $link = "chat/index.php?user=" . $n['reference_id'];
-                            } elseif (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) {
+                            } elseif (preg_match('/request|delivery|receipt|borrower_confirmed/', $n['type'])) {
                                 $link = "delivery_details.php?id=" . $n['reference_id'];
                             }
 

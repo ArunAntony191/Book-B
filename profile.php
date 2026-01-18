@@ -600,7 +600,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
         const cartoAttr = '©OpenStreetMap ©CartoDB';
 
-        const addressMap = L.map('address-map', { zoomControl: true }).setView([<?php echo !empty($user['service_start_lat']) ? $user['service_start_lat'] : '9.4124'; ?>, <?php echo !empty($user['service_start_lng']) ? $user['service_start_lng'] : '76.6946'; ?>], 13);
+        const initialLat = <?php echo !empty($user['service_start_lat']) ? $user['service_start_lat'] : '9.4124'; ?>;
+        const initialLng = <?php echo !empty($user['service_start_lng']) ? $user['service_start_lng'] : '76.6946'; ?>;
+        const addressMap = L.map('address-map', { zoomControl: true }).setView([initialLat, initialLng], 13);
         L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(addressMap);
         
         const pulsingIcon = L.divIcon({
@@ -699,15 +701,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.getElementById('lat').value = lat;
             document.getElementById('lng').value = lng;
 
-            if(!manualAddress) {
+            // If manual address is passed (from search), just set it and return
+            if(manualAddress) {
+                document.getElementById('main-address').value = manualAddress;
+                return;
+            }
+
+            // Reverse Geocoding
+            try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                 const data = await res.json();
+                
                 if(data && data.display_name) {
                     document.getElementById('main-address').value = data.display_name;
-                    if (data.address.postcode) document.getElementById('pincode-input').value = data.address.postcode;
+                    
+                    const addr = data.address;
+                    if(addr) {
+                        // 1. Pincode
+                        if (addr.postcode) document.getElementById('pincode-input').value = addr.postcode;
+                        
+                        // 2. City
+                        const city = addr.city || addr.town || addr.village || addr.suburb || '';
+                        if(city) document.getElementById('city-input').value = city;
+
+                        // 3. State
+                        const stateFromOSM = addr.state || '';
+                        if(stateFromOSM) {
+                            if(locationData[stateFromOSM]) {
+                                stateSelect.value = stateFromOSM;
+                                manualState.style.display = 'none';
+                            } else {
+                                stateSelect.value = "Other";
+                                manualState.value = stateFromOSM;
+                                manualState.style.display = 'block';
+                            }
+                            updateDistricts(); // Refresh districts for the new state
+                        }
+
+                        // 4. District
+                        const districtFromOSM = (addr.state_district || addr.county || '').replace(' District', '').replace(' district', '');
+                        if(districtFromOSM) {
+                            const districts = locationData[stateSelect.value] || [];
+                            if(districts.includes(districtFromOSM)) {
+                                districtSelect.value = districtFromOSM;
+                                manualDistrict.style.display = 'none';
+                            } else {
+                                districtSelect.value = "Other";
+                                manualDistrict.value = districtFromOSM;
+                                manualDistrict.style.display = 'block';
+                            }
+                        }
+                    }
                 }
-            } else {
-                document.getElementById('main-address').value = manualAddress;
+            } catch(e) {
+                console.error("Geocoding failed", e);
             }
         }
     </script>
