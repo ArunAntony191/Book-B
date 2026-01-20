@@ -1,5 +1,5 @@
 <?php
-require_once 'includes/db_helper.php';
+require_once '../includes/db_helper.php';
 
 $sql = "
 -- Add missing columns to users table

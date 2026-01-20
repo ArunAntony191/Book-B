@@ -31,44 +31,44 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 <aside class="sidebar">
     <?php if($user_role == 'delivery_agent'): ?>
     <div class="sidebar-section-title">Logistics</div>
-    <a href="<?php echo APP_URL; ?>/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bx-grid-alt'></i> Agent Dashboard</a>
-    <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find New Jobs</a>
-    <a href="<?php echo APP_URL; ?>/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
-    <a href="<?php echo APP_URL; ?>/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
-    <a href="<?php echo APP_URL; ?>/agent_reports.php" class="nav-item <?php echo $current_page == 'agent_reports.php' ? 'active' : ''; ?>"><i class='bx bx-file'></i> Performance Reports</a>
+    <a href="<?php echo APP_URL; ?>/pages/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bx-grid-alt'></i> Agent Dashboard</a>
+    <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find New Jobs</a>
+    <a href="<?php echo APP_URL; ?>/pages/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
+    <a href="<?php echo APP_URL; ?>/pages/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
+    <a href="<?php echo APP_URL; ?>/pages/agent_reports.php" class="nav-item <?php echo $current_page == 'agent_reports.php' ? 'active' : ''; ?>"><i class='bx bx-file'></i> Performance Reports</a>
     <?php endif; ?>
 
     <div class="sidebar-section-title">Main Menu</div>
     
     <!-- Role-Based Dashboard Link -->
     <?php if($user_role == 'admin'): ?>
-        <a href="<?php echo APP_URL; ?>/dashboard_admin.php" class="nav-item <?php echo $current_page == 'dashboard_admin.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Admin Console</a>
+        <a href="<?php echo APP_URL; ?>/admin/dashboard_admin.php" class="nav-item <?php echo $current_page == 'dashboard_admin.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Admin Console</a>
     <?php elseif($user_role == 'library'): ?>
-        <a href="<?php echo APP_URL; ?>/dashboard_library.php" class="nav-item <?php echo $current_page == 'dashboard_library.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Library Panel</a>
+        <a href="<?php echo APP_URL; ?>/pages/dashboard_library.php" class="nav-item <?php echo $current_page == 'dashboard_library.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Library Panel</a>
     <?php elseif($user_role == 'bookstore'): ?>
-        <a href="<?php echo APP_URL; ?>/dashboard_bookstore.php" class="nav-item <?php echo $current_page == 'dashboard_bookstore.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Store Manager</a>
+        <a href="<?php echo APP_URL; ?>/pages/dashboard_bookstore.php" class="nav-item <?php echo $current_page == 'dashboard_bookstore.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> Store Manager</a>
     <?php elseif($user_role !== 'delivery_agent'): ?>
-        <a href="<?php echo APP_URL; ?>/dashboard_user.php" class="nav-item <?php echo $current_page == 'dashboard_user.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> My Dashboard</a>
+        <a href="<?php echo APP_URL; ?>/pages/dashboard_user.php" class="nav-item <?php echo $current_page == 'dashboard_user.php' ? 'active' : ''; ?>"><i class='bx bxs-dashboard'></i> My Dashboard</a>
     <?php endif; ?>
 
-    <a href="<?php echo APP_URL; ?>/explore.php" class="nav-item <?php echo $current_page == 'explore.php' ? 'active' : ''; ?>"><i class='bx bx-search-alt'></i> Explore Books</a>
-    <a href="<?php echo APP_URL; ?>/community.php" class="nav-item <?php echo $current_page == 'community.php' ? 'active' : ''; ?>"><i class='bx bx-world'></i> Community</a>
+    <a href="<?php echo APP_URL; ?>/pages/explore.php" class="nav-item <?php echo $current_page == 'explore.php' ? 'active' : ''; ?>"><i class='bx bx-search-alt'></i> Explore Books</a>
+    <a href="<?php echo APP_URL; ?>/pages/community.php" class="nav-item <?php echo $current_page == 'community.php' ? 'active' : ''; ?>"><i class='bx bx-world'></i> Community</a>
 
     
     <?php if($user_role == 'admin'): ?>
     <div class="sidebar-section-title">Admin Controls</div>
-    <a href="<?php echo APP_URL; ?>/admin_users.php" class="nav-item <?php echo $current_page == 'admin_users.php' ? 'active' : ''; ?>"><i class='bx bx-group'></i> Manage Users</a>
-    <a href="<?php echo APP_URL; ?>/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>"><i class='bx bx-flag'></i> Reports</a>
+    <a href="<?php echo APP_URL; ?>/admin/admin_users.php" class="nav-item <?php echo $current_page == 'admin_users.php' ? 'active' : ''; ?>"><i class='bx bx-group'></i> Manage Users</a>
+    <a href="<?php echo APP_URL; ?>/admin/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>"><i class='bx bx-flag'></i> Reports</a>
     <?php endif; ?>
 
     <div class="sidebar-section-title">My Actions</div>
     <?php if($user_role != 'delivery_agent'): ?>
-        <a href="<?php echo APP_URL; ?>/add_listing.php" class="nav-item <?php echo $current_page == 'add_listing.php' ? 'active' : ''; ?>"><i class='bx bx-plus-circle'></i> Add Listing</a>
-        <a href="<?php echo APP_URL; ?>/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
+        <a href="<?php echo APP_URL; ?>/pages/add_listing.php" class="nav-item <?php echo $current_page == 'add_listing.php' ? 'active' : ''; ?>"><i class='bx bx-plus-circle'></i> Add Listing</a>
+        <a href="<?php echo APP_URL; ?>/pages/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
     <?php endif; ?>
 
     <?php if($user_role == 'admin'): ?>
-        <a href="<?php echo APP_URL; ?>/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find Jobs</a>
+        <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find Jobs</a>
     <?php endif; ?>
     <a href="<?php echo APP_URL; ?>/chat/index.php" class="nav-item <?php echo strpos($current_page, 'chat') !== false ? 'active' : ''; ?>">
         <i class='bx bx-message-square-detail'></i> Messages
@@ -77,13 +77,13 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
         <?php endif; ?>
     </a>
     <?php if($user_role != 'delivery_agent'): ?>
-        <a href="<?php echo APP_URL; ?>/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>">
+        <a href="<?php echo APP_URL; ?>/pages/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>">
             <i class='bx bx-git-compare'></i> My Deals
             <?php if ($deals_notifs > 0): ?>
                 <span class="nav-badge"><?php echo $deals_notifs; ?></span>
             <?php endif; ?>
         </a>
-        <a href="<?php echo APP_URL; ?>/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>">
+        <a href="<?php echo APP_URL; ?>/pages/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>">
             <i class='bx bx-package'></i> Delivery Details
             <?php if ($delivery_notifs > 0): ?>
                 <span class="nav-badge"><?php echo $delivery_notifs; ?></span>
@@ -93,15 +93,15 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 
     
     <div class="sidebar-section-title">Account</div>
-    <a href="<?php echo APP_URL; ?>/notifications.php" class="nav-item <?php echo $current_page == 'notifications.php' ? 'active' : ''; ?>">
+    <a href="<?php echo APP_URL; ?>/pages/notifications.php" class="nav-item <?php echo $current_page == 'notifications.php' ? 'active' : ''; ?>">
         <i class='bx bx-bell'></i> Notifications
         <?php if ($total_notifs > 0): ?>
             <span class="nav-badge notif-badge"><?php echo $total_notifs; ?></span>
         <?php endif; ?>
     </a>
-    <a href="<?php echo APP_URL; ?>/profile.php" class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>"><i class='bx bx-user-circle'></i> Edit Profile</a>
-    <a href="<?php echo APP_URL; ?>/settings.php" class="nav-item <?php echo $current_page == 'settings.php' ? 'active' : ''; ?>"><i class='bx bx-cog'></i> Settings</a>
-    <a href="<?php echo APP_URL; ?>/logout.php" class="nav-item" style="color: #ef4444;"><i class='bx bx-log-out'></i> Logout</a>
+    <a href="<?php echo APP_URL; ?>/pages/profile.php" class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>"><i class='bx bx-user-circle'></i> Edit Profile</a>
+    <a href="<?php echo APP_URL; ?>/pages/settings.php" class="nav-item <?php echo $current_page == 'settings.php' ? 'active' : ''; ?>"><i class='bx bx-cog'></i> Settings</a>
+    <a href="<?php echo APP_URL; ?>/actions/logout.php" class="nav-item" style="color: #ef4444;"><i class='bx bx-log-out'></i> Logout</a>
 
 </aside>
 

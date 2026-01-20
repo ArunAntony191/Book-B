@@ -147,23 +147,24 @@ class DeliveryManager {
             $sql = "UPDATE transactions SET return_agent_confirm_at = NOW() WHERE id = ?";
             $this->pdo->prepare($sql)->execute([$transactionId]);
 
-            // IMMEDIATE PAYOUT UPDATE (Return Leg):
-            // Mark as returned immediately
-            $this->pdo->prepare("UPDATE transactions SET status = 'returned', return_delivered_at = NOW() WHERE id = ?")
+            // DO NOT auto-set status to 'returned' - keep as 'returning'
+            // Owner must confirm receipt to complete the return
+            // Just update the return_delivered_at timestamp
+            $this->pdo->prepare("UPDATE transactions SET return_delivered_at = NOW() WHERE id = ?")
                 ->execute([$transactionId]);
             
-            // Award credits immediately
+            // Award credits immediately to agent
             addCredits($tx['return_agent_id'], 10, 'earn', "Mission Completed: Return '{$tx['title']}' to owner", $transactionId);
 
             // Notify both parties
-            $msg = "Return complete! '{$tx['title']}' has been delivered back to the owner.";
+            $msg = "Return delivery complete! '{$tx['title']}' has been delivered back to the owner.";
             $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
                 ->execute([$tx['borrower_id'], 'return_complete', $msg, $transactionId]);
             $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
                 ->execute([$tx['lender_id'], 'return_complete', $msg, $transactionId]);
                 
             if (!$tx['return_lender_confirm_at']) {
-                $msg = "Delivery agent has returned '{$tx['title']}'. Owner, please confirm receipt.";
+                $msg = "Delivery agent has returned '{$tx['title']}'. Please confirm receipt to complete the return.";
                 $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
                     ->execute([$tx['lender_id'], 'return_pending_confirmation', $msg, $tx['id']]);
             }
@@ -205,7 +206,7 @@ class DeliveryManager {
         throw new Exception("Unauthorized or invalid transaction state.");
     }
 
-    public function confirmReceipt($userId, $transactionId) {
+    public function confirmReceipt($userId, $transactionId, $restock = false) {
         $tx = $this->getTransaction($transactionId);
 
         // Case 1: Standard Leg (Borrower receiving)
@@ -262,6 +263,17 @@ class DeliveryManager {
             }
 
             $tx = $this->getTransaction($transactionId);
+            
+            // RESTOCK LOGIC: If owner chooses to restock, increment listing quantity
+            if ($restock) {
+                $listingId = $tx['listing_id'];
+                $this->pdo->prepare("UPDATE listings SET quantity = quantity + 1 WHERE id = ?")
+                     ->execute([$listingId]);
+                
+                // Log this action via notification
+                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'book_restocked', ?, ?)")
+                     ->execute([$userId, "'{$tx['title']}' has been restocked and is available for lending again!", $transactionId]);
+            }
             
             // Just increase total_lends stats
             $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")

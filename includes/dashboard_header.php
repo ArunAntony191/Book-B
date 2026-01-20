@@ -22,7 +22,7 @@ $user = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo ucfirst($user['role']); ?> Dashboard | BOOK-B</title>
-    <link rel="stylesheet" href="assets/css/style.css?v=1.1">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/style.css?v=1.1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .role-badge {
@@ -68,7 +68,7 @@ $user = [
 <body>
     <nav class="navbar">
         <div class="container nav-container">
-            <a href="index.php" class="logo">
+            <a href="<?php echo APP_URL; ?>/index.php" class="logo">
                 <div class="logo-icon"><i class='bx bx-book-bookmark'></i></div>
                 BOOK-<span>B</span>
             </a>
@@ -80,7 +80,7 @@ $user = [
                         <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);"><?php echo $user['firstname']; ?></span>
                     </div>
                 </div>
-                <a href="logout.php" class="logout-link"><i class='bx bx-log-out'></i></a>
+                <a href="<?php echo APP_URL; ?>/actions/logout.php" class="logout-link"><i class='bx bx-log-out'></i></a>
             </div>
         </div>
     </nav>

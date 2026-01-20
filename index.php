@@ -18,8 +18,8 @@
             <div style="display: flex; gap: 2rem; align-items: center;">
                 <a href="#features" style="text-decoration: none; color: var(--text-body); font-weight: 500;">Features</a>
                 <a href="#how-it-works" style="text-decoration: none; color: var(--text-body); font-weight: 500;">How it Works</a>
-                <a href="login.php" style="text-decoration: none; color: var(--text-body); font-weight: 500;">Login</a>
-                <a href="register.php" class="btn btn-primary">Join Free</a>
+                <a href="pages/login.php" style="text-decoration: none; color: var(--text-body); font-weight: 500;">Login</a>
+                <a href="pages/register.php" class="btn btn-primary">Join Free</a>
             </div>
         </div>
     </nav>
@@ -37,7 +37,7 @@
                     Join the ultimate community for book lovers. Share, discover, and borrow books locally with BOOK-B.
                 </p>
                 <div style="display: flex; gap: 1.5rem;">
-                    <a href="register.php" class="btn btn-primary btn-lg">Start Borrowing — It's Free</a>
+                    <a href="pages/register.php" class="btn btn-primary btn-lg">Start Borrowing — It's Free</a>
                     <a href="#how-it-works" class="btn btn-primary btn-lg">See How It Works</a>
                 </div>
             </div>
@@ -124,7 +124,7 @@
         <div class="container">
             <h2>Start Reading Today</h2>
             <p>Join 10,000+ book lovers already saving money with BOOK-B</p>
-            <a href="register.php" class="btn btn-primary btn-lg" style="background: white; color: var(--primary);">Join BOOK-B — Free Forever</a>
+            <a href="pages/register.php" class="btn btn-primary btn-lg" style="background: white; color: var(--primary);">Join BOOK-B — Free Forever</a>
         </div>
     </section>
 
