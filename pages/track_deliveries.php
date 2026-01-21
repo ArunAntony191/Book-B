@@ -213,6 +213,34 @@ function getStatusLabel($status, $agentId) {
         }
         .empty-state { text-align: center; padding: 5rem 2rem; color: #94a3b8; }
         .empty-state i { font-size: 5rem; margin-bottom: 1.5rem; opacity: 0.2; }
+        
+        /* Agent Profile Button */
+        .agent-profile-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: var(--primary);
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+        .agent-profile-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        }
+        .agent-profile-btn i {
+            transition: transform 0.3s ease;
+        }
+        .agent-profile-btn:hover i {
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
@@ -518,37 +546,49 @@ function getStatusLabel($status, $agentId) {
                             <i class='bx bx-check-shield'></i> I Received My Returned Book
                         </button>
 
-                    <?php elseif ($d['status'] === 'returned'): ?>
-                        <div style="text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bxs-badge-check'></i> <?php echo ($d['transaction_type'] === 'exchange') ? 'EXCHANGE COMPLETED' : 'BOOK RETURNED TO OWNER'; ?>
-                        </div>
+                    <?php elseif ($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])): ?>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;">
+                            <div style="flex: 1; text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
+                                <i class='bx bxs-badge-check'></i> <?php echo ($d['transaction_type'] === 'exchange') ? 'EXCHANGE COMPLETED' : 'BOOK RETURNED TO OWNER'; ?>
+                            </div>
 
-                    <?php elseif ($d['status'] === 'delivered'): ?>
-                        <div style="text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bxs-badge-check'></i> TRANSACTION COMPLETED SUCCESSFULLY
-                        </div>
+                    <?php elseif ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at'])): ?>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;">
+                            <div style="flex: 1; text-align: center; color: #10b981; font-weight: 700; font-size: 0.9rem;">
+                                <i class='bx bxs-badge-check'></i> TRANSACTION COMPLETED SUCCESSFULLY
+                            </div>
                     <?php endif; ?>
                     
                     <?php 
                     $currentAgentId = $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id'];
                     if ($currentAgentId): ?>
-                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <div style="width: 35px; height: 35px; background: #eef2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">
-                                    <i class='bx bxs-user'></i>
+                        <div style="background: #f8fafc; padding: 1.25rem; border-radius: 14px; border: 1px solid #e2e8f0; margin-top: <?php echo (($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])) || ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at']))) ? '0' : '1.5rem'; ?>;">
+                            <div style="display: flex; align-items: flex-start; justify-content: space-between; font-size: 0.85rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+                                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 1.1rem;">
+                                        <?php echo strtoupper(substr($isReturnPhase ? ($d['ret_agent_name'] ?? 'A') : ($d['agent_name'] ?? 'A'), 0, 1)); ?>
+                                    </div>
+                                    <div>
+                                        <strong style="display: block; font-size: 0.95rem;"><?php echo htmlspecialchars($isReturnPhase ? ($d['ret_agent_name'] ?? 'Agent') : ($d['agent_name'] ?? 'Agent')); ?></strong>
+                                        <span style="color: #64748b; font-size: 0.8rem;"><?php echo $isReturnPhase ? 'Return Agent' : 'Delivery Agent'; ?></span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <strong style="display: block;"><?php echo htmlspecialchars($isReturnPhase ? ($d['ret_agent_name'] ?? 'Agent') : ($d['agent_name'] ?? 'Agent')); ?></strong>
-                                    <span style="color: #64748b;"><?php echo $isReturnPhase ? 'Return Agent' : 'Delivery Agent'; ?> Assigned</span>
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
+                                    <?php $phone = $isReturnPhase ? ($d['ret_agent_phone'] ?? '') : ($d['agent_phone'] ?? ''); ?>
+                                    <?php if ($phone): ?>
+                                        <a href="tel:<?php echo $phone; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                            <i class='bx bx-phone'></i> <?php echo htmlspecialchars($phone); ?>
+                                        </a>
+                                    <?php endif; ?>
+                                    <a href="user_profile.php?id=<?php echo $currentAgentId; ?>" class="agent-profile-btn">
+                                        <i class='bx bx-user-circle'></i> View Profile & Ratings
+                                    </a>
                                 </div>
                             </div>
-                            <?php $phone = $isReturnPhase ? ($d['ret_agent_phone'] ?? '') : ($d['agent_phone'] ?? ''); ?>
-                            <?php if ($phone): ?>
-                                <a href="tel:<?php echo $phone; ?>" style="color: var(--primary); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 0.5rem;">
-                                    <i class='bx bx-phone'></i> <?php echo htmlspecialchars($phone); ?>
-                                </a>
-                            <?php endif; ?>
                         </div>
+                        <?php if (($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])) || ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at']))): ?>
+                        </div>
+                        <?php endif; ?>
                     <?php endif; ?>
 
                     <?php 
