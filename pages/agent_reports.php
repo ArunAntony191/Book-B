@@ -1,6 +1,6 @@
 <?php
 require_once '../includes/db_helper.php';
-require_once 'paths.php';
+require_once '../paths.php';
 session_start();
 
 $userId = $_SESSION['user_id'] ?? 0;

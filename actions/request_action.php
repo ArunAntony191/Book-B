@@ -238,7 +238,60 @@ try {
 
         echo json_encode(['success' => true, 'message' => 'Request declined']);
         
+    } elseif ($action === 'request_extension') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        $newDate = $_POST['new_date'] ?? null;
+        if (!$transactionId || !$newDate) throw new Exception("Missing parameters");
+
+        // Verify borrower
+        $stmt = $pdo->prepare("SELECT borrower_id, lender_id, listing_id FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+        if (!$tx || $tx['borrower_id'] != $userId) throw new Exception("Unauthorized");
+
+        if (requestExtension($transactionId, $newDate)) {
+            // Notify lender
+            $msg = "Borrower has requested to extend the return date until " . date('M d, Y', strtotime($newDate)) . ".";
+            createNotification($tx['lender_id'], 'extension_request', $msg, $transactionId);
+            echo json_encode(['success' => true, 'message' => 'Extension request sent to owner']);
+        } else {
+            throw new Exception("Failed to request extension");
+        }
+
+    } elseif ($action === 'approve_extension') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        if (!$transactionId) throw new Exception("Invalid transaction");
+
+        // Verify lender
+        $stmt = $pdo->prepare("SELECT lender_id, borrower_id, pending_due_date FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+        if (!$tx || $tx['lender_id'] != $userId) throw new Exception("Unauthorized");
+
+        if (approveExtension($transactionId)) {
+            $msg = "Your extension request was APPROVED! New due date: " . date('M d, Y', strtotime($tx['pending_due_date']));
+            createNotification($tx['borrower_id'], 'extension_approved', $msg, $transactionId);
+            echo json_encode(['success' => true, 'message' => 'Extension approved']);
+        } else {
+            throw new Exception("Failed to approve extension");
+        }
+
+    } elseif ($action === 'decline_extension') {
+        $transactionId = $_POST['transaction_id'] ?? 0;
+        if (!$transactionId) throw new Exception("Invalid transaction");
+
+        // Verify lender
+        $stmt = $pdo->prepare("SELECT lender_id, borrower_id FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+        if (!$tx || $tx['lender_id'] != $userId) throw new Exception("Unauthorized");
+
+        $pdo->prepare("UPDATE transactions SET pending_due_date = NULL WHERE id = ?")->execute([$transactionId]);
+        createNotification($tx['borrower_id'], 'extension_declined', "Your extension request was declined.", $transactionId);
+        echo json_encode(['success' => true, 'message' => 'Extension request declined']);
+
     } elseif ($action === 'mark_returned') {
+
         $transactionId = $_POST['transaction_id'] ?? 0;
         if (!$transactionId) throw new Exception("Invalid transaction");
 

@@ -10,6 +10,7 @@ if (!$userId) {
 }
 
 $user = getUserById($userId);
+$pendingRoleRequest = getPendingRoleRequest($userId);
 $success = '';
 $error = '';
 
@@ -47,11 +48,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'theme_mode' => $_POST['theme_mode'] ?? 'light'
         ];
         
-        if (updateUserSettings($userId, $settings)) {
-            $success = "Preferences updated!";
+        $prefsUpdated = updateUserSettings($userId, $settings);
+        
+        // Handle Role Change Request
+        if (isset($_POST['role']) && $_POST['role'] !== $user['role'] && $user['role'] !== 'admin') {
+            if ($pendingRoleRequest) {
+                $error = "You already have a pending role change request.";
+            } else {
+                if (createRoleChangeRequest($userId, $user['role'], $_POST['role'])) {
+                    $success = "Role change request submitted to admin!";
+                    $pendingRoleRequest = getPendingRoleRequest($userId); // Refresh
+                } else {
+                    $error = "Failed to submit role change request.";
+                }
+            }
+        }
+
+        if ($prefsUpdated && !$error) {
+            $success = $success ?: "Preferences updated!";
             $user = getUserById($userId);
             $_SESSION['theme_mode'] = $user['theme_mode'];
-        } else {
+        } elseif (!$prefsUpdated && !$error) {
             $error = "Failed to update preferences.";
         }
     }
@@ -297,6 +314,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input type="checkbox" name="email_notifications" <?php echo ($user['email_notifications'] ?? 1) ? 'checked' : ''; ?> onchange="this.form.submit()">
                                     <span class="slider"></span>
                                 </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <h3>Account Role</h3>
+                                    <p>
+                                        <?php if ($pendingRoleRequest): ?>
+                                            <span style="color: var(--primary); font-weight: 600;">
+                                                <i class='bx bx-time-five'></i> Request Pending: 
+                                                Change from <?php echo ucfirst($pendingRoleRequest['current_role']); ?> 
+                                                to <?php echo ucfirst($pendingRoleRequest['requested_role']); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            Change your account type (requires Admin approval)
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <?php if ($user['role'] === 'admin'): ?>
+                                        <span class="status-pill admin"><i class='bx bxs-shield'></i> Administrator</span>
+                                    <?php else: ?>
+                                        <select name="role" class="form-input" style="width: auto;" <?php echo ($pendingRoleRequest || $user['role'] === 'admin') ? 'disabled' : ''; ?>>
+                                            <option value="user" <?php echo $user['role'] === 'user' ? 'selected' : ''; ?>>Individual User</option>
+                                            <option value="library" <?php echo $user['role'] === 'library' ? 'selected' : ''; ?>>Library</option>
+                                            <option value="bookstore" <?php echo $user['role'] === 'bookstore' ? 'selected' : ''; ?>>Bookstore</option>
+                                            <option value="delivery_agent" <?php echo $user['role'] === 'delivery_agent' ? 'selected' : ''; ?>>Delivery Agent</option>
+                                        </select>
+                                        <?php if (!$pendingRoleRequest): ?>
+                                            <button type="submit" name="update_preferences" class="btn btn-primary btn-sm">Send Request</button>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </form>
                     </div>

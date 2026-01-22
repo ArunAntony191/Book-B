@@ -142,7 +142,7 @@ function updateUser($userId, $data) {
                 'firstname', 'lastname', 'email', 'phone', 'address', 'landmark', 'district', 'city', 'pincode', 'state',
                 'service_start_lat', 'service_start_lng', 
                 'service_end_lat', 'service_end_lng', 
-                'is_accepting_deliveries'
+                'is_accepting_deliveries', 'role'
             ])) {
                 $fields[] = "$key = ?";
                 $values[] = $value;
@@ -406,6 +406,90 @@ function updateTransactionStatus($transactionId, $status) {
         return false;
     }
 }
+
+/**
+ * Check and notify user if any books are due soon
+ */
+function checkAndNotifyDueSoon($userId) {
+    try {
+        $pdo = getDBConnection();
+        // Find books due in the next 2 days that are 'delivered' (active borrows)
+        // and haven't been notified today.
+        $stmt = $pdo->prepare("
+            SELECT t.id, t.due_date, b.title 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            WHERE t.borrower_id = ? 
+            AND t.status = 'delivered'
+            AND t.due_date IS NOT NULL
+            AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+        ");
+        $stmt->execute([$userId]);
+        $dueSoon = $stmt->fetchAll();
+
+        foreach ($dueSoon as $tx) {
+            $msg = "Reminder: Your borrow for '{$tx['title']}' is due on " . date('M d, Y', strtotime($tx['due_date'])) . ". Please return it on time or request an extension.";
+            
+            // Avoid duplicate notifications for the same transaction on the same day
+            $checkStmt = $pdo->prepare("
+                SELECT id FROM notifications 
+                WHERE user_id = ? AND reference_id = ? AND type = 'due_warning' 
+                AND DATE(created_at) = CURDATE()
+            ");
+            $checkStmt->execute([$userId, $tx['id']]);
+            
+            if (!$checkStmt->fetch()) {
+                createNotification($userId, 'due_warning', $msg, $tx['id']);
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Check due soon error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Request an extension for a borrow
+ */
+function requestExtension($transactionId, $newDate) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE transactions SET pending_due_date = ? WHERE id = ?");
+        return $stmt->execute([$newDate, $transactionId]);
+    } catch (PDOException $e) {
+        error_log("Request extension error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Approve a pending extension
+ */
+function approveExtension($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare("SELECT pending_due_date FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $newDate = $stmt->fetchColumn();
+
+        if ($newDate) {
+            $stmt = $pdo->prepare("UPDATE transactions SET due_date = ?, pending_due_date = NULL WHERE id = ?");
+            $stmt->execute([$newDate, $transactionId]);
+            $pdo->commit();
+            return true;
+        }
+
+        $pdo->rollBack();
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Approve extension error: " . $e->getMessage());
+        return false;
+    }
+}
+
 
 /**
  * Add a new book listing
@@ -1629,6 +1713,11 @@ function updateUserSettings($userId, $settings) {
             $fields[] = "theme_mode = ?";
             $params[] = $settings['theme_mode'];
         }
+
+        if (isset($settings['role'])) {
+            $fields[] = "role = ?";
+            $params[] = $settings['role'];
+        }
         
         if (empty($fields)) return true;
         
@@ -1677,6 +1766,131 @@ function createNotification($userId, $type, $message, $referenceId = null) {
         return $stmt->execute([$userId, $type, $message, $referenceId]);
     } catch (PDOException $e) {
         error_log("Create notification error: " . $e->getMessage());
+        return false;
+    }
+}
+/**
+ * Create a new role change request
+ */
+function createRoleChangeRequest($userId, $currentRole, $requestedRole) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO `role_change_requests` (`user_id`, `current_role`, `requested_role`) 
+            VALUES (?, ?, ?)
+        ");
+        return $stmt->execute([$userId, $currentRole, $requestedRole]);
+    } catch (PDOException $e) {
+        error_log("Create role request error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get pending role request for a user
+ */
+function getPendingRoleRequest($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT * FROM `role_change_requests` WHERE `user_id` = ? AND `status` = 'pending' LIMIT 1");
+        $stmt->execute([$userId]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Get all role requests by status
+ */
+function getRoleRequests($status = 'pending') {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, u.firstname, u.lastname, u.email 
+            FROM `role_change_requests` r
+            JOIN `users` u ON r.user_id = u.id
+            WHERE r.status = ?
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute([$status]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get role requests error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Update role request status and apply role change if approved
+ */
+function updateRoleRequestStatus($requestId, $status, $adminId, $adminMessage = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // 1. Update request status
+        $stmt = $pdo->prepare("
+            UPDATE `role_change_requests` 
+            SET `status` = ?, `admin_id` = ?, `admin_message` = ? 
+            WHERE `id` = ?
+        ");
+        $stmt->execute([$status, $adminId, $adminMessage, $requestId]);
+        
+        // 2. If approved, update the user's role
+        if ($status === 'approved') {
+            $stmt = $pdo->prepare("SELECT `user_id`, `requested_role` FROM `role_change_requests` WHERE `id` = ?");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch();
+            
+            if ($request) {
+                $stmt = $pdo->prepare("UPDATE users SET role = ? WHERE id = ?");
+                $stmt->execute([$request['requested_role'], $request['user_id']]);
+                
+                // Create notification for user
+                createNotification($request['user_id'], 'system', "Your request to change role to " . ucfirst($request['requested_role']) . " has been approved.", $requestId);
+            }
+        } elseif ($status === 'rejected') {
+            $stmt = $pdo->prepare("SELECT `user_id`, `requested_role` FROM `role_change_requests` WHERE `id` = ?");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch();
+            
+            if ($request) {
+                createNotification($request['user_id'], 'system', "Your request to change role to " . ucfirst($request['requested_role']) . " was declined." . ($adminMessage ? " Reason: $adminMessage" : ""), $requestId);
+            }
+        }
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Update role request error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Synchronize the user role in session with the database
+ */
+function syncSessionRole($userId) {
+    if (!$userId) return;
+    
+    $role = getUserRole($userId);
+    if ($role && $role !== ($_SESSION['role'] ?? '')) {
+        $_SESSION['role'] = $role;
+    }
+}
+
+/**
+ * Get user role by ID
+ */
+function getUserRole($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn();
+    } catch (PDOException $e) {
         return false;
     }
 }

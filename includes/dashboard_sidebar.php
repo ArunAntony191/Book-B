@@ -1,13 +1,27 @@
 <?php
 require_once __DIR__ . '/db_helper.php';
 $current_page = basename($_SERVER['PHP_SELF']);
+$user_id = $_SESSION['user_id'] ?? 0;
+
+// Sync session role with DB
+if ($user_id) {
+    syncSessionRole($user_id);
+}
+
 $user_role = $_SESSION['role'] ?? 'user';
-$total_unread = isset($_SESSION['user_id']) ? getTotalUnreadCount($_SESSION['user_id']) : 0;
-$total_notifs = isset($_SESSION['user_id']) ? getUnreadSystemNotificationsCount($_SESSION['user_id']) : 0;
-$deals_notifs = isset($_SESSION['user_id']) ? getUnreadRequestsCount($_SESSION['user_id']) : 0;
-$delivery_notifs = isset($_SESSION['user_id']) ? getUnreadDeliveryUpdatesCount($_SESSION['user_id']) : 0;
+
+// Check for due soon books and notify
+if ($user_id) {
+    checkAndNotifyDueSoon($user_id);
+}
+
+$total_unread = $user_id ? getTotalUnreadCount($user_id) : 0;
+$total_notifs = $user_id ? getUnreadSystemNotificationsCount($user_id) : 0;
+$deals_notifs = $user_id ? getUnreadRequestsCount($user_id) : 0;
+$delivery_notifs = $user_id ? getUnreadDeliveryUpdatesCount($user_id) : 0;
 $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 ?>
+
 <script>
     document.documentElement.setAttribute('data-theme', '<?php echo $theme_mode; ?>');
 </script>
@@ -58,6 +72,7 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
     <?php if($user_role == 'admin'): ?>
     <div class="sidebar-section-title">Admin Controls</div>
     <a href="<?php echo APP_URL; ?>/admin/admin_users.php" class="nav-item <?php echo $current_page == 'admin_users.php' ? 'active' : ''; ?>"><i class='bx bx-group'></i> Manage Users</a>
+    <a href="<?php echo APP_URL; ?>/admin/role_requests.php" class="nav-item <?php echo $current_page == 'role_requests.php' ? 'active' : ''; ?>"><i class='bx bx-git-branch'></i> Role Requests</a>
     <a href="<?php echo APP_URL; ?>/admin/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>"><i class='bx bx-flag'></i> Reports</a>
     <?php endif; ?>
 

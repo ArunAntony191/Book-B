@@ -405,8 +405,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <input type="text" name="lastname" class="form-input" value="<?php echo htmlspecialchars($user['lastname']); ?>" required pattern="[A-Za-z\s'\-]{1,50}" title="Name should contain only letters">
                                     </div>
                                 </div>
-                                <div class="form-group" style="margin-top: 1.25rem;">
-                                    <label class="form-label">Email Address</label>
                                     <input type="email" name="email" class="form-input" value="<?php echo htmlspecialchars($user['email']); ?>" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address (e.g. user@example.com)">
                                 </div>
                                 <div class="form-group" style="margin-top: 1.25rem;">

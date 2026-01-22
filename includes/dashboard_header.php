@@ -9,6 +9,11 @@ if (!isset($_SESSION['user_email'])) {
     exit();
 }
 
+// Refresh role from database to ensure it's always up to date (Sync)
+if ($userId) {
+    syncSessionRole($userId);
+}
+
 $user = [
     'firstname' => $_SESSION['firstname'] ?? 'User',
     'lastname' => $_SESSION['lastname'] ?? '',

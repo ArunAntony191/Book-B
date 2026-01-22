@@ -371,6 +371,34 @@ function getStatusLabel($status, $agentId) {
         </div>
     </div>
 
+    <!-- Extend Date Modal -->
+    <div id="extend-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Request Extension</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Choose a new return date for this book.</p>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 0.5rem; font-size: 0.9rem;">Current Due Date:</label>
+                    <div id="current-due-display" style="background: #f8fafc; padding: 0.75rem; border-radius: 10px; color: #64748b;">-</div>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 700; margin-bottom: 0.5rem; font-size: 0.9rem;">Select New Due Date:</label>
+                    <input type="date" id="new-due-date" class="form-control" style="width: 100%; padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+                    <i class='bx bx-info-circle'></i> Requests are sent to the book owner for approval.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeExtendModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+            </div>
+        </div>
+    </div>
+
+
     <?php
     function renderEnhancedDeliveryCard($d) {
         $userId = $_SESSION['user_id'];
@@ -526,10 +554,25 @@ function getStatusLabel($status, $agentId) {
                         </button>
                     
                     <?php elseif ($isBorrower && $d['status'] === 'delivered' && ($d['transaction_type'] === 'borrow' || $d['transaction_type'] === 'exchange')): ?>
-                        <?php $btnLabel = ($d['transaction_type'] === 'exchange') ? 'Send Exchange Book via Agent' : 'Return Book via Agent'; ?>
-                        <button onclick="confirmAction(<?php echo $d['id']; ?>, 'request_return_delivery')" class="btn-confirm primary" style="background: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);">
-                            <i class='bx bx-undo'></i> <?php echo $btnLabel; ?> (10 Credits)
-                        </button>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+                            <?php $btnLabel = ($d['transaction_type'] === 'exchange') ? 'Send Exchange Book via Agent' : 'Return Book via Agent'; ?>
+                            <button onclick="confirmAction(<?php echo $d['id']; ?>, 'request_return_delivery')" class="btn-confirm primary" style="background: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);">
+                                <i class='bx bx-undo'></i> <?php echo $btnLabel; ?> (10 Credits)
+                            </button>
+                            
+                            <?php if ($d['transaction_type'] === 'borrow'): ?>
+                                <?php if (empty($d['pending_due_date'])): ?>
+                                    <button onclick="openExtendModal(<?php echo $d['id']; ?>, '<?php echo $d['due_date']; ?>')" class="btn-confirm" style="background: white; color: var(--text-main); border: 1px solid var(--border-color);">
+                                        <i class='bx bx-calendar-plus'></i> Extend Return Date
+                                    </button>
+                                <?php else: ?>
+                                    <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 12px; text-align: center; color: #475569; font-size: 0.85rem; font-weight: 700;">
+                                        <i class='bx bx-time'></i> Extension Pending: <?php echo date('M d, Y', strtotime($d['pending_due_date'])); ?>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+
 
                     <?php elseif ($isBorrower && $d['status'] === 'returning' && !empty($d['return_agent_id']) && empty($d['return_borrower_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
@@ -808,6 +851,54 @@ function getStatusLabel($status, $agentId) {
                     showMsg('Network error. Please try again.', 'error');
                 });
         }
+
+        /* Extension Functions */
+        let currentExtendTxId = 0;
+
+        function openExtendModal(txId, currentDate) {
+            currentExtendTxId = txId;
+            document.getElementById('current-due-display').textContent = new Date(currentDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+            
+            // Set min date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('new-due-date').min = tomorrow.toISOString().split('T')[0];
+            
+            document.getElementById('extend-modal').style.display = 'flex';
+        }
+
+        function closeExtendModal() {
+            document.getElementById('extend-modal').style.display = 'none';
+            currentExtendTxId = 0;
+        }
+
+        async function submitExtension() {
+            const newDate = document.getElementById('new-due-date').value;
+            if (!newDate) {
+                alert('Please select a new date');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'request_extension');
+            formData.append('transaction_id', currentExtendTxId);
+            formData.append('new_date', newDate);
+
+            try {
+                const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    showMsg(result.message, 'success');
+                    closeExtendModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showMsg(result.message, 'error');
+                }
+            } catch (err) {
+                showMsg('Network error. Please try again.', 'error');
+            }
+        }
+
 
         function confirmAction(txId, action) {
             const msgs = {

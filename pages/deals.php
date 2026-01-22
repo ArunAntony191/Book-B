@@ -315,10 +315,26 @@ try {
                                         <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'accept_request')" class="btn btn-primary btn-sm">Accept</button>
                                         <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'decline_request')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Decline</button>
                                     </div>
+                                <?php elseif (($deal['status'] === 'approved' || $deal['status'] === 'active' || $deal['status'] === 'delivered') && $deal['listing_type'] === 'borrow'): ?>
+                                    <?php if (!empty($deal['pending_due_date'])): ?>
+                                        <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 1rem; border-radius: 12px; margin-bottom: 0.75rem; width: 100%;">
+                                            <p style="font-size: 0.8rem; font-weight: 700; color: #92400e; margin-bottom: 0.5rem;">Extension Requested: <?php echo date('M d, Y', strtotime($deal['pending_due_date'])); ?></p>
+                                            <div class="btn-group" style="width: 100%;">
+                                                <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'approve_extension')" class="btn btn-primary btn-sm" style="flex: 1;">Approve</button>
+                                                <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'decline_extension')" class="btn btn-sm" style="flex: 1; background: #fee2e2; color: #dc2626; border: none;">Decline</button>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ($deal['status'] !== 'delivered'): ?>
+                                        <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
+                                            <i class='bx bx-check-circle'></i> Mark Returned
+                                        </button>
+                                    <?php endif; ?>
                                 <?php elseif ($deal['status'] === 'approved' || $deal['status'] === 'active'): ?>
                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
                                         <i class='bx bx-check-circle'></i> Mark Returned
                                     </button>
+
                                 <?php elseif ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
                                     <div class="btn-group">
                                         <button onclick="showRestockModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm">
@@ -358,7 +374,27 @@ try {
                                             <span style="display: block; font-size: 0.7rem; font-weight: 500; margin-top: 2px;">(Click to view reviews)</span>
                                         </a>
                                     </div>
-                                    <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($deal['created_at'])); ?></div>
+                                    <div class="meta-item"><i class='bx bx-calendar'></i> Requested: <?php echo date('M d', strtotime($deal['created_at'])); ?></div>
+                                    <?php if ($deal['due_date']): ?>
+                                        <?php 
+                                            $dueDate = new DateTime($deal['due_date']);
+                                            $today = new DateTime();
+                                            $diff = $today->diff($dueDate);
+                                            $isDueSoon = ($dueDate > $today && $diff->days <= 2);
+                                            $isOverdue = ($dueDate <= $today);
+                                        ?>
+                                        <div class="meta-item" style="<?php echo $isOverdue ? 'color: #ef4444;' : ($isDueSoon ? 'color: #f59e0b;' : ''); ?>">
+                                            <i class='bx <?php echo $isOverdue ? 'bx-error-circle' : 'bx-time-five'; ?>'></i> 
+                                            Due: <strong><?php echo date('M d, Y', strtotime($deal['due_date'])); ?></strong>
+                                            <?php if ($isOverdue): ?> <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 0.65rem;">OVERDUE</span> <?php endif; ?>
+                                            <?php if ($isDueSoon): ?> <span class="badge" style="background: #fef3c7; color: #92400e; font-size: 0.65rem;">DUE SOON</span> <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($deal['pending_due_date']): ?>
+                                        <div class="meta-item" style="color: #d97706;"><i class='bx bx-time'></i> Ext. Pending: <?php echo date('M d', strtotime($deal['pending_due_date'])); ?></div>
+                                    <?php endif; ?>
+
                                 </div>
                             </div>
                             <div class="deal-actions">
