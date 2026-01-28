@@ -417,6 +417,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <div id="search-suggestions-map" class="search-suggestions-map"></div>
                                 </div>
                                 
+                                <div id="geocoding-status" style="display: none; font-size: 0.85rem; color: var(--primary); margin-bottom: 1rem; font-weight: 600;">
+                                    <i class='bx bx-loader-alt bx-spin'></i> <span id="geocoding-msg">Fetching address details...</span>
+                                </div>
+
                                 <div id="picker-map"></div>
                                 <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.75rem; font-weight: 600;">
                                     <i class='bx bxs-info-circle'></i> Accurate GPS location ensures delivery partners find you without calls.
@@ -569,6 +573,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
             L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(map);
     
+            // Ensure map renders correctly if container was resized
+            setTimeout(() => { map.invalidateSize(); }, 500);
+
             let accuracyCircle = null;
     
             // Custom Pulsing Pin Icon
@@ -595,6 +602,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('lat').value = lat;
                 document.getElementById('lng').value = lng;
     
+                const loader = document.getElementById('geocoding-status');
+                const msg = document.getElementById('geocoding-msg');
+
+                // Set manual address immediately if provided
+                if (manualAddress) {
+                    const locNameInput = document.getElementById('location_name');
+                    if (locNameInput) locNameInput.value = manualAddress;
+                } else {
+                    if (loader) {
+                        loader.style.display = 'block';
+                        if (msg) msg.innerText = "Fetching address details...";
+                    }
+                }
+
                 // Reverse geocoding
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
                     .then(res => res.json())
@@ -621,14 +642,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
                             
                             const locNameInput = document.getElementById('location_name');
-                            if (locNameInput) locNameInput.value = manualAddress || shortAddr;
+                            // Only update if we don't have a manual address OR if manual address was just a placeholder
+                            if (locNameInput && !manualAddress) locNameInput.value = shortAddr;
                             
                             if (districtVal) document.getElementById('district').value = districtVal;
                             if (cityVal || rural) document.getElementById('city').value = cityVal || rural;
                             if (pincodeVal) document.getElementById('pincode').value = pincodeVal;
                         }
                     })
-                    .catch(err => console.error("Reverse geocoding failed", err));
+                    .catch(err => console.error("Reverse geocoding failed", err))
+                    .finally(() => {
+                        if (loader) loader.style.display = 'none';
+                    });
             };
             
             // Expose map functions globally if needed for button clicks
@@ -721,7 +746,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
                                     div.onclick = () => {
                                         map.setView([item.lat, item.lon], 17);
-                                        window.updateLocation(parseFloat(item.lat), parseFloat(item.lon)); // REMOVED manualAddress to force refetch of details
+                                        window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name); // RESTORED manualAddress
                                         searchSuggestionsMap.style.display = 'none';
                                         mapSearchInput.value = item.display_name;
                                     };
@@ -752,7 +777,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (data.length > 0) {
                                 const item = data[0];
                                 map.setView([item.lat, item.lon], 17);
-                                window.updateLocation(parseFloat(item.lat), parseFloat(item.lon)); // REMOVED manualAddress
+                                window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name); // RESTORED manualAddress
                                 searchSuggestionsMap.style.display = 'none';
                                 mapSearchInput.value = item.display_name;
                             } else {

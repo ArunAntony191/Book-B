@@ -249,7 +249,9 @@ $results = searchListingsAdvanced($filters);
                                 </select>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-full">Apply Filters</button>
+                            <button type="submit" class="btn btn-primary w-full" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.8rem;">
+                                <i class='bx bx-search-alt'></i> Search Books
+                            </button>
                             
                             <div style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
                                 <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Search as I move</div>
@@ -318,9 +320,11 @@ $results = searchListingsAdvanced($filters);
                     <div id="map"></div>
                     <!-- Map Search Overlay -->
                     <div style="position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; gap: 5px;">
-                        <input type="text" id="map-loc-search" placeholder="Go to city..." style="border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; outline: none;">
-                        <button class="btn btn-primary btn-sm" onclick="searchMapLoc()">Go</button>
-                        <button class="btn btn-outline btn-sm" onclick="useMyLoc()" title="Use Current Location" style="border: 1px solid #ccc;"><i class='bx bx-current-location'></i></button>
+                        <input type="text" id="map-loc-search" placeholder="Go to city..." 
+                               style="border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; outline: none;"
+                               onkeydown="if(event.key === 'Enter') { event.preventDefault(); searchMapLoc(); }">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="searchMapLoc()">Go</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="useMyLoc()" title="Use Current Location" style="border: 1px solid #ccc;"><i class='bx bx-current-location'></i></button>
                     </div>
                 </div>
             </div>
@@ -338,6 +342,9 @@ $results = searchListingsAdvanced($filters);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '©OpenStreetMap ©CartoDB'
         }).addTo(map);
+
+        // Ensure map layout is correct
+        setTimeout(() => { map.invalidateSize(); }, 500);
 
         // Marker Cluster Group
         const markerCluster = L.markerClusterGroup({
@@ -445,10 +452,10 @@ $results = searchListingsAdvanced($filters);
                 ne_lng: bounds.getNorthEast().lng,
                 c_lat: center.lat,
                 c_lng: center.lng,
-                query: '<?php echo $filters['query']; ?>',
-                role: '<?php echo $filters['role']; ?>',
-                type: '<?php echo $filters['type']; ?>',
-                category: '<?php echo $filters['category']; ?>'
+                query: <?php echo json_encode($filters['query']); ?>,
+                role: <?php echo json_encode($filters['role']); ?>,
+                type: <?php echo json_encode($filters['type']); ?>,
+                category: <?php echo json_encode($filters['category']); ?>
             });
 
             try {
