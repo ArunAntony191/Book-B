@@ -72,26 +72,27 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
     <?php if($user_role == 'admin'): ?>
     <div class="sidebar-section-title">Admin Controls</div>
     <a href="<?php echo APP_URL; ?>/admin/admin_users.php" class="nav-item <?php echo $current_page == 'admin_users.php' ? 'active' : ''; ?>"><i class='bx bx-group'></i> Manage Users</a>
+    <a href="<?php echo APP_URL; ?>/admin/admin_listings.php" class="nav-item <?php echo $current_page == 'admin_listings.php' ? 'active' : ''; ?>"><i class='bx bx-book'></i> Manage Listings</a>
     <a href="<?php echo APP_URL; ?>/admin/role_requests.php" class="nav-item <?php echo $current_page == 'role_requests.php' ? 'active' : ''; ?>"><i class='bx bx-git-branch'></i> Role Requests</a>
     <a href="<?php echo APP_URL; ?>/admin/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>"><i class='bx bx-flag'></i> Reports</a>
     <?php endif; ?>
 
+    <?php if(!in_array($user_role, ['delivery_agent', 'admin'])): ?>
     <div class="sidebar-section-title">My Actions</div>
-    <?php if($user_role != 'delivery_agent'): ?>
         <a href="<?php echo APP_URL; ?>/pages/add_listing.php" class="nav-item <?php echo $current_page == 'add_listing.php' ? 'active' : ''; ?>"><i class='bx bx-plus-circle'></i> Add Listing</a>
         <a href="<?php echo APP_URL; ?>/pages/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
+        <?php if(in_array($user_role, ['library', 'bookstore'])): ?>
+            <a href="<?php echo APP_URL; ?>/pages/business_reports.php" class="nav-item <?php echo $current_page == 'business_reports.php' ? 'active' : ''; ?>"><i class='bx bx-line-chart'></i> Business Reports</a>
+        <?php endif; ?>
     <?php endif; ?>
 
-    <?php if($user_role == 'admin'): ?>
-        <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find Jobs</a>
-    <?php endif; ?>
     <a href="<?php echo APP_URL; ?>/chat/index.php" class="nav-item <?php echo strpos($current_page, 'chat') !== false ? 'active' : ''; ?>">
         <i class='bx bx-message-square-detail'></i> Messages
         <?php if ($total_unread > 0): ?>
             <span class="nav-badge msg-badge"><?php echo $total_unread; ?></span>
         <?php endif; ?>
     </a>
-    <?php if($user_role != 'delivery_agent'): ?>
+    <?php if(!in_array($user_role, ['delivery_agent', 'admin'])): ?>
         <a href="<?php echo APP_URL; ?>/pages/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>">
             <i class='bx bx-git-compare'></i> My Deals
             <?php if ($deals_notifs > 0): ?>

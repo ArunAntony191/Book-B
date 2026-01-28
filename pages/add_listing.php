@@ -599,27 +599,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
                     .then(res => res.json())
                     .then(data => {
-                        const addr = data.address;
-                        
-                        // Deep parsing
-                        const house = addr.house_number || '';
-                        const road = addr.road || addr.pedestrian || '';
-                        const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
-                        const city = addr.city || addr.town || addr.village || '';
-                        const district = addr.state_district || addr.county || '';
-                        const pincode = addr.postcode || '';
-    
-                        // Deep parsing for rural areas
-                        const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
-    
-                        const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
-                        
-                        const locNameInput = document.getElementById('location_name');
-                        if (locNameInput) locNameInput.value = manualAddress || shortAddr;
-                        
-                        if (district) document.getElementById('district').value = district.replace(' District', '').replace(' district', '');
-                        if (city) document.getElementById('city').value = city;
-                        if (pincode) document.getElementById('pincode').value = pincode;
+                        if (data && data.address) {
+                            const addr = data.address;
+                            
+                            // Deep parsing - Robust logic
+                            const house = addr.house_number || '';
+                            const road = addr.road || addr.pedestrian || '';
+                            const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
+                            const cityVal = addr.city || addr.town || addr.village || '';
+                            const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
+                            const districtVal = (addr.state_district || addr.county || '').replace(' District', '').replace(' district', '');
+                            const pincodeVal = addr.postcode || '';
+
+                            let parts = [];
+                            if (house) parts.push(house);
+                            if (road) parts.push(road);
+                            if (suburb) parts.push(suburb);
+                            if (cityVal) parts.push(cityVal);
+                            if (!cityVal && rural) parts.push(rural);
+
+                            const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
+                            
+                            const locNameInput = document.getElementById('location_name');
+                            if (locNameInput) locNameInput.value = manualAddress || shortAddr;
+                            
+                            if (districtVal) document.getElementById('district').value = districtVal;
+                            if (cityVal || rural) document.getElementById('city').value = cityVal || rural;
+                            if (pincodeVal) document.getElementById('pincode').value = pincodeVal;
+                        }
                     })
                     .catch(err => console.error("Reverse geocoding failed", err));
             };
@@ -714,7 +721,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     div.innerHTML = `<i class='bx bx-map-pin'></i> <span>${item.display_name}</span>`;
                                     div.onclick = () => {
                                         map.setView([item.lat, item.lon], 17);
-                                        window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                        window.updateLocation(parseFloat(item.lat), parseFloat(item.lon)); // REMOVED manualAddress to force refetch of details
                                         searchSuggestionsMap.style.display = 'none';
                                         mapSearchInput.value = item.display_name;
                                     };
@@ -745,7 +752,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (data.length > 0) {
                                 const item = data[0];
                                 map.setView([item.lat, item.lon], 17);
-                                window.updateLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                                window.updateLocation(parseFloat(item.lat), parseFloat(item.lon)); // REMOVED manualAddress
                                 searchSuggestionsMap.style.display = 'none';
                                 mapSearchInput.value = item.display_name;
                             } else {

@@ -44,7 +44,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Currently Lent -->
-            <div class="widget-card" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 2px solid #10b981;">
+            <div class="widget-card" onclick="window.location.href='business_reports.php'" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 2px solid #10b981; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-export'></i> Currently Lent</span>
                 </div>
@@ -115,7 +115,7 @@ $storeStats = getStoreStats($userId);
                 <button class="btn btn-outline" onclick="window.location.href='listings.php'" style="justify-content: center; padding: 0.75rem;">
                     <i class='bx bx-package'></i> Manage Inventory
                 </button>
-                <button class="btn btn-outline" onclick="window.location.href='deals.php'" style="justify-content: center; padding: 0.75rem;">
+                <button class="btn btn-outline" onclick="window.location.href='business_reports.php'" style="justify-content: center; padding: 0.75rem;">
                     <i class='bx bx-list-ul'></i> View All Borrows
                 </button>
                 <button class="btn btn-primary" onclick="window.location.href='deals.php?filter=requested'" style="justify-content: center; padding: 0.75rem;">

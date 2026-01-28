@@ -1894,3 +1894,115 @@ function getUserRole($userId) {
         return false;
     }
 }
+/**
+ * Delete a listing and its associated book record
+ */
+function deleteListing($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get book_id
+        $stmt = $pdo->prepare("SELECT book_id FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+        $listing = $stmt->fetch();
+        
+        if (!$listing) {
+            throw new Exception("Listing not found.");
+        }
+        $bookId = $listing['book_id'];
+
+        // 2. Delete listing (associated data like transactions should be handled by foreign key cascades or checked)
+        $stmt = $pdo->prepare("DELETE FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+
+        // 3. Delete book record
+        $stmt = $pdo->prepare("DELETE FROM books WHERE id = ?");
+        $stmt->execute([$bookId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete listing error: " . $e->getMessage());
+        return false;
+    }
+}
+/**
+ * Get aggregated statistics for a bookstore or library
+ */
+function getBusinessReportStats($userId, $startDate, $endDate) {
+    try {
+        $pdo = getDBConnection();
+        $startStr = $startDate . " 00:00:00";
+        $endStr = $endDate . " 23:59:59";
+        
+        $stats = [];
+        
+        // 1. Total Listings
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM listings WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $stats["total_listings"] = (int)$stmt->fetchColumn();
+        
+        // 2. Out of Stock
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM listings WHERE user_id = ? AND quantity <= 0");
+        $stmt->execute([$userId]);
+        $stats["out_of_stock"] = (int)$stmt->fetchColumn();
+        
+        // 3. Completed Transactions (as Lender/Seller)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE lender_id = ? AND status = 'completed' AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_completed"] = (int)$stmt->fetchColumn();
+        
+        // 4. Revenue / Tokens Earned
+        // Bookstore earns tokens (price) or Tokens (credit_cost)
+        $stmt = $pdo->prepare("
+            SELECT SUM(l.price) FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.lender_id = ? AND t.status = 'completed' AND t.created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_revenue_money"] = (float)($stmt->fetchColumn() ?: 0);
+
+        $stmt = $pdo->prepare("
+            SELECT SUM(l.credit_cost) FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.lender_id = ? AND t.status = 'completed' AND t.created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_revenue_tokens"] = (int)($stmt->fetchColumn() ?: 0);
+        
+        // 5. Active Deals
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE lender_id = ? AND status NOT IN ('completed', 'cancelled', 'returned')
+        ");
+        $stmt->execute([$userId]);
+        $stats["active_deals"] = (int)$stmt->fetchColumn();
+        
+        // 6. Activity Log
+        $sql = "
+            SELECT t.id, t.created_at, b.title, b.cover_image, l.listing_type, l.price, l.credit_cost,
+                   u_borrower.firstname as borrower_name, u_borrower.lastname as borrower_lastname,
+                   t.status
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            WHERE t.lender_id = ? AND t.created_at BETWEEN ? AND ?
+            ORDER BY t.created_at DESC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["activity"] = $stmt->fetchAll();
+        
+        return $stats;
+    } catch (PDOException $e) {
+        error_log("Get business report stats error: " . $e->getMessage());
+        return false;
+    }
+}

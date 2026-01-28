@@ -10,6 +10,7 @@ if (!isset($_SESSION['user_email'])) {
 }
 
 // Refresh role from database to ensure it's always up to date (Sync)
+$userId = $_SESSION['user_id'] ?? null;
 if ($userId) {
     syncSessionRole($userId);
 }

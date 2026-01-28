@@ -10,13 +10,54 @@ if (!$userId) {
 }
 
 $pdo = getDBConnection();
-$stmt = $pdo->prepare("
+
+// Get filter/sort parameters
+$search = $_GET['search'] ?? '';
+$type = $_GET['type'] ?? 'all';
+$status = $_GET['status'] ?? 'all';
+$sort = $_GET['sort'] ?? 'newest';
+
+// Build Query
+$query = "
     SELECT l.*, b.title, b.author, b.cover_image 
     FROM listings l
     JOIN books b ON l.book_id = b.id
     WHERE l.user_id = ?
-");
-$stmt->execute([$userId]);
+";
+$params = [$userId];
+
+if ($search) {
+    $query .= " AND (b.title LIKE ? OR b.author LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+if ($type !== 'all') {
+    $query .= " AND l.listing_type = ?";
+    $params[] = $type;
+}
+
+if ($status === 'in_stock') {
+    $query .= " AND l.quantity > 0";
+} elseif ($status === 'out_of_stock') {
+    $query .= " AND l.quantity <= 0";
+}
+
+// Sorting logic
+$orderBy = "l.created_at DESC";
+switch ($sort) {
+    case 'title_asc': $orderBy = "b.title ASC"; break;
+    case 'title_desc': $orderBy = "b.title DESC"; break;
+    case 'price_asc': $orderBy = "l.price ASC"; break;
+    case 'price_desc': $orderBy = "l.price DESC"; break;
+    case 'stock_asc': $orderBy = "l.quantity ASC"; break;
+    case 'stock_desc': $orderBy = "l.quantity DESC"; break;
+    case 'newest': $orderBy = "l.created_at DESC"; break;
+}
+$query .= " ORDER BY $orderBy";
+
+$stmt = $pdo->prepare($query);
+$stmt->execute($params);
 $myListings = $stmt->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -129,6 +170,59 @@ $myListings = $stmt->fetchAll();
             border-radius: var(--radius-lg);
             border: 2px dashed var(--border-color);
         }
+
+        /* Filter Bar Styles */
+        .filter-bar {
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            animation: fadeInDown 0.5s ease-out;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 150px;
+        }
+        .filter-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .filter-select, .filter-input {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: #f8fafc;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .filter-select:focus, .filter-input:focus {
+            border-color: var(--primary);
+            background: white;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+        .search-group {
+            flex: 2;
+            min-width: 250px;
+        }
+        .filter-btn-group {
+            display: flex;
+            gap: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -142,14 +236,61 @@ $myListings = $stmt->fetchAll();
                     <p>Collections you've shared with the community</p>
                 </div>
                 <div style="display: flex; gap: 1rem;">
-                    <a href="dashboard_delivery_agent.php" class="btn btn-outline" style="border-color: var(--primary);">
-                        <i class='bx bxs-truck'></i> Delivery View
-                    </a>
                     <a href="add_listing.php" class="btn btn-primary">
                         <i class='bx bx-plus-circle'></i> Add New Listing
                     </a>
                 </div>
             </div>
+
+            <!-- Filter Bar -->
+            <form method="GET" class="filter-bar">
+                <div class="filter-group search-group">
+                    <label class="filter-label">Search</label>
+                    <div style="position: relative;">
+                        <i class='bx bx-search' style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                        <input type="text" name="search" class="filter-input" style="padding-left: 2.75rem;" placeholder="Search by title or author..." value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Listing Type</label>
+                    <select name="type" class="filter-select">
+                        <option value="all" <?php echo $type === 'all' ? 'selected' : ''; ?>>All Types</option>
+                        <option value="borrow" <?php echo $type === 'borrow' ? 'selected' : ''; ?>>Borrow</option>
+                        <option value="sell" <?php echo $type === 'sell' ? 'selected' : ''; ?>>Sell</option>
+                        <option value="exchange" <?php echo $type === 'exchange' ? 'selected' : ''; ?>>Exchange</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Availability</label>
+                    <select name="status" class="filter-select">
+                        <option value="all" <?php echo $status === 'all' ? 'selected' : ''; ?>>All Status</option>
+                        <option value="in_stock" <?php echo $status === 'in_stock' ? 'selected' : ''; ?>>In Stock</option>
+                        <option value="out_of_stock" <?php echo $status === 'out_of_stock' ? 'selected' : ''; ?>>Out of Stock</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select name="sort" class="filter-select">
+                        <option value="newest" <?php echo $sort === 'newest' ? 'selected' : ''; ?>>Newest First</option>
+                        <option value="title_asc" <?php echo $sort === 'title_asc' ? 'selected' : ''; ?>>Title (A-Z)</option>
+                        <option value="title_desc" <?php echo $sort === 'title_desc' ? 'selected' : ''; ?>>Title (Z-A)</option>
+                        <option value="price_asc" <?php echo $sort === 'price_asc' ? 'selected' : ''; ?>>Price (Low to High)</option>
+                        <option value="price_desc" <?php echo $sort === 'price_desc' ? 'selected' : ''; ?>>Price (High to Low)</option>
+                        <option value="stock_asc" <?php echo $sort === 'stock_asc' ? 'selected' : ''; ?>>Stock (Low to High)</option>
+                        <option value="stock_desc" <?php echo $sort === 'stock_desc' ? 'selected' : ''; ?>>Stock (High to Low)</option>
+                    </select>
+                </div>
+
+                <div class="filter-btn-group">
+                    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.5rem;">Apply</button>
+                    <?php if ($search || $type !== 'all' || $status !== 'all' || $sort !== 'newest'): ?>
+                        <a href="listings.php" class="btn btn-outline" style="padding: 0.75rem 1.25rem;">Reset</a>
+                    <?php endif; ?>
+                </div>
+            </form>
 
             <?php if (empty($myListings)): ?>
                 <div class="empty-state">
@@ -183,8 +324,8 @@ $myListings = $stmt->fetchAll();
                                         <?php echo ($listing['listing_type'] === 'sell') ? '₹'.$listing['price'] : ucfirst($listing['listing_type']); ?>
                                     </div>
                                     <div style="display: flex; gap: 0.5rem;">
-                                        <button class="btn btn-outline btn-sm" style="padding: 0.4rem; border:1px solid var(--border-color);"><i class='bx bx-edit-alt'></i></button>
-                                        <button class="btn btn-sm" style="padding: 0.4rem; border:1px solid #fee2e2; color: #ef4444;"><i class='bx bx-trash'></i></button>
+                                        <a href="add_listing.php?edit=<?php echo $listing['id']; ?>" class="btn btn-outline btn-sm" style="padding: 0.4rem; border:1px solid var(--border-color); color: var(--text-main);"><i class='bx bx-edit-alt'></i></a>
+                                        <button onclick="confirmDelete(<?php echo $listing['id']; ?>, '<?php echo addslashes($listing['title']); ?>')" class="btn btn-sm" style="padding: 0.4rem; border:1px solid #fee2e2; color: #ef4444; background: white;"><i class='bx bx-trash'></i></button>
                                     </div>
                                 </div>
                             </div>
@@ -194,5 +335,31 @@ $myListings = $stmt->fetchAll();
             <?php endif; ?>
         </main>
     </div>
+    <script>
+        async function confirmDelete(id, title) {
+            if (!confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('listing_id', id);
+
+                const response = await fetch('../actions/delete_listing.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred. Check console.');
+            }
+        }
+    </script>
 </body>
 </html>

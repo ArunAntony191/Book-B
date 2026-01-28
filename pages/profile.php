@@ -405,6 +405,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <input type="text" name="lastname" class="form-input" value="<?php echo htmlspecialchars($user['lastname']); ?>" required pattern="[A-Za-z\s'\-]{1,50}" title="Name should contain only letters">
                                     </div>
                                 </div>
+                                <div class="form-group" style="margin-top: 1.25rem;">
+                                    <label class="form-label">Email Address</label>
                                     <input type="email" name="email" class="form-input" value="<?php echo htmlspecialchars($user['email']); ?>" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address (e.g. user@example.com)">
                                 </div>
                                 <div class="form-group" style="margin-top: 1.25rem;">
@@ -460,9 +462,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         </button>
                                         <div id="search-suggestions" class="search-suggestions"></div>
                                     </div>
+                                    <div id="geocoding-status" style="display: none; font-size: 0.85rem; color: var(--primary); margin-top: 0.5rem; font-weight: 600;">
+                                        <i class='bx bx-loader-alt bx-spin'></i> <span id="geocoding-msg">Detecting your location...</span>
+                                    </div>
                                     <div id="address-map"></div>
                                     <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.75rem; font-weight: 600;">
-                                        <i class='bx bxs-info-circle'></i> Accurate GPS location ensures delivery partners find you without calls.
+                                        <i class='bx bxs-info-circle'></i> Accurate GPS location ensures delivery partners find you. <strong>Click on the map to refine the pin if it's off.</strong>
                                     </p>
                                 </div>
 
@@ -611,6 +616,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
 
         let addressMarker = null;
+        let accuracyCircle = null;
         <?php if (!empty($user['service_start_lat']) && !empty($user['service_start_lng'])): ?>
             addressMarker = L.marker([<?php echo $user['service_start_lat']; ?>, <?php echo $user['service_start_lng']; ?>], { icon: pulsingIcon }).addTo(addressMap);
         <?php endif; ?>
@@ -637,7 +643,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         div.innerHTML = `<i class='bx bx-map'></i> <span>${item.display_name}</span>`;
                         div.onclick = () => {
                             addressMap.setView([item.lat, item.lon], 17);
-                            updateAddressFromCoords(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                            updateAddressFromCoords(parseFloat(item.lat), parseFloat(item.lon));
                             searchSuggestions.style.display = 'none';
                             addrSearch.value = item.display_name;
                         };
@@ -663,10 +669,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (data.length > 0) {
                     const item = data[0];
                     addressMap.setView([item.lat, item.lon], 17);
-                    updateAddressFromCoords(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                    updateAddressFromCoords(parseFloat(item.lat), parseFloat(item.lon));
                     searchSuggestions.style.display = 'none';
-                    // Optional: keep the user's typed query or replace with the formatted one? 
-                    // Usually replacing with the official name is better for confirmation
                     addrSearch.value = item.display_name;
                 }
             }
@@ -674,15 +678,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         function getCurrentLocation() {
             if (navigator.geolocation) {
+                const loader = document.getElementById('geocoding-status');
+                const msg = document.getElementById('geocoding-msg');
+                loader.style.display = 'block';
+                msg.innerText = "Detecting your location...";
+
                 navigator.geolocation.getCurrentPosition((pos) => {
-                    const { latitude, longitude } = pos.coords;
+                    const { latitude, longitude, accuracy } = pos.coords;
                     addressMap.setView([latitude, longitude], 17);
+                    
+                    // Add Accuracy Circle
+                    if (accuracyCircle) addressMap.removeLayer(accuracyCircle);
+                    accuracyCircle = L.circle([latitude, longitude], {
+                        radius: accuracy,
+                        color: '#6366f1',
+                        fillColor: '#6366f1',
+                        fillOpacity: 0.15,
+                        weight: 1
+                    }).addTo(addressMap);
+
                     updateAddressFromCoords(latitude, longitude);
                 }, (error) => {
-                    let msg = "GPS access denied.";
-                    if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again or search manually.";
-                    else if (error.code === error.POSITION_UNAVAILABLE) msg = "Location information is unavailable.";
-                    alert(msg);
+                    loader.style.display = 'none';
+                    let errorMsg = "GPS access denied.";
+                    if (error.code === error.TIMEOUT) errorMsg = "Location request timed out. Please try again.";
+                    else if (error.code === error.POSITION_UNAVAILABLE) errorMsg = "Location information is unavailable.";
+                    alert(errorMsg);
                 }, { 
                     enableHighAccuracy: true,
                     timeout: 10000,
@@ -699,60 +720,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.getElementById('lat').value = lat;
             document.getElementById('lng').value = lng;
 
-            // If manual address is passed (from search), just set it and return
-            if(manualAddress) {
-                document.getElementById('main-address').value = manualAddress;
-                return;
-            }
+            const loader = document.getElementById('geocoding-status');
+            const msg = document.getElementById('geocoding-msg');
+
+            loader.style.display = 'block';
+            msg.innerText = "Fetching address details...";
 
             // Reverse Geocoding
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                 const data = await res.json();
                 
-                if(data && data.display_name) {
-                    document.getElementById('main-address').value = data.display_name;
-                    
+                if(data && data.address) {
                     const addr = data.address;
-                    if(addr) {
-                        // 1. Pincode
-                        if (addr.postcode) document.getElementById('pincode-input').value = addr.postcode;
-                        
-                        // 2. City
-                        const city = addr.city || addr.town || addr.village || addr.suburb || '';
-                        if(city) document.getElementById('city-input').value = city;
+                    
+                    // 1. Better Address Parsing (House, Road, Suburb, City)
+                    const house = addr.house_number || '';
+                    const road = addr.road || addr.pedestrian || '';
+                    const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
+                    const cityVal = addr.city || addr.town || addr.village || '';
+                    const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
 
-                        // 3. State
-                        const stateFromOSM = addr.state || '';
-                        if(stateFromOSM) {
-                            if(locationData[stateFromOSM]) {
-                                stateSelect.value = stateFromOSM;
-                                manualState.style.display = 'none';
-                            } else {
-                                stateSelect.value = "Other";
-                                manualState.value = stateFromOSM;
-                                manualState.style.display = 'block';
-                            }
-                            updateDistricts(); // Refresh districts for the new state
+                    let parts = [];
+                    if (house) parts.push(house);
+                    if (road) parts.push(road);
+                    if (suburb) parts.push(suburb);
+                    if (cityVal) parts.push(cityVal);
+                    if (!cityVal && rural) parts.push(rural);
+
+                    const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
+                    document.getElementById('main-address').value = shortAddr;
+                    
+                    // 2. Form Auto-fill (Pincode, City, State, District)
+                    if (addr.postcode) document.getElementById('pincode-input').value = addr.postcode;
+                    
+                    const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || '';
+                    if(cityOrTown) document.getElementById('city-input').value = cityOrTown;
+
+                    const stateFromOSM = addr.state || '';
+                    if(stateFromOSM) {
+                        if(locationData[stateFromOSM]) {
+                            stateSelect.value = stateFromOSM;
+                            manualState.style.display = 'none';
+                        } else {
+                            stateSelect.value = "Other";
+                            manualState.value = stateFromOSM;
+                            manualState.style.display = 'block';
                         }
+                        updateDistricts();
+                    }
 
-                        // 4. District
-                        const districtFromOSM = (addr.state_district || addr.county || '').replace(' District', '').replace(' district', '');
-                        if(districtFromOSM) {
-                            const districts = locationData[stateSelect.value] || [];
-                            if(districts.includes(districtFromOSM)) {
-                                districtSelect.value = districtFromOSM;
-                                manualDistrict.style.display = 'none';
-                            } else {
-                                districtSelect.value = "Other";
-                                manualDistrict.value = districtFromOSM;
-                                manualDistrict.style.display = 'block';
-                            }
+                    const districtFromOSM = (addr.state_district || addr.county || '').replace(' District', '').replace(' district', '');
+                    if(districtFromOSM) {
+                        const districts = locationData[stateSelect.value] || [];
+                        if(districts.includes(districtFromOSM)) {
+                            districtSelect.value = districtFromOSM;
+                            manualDistrict.style.display = 'none';
+                        } else {
+                            districtSelect.value = "Other";
+                            manualDistrict.value = districtFromOSM;
+                            manualDistrict.style.display = 'block';
                         }
                     }
                 }
             } catch(e) {
                 console.error("Geocoding failed", e);
+            } finally {
+                loader.style.display = 'none';
             }
         }
     </script>
