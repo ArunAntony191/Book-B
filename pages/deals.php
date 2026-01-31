@@ -337,9 +337,11 @@ try {
 
                                 <?php elseif ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
                                     <div class="btn-group">
-                                        <button onclick="showRestockModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm">
-                                            <i class='bx bx-package'></i> Restock
-                                        </button>
+                                        <?php if ($deal['status'] === 'returned' && empty($deal['is_restocked'])): ?>
+                                            <button onclick="showRestockModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm">
+                                                <i class='bx bx-package'></i> Restock
+                                            </button>
+                                        <?php endif; ?>
                                         <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="btn btn-outline btn-sm">
                                             <i class='bx bx-star'></i> Rate Partner
                                         </button>

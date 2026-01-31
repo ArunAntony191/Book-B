@@ -413,7 +413,16 @@ if ($book['latitude'] && $book['longitude']) {
 
                         <!-- Action Buttons -->
                         <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                            <?php if ($book['quantity'] > 0): ?>
+                            <?php if ($book['user_id'] == $userId): ?>
+                                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
+                                    <i class='bx bx-user-check' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
+                                    <p style="font-weight: 700; color: var(--text-main); margin: 0;">This is your listing</p>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">You cannot borrow or buy your own book.</p>
+                                    <a href="deals.php#listings" class="btn btn-primary w-full" style="margin-top: 1rem; justify-content: center;">
+                                        <i class='bx bx-cog'></i> Manage Listings
+                                    </a>
+                                </div>
+                            <?php elseif ($book['quantity'] > 0): ?>
                                 <?php if (!$hasMinTokens && $userId): ?>
                                     <div class="token-warning">
                                         <i class='bx bx-error-circle' style="font-size: 1.2rem;"></i>

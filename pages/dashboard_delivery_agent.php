@@ -431,17 +431,23 @@ $total_delivered = $stmt->fetchColumn();
                             </a>
                             
                             <?php if ($job['job_type'] === 'forward'): ?>
-                                <?php if ($job['status'] == 'approved'): ?>
-                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
-                                        <i class='bx bx-box'></i> Verify Pickup (Handover)
-                                    </button>
-                                <?php elseif ($job['status'] == 'active'): ?>
-                                    <?php if (!$job['agent_confirm_delivery_at']): ?>
-                                        <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                            <i class='bx bx-check-circle'></i> Verify Delivery (Dropoff)
-                                        </button>
-                                    <?php else: ?>
-                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
+                                <?php if ($job['status'] !== 'delivered'): ?>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%;">
+                                        <?php if (!$job['picked_up_at']): ?>
+                                            <button onclick="updateStatus(<?php echo $job['id']; ?>, 'active')" class="btn-action btn-primary-action">
+                                                <i class='bx bx-box'></i> Pickup
+                                            </button>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (!$job['agent_confirm_delivery_at']): ?>
+                                            <button onclick="updateStatus(<?php echo $job['id']; ?>, 'delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics); <?php echo $job['picked_up_at'] ? 'grid-column: span 2;' : ''; ?>">
+                                                <i class='bx bx-check-circle'></i> Deliver
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <?php if ($job['agent_confirm_delivery_at'] && !$job['borrower_confirm_at']): ?>
+                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default; width: 100%;">
                                             <i class='bx bx-time'></i> Waiting for Borrower
                                         </button>
                                     <?php endif; ?>
@@ -451,22 +457,27 @@ $total_delivered = $stmt->fetchColumn();
                                     </div>
                                 <?php endif; ?>
                             <?php elseif ($job['job_type'] === 'return' && $job['return_agent_id'] == $userId): ?>
-                                <!-- Return Leg Actions - Only show if current agent is the return agent -->
-                                <?php if ($job['status'] == 'returning' && !$job['return_picked_up_at']): ?>
-                                    <button onclick="updateStatus(<?php echo $job['id']; ?>, 'returning_active')" class="btn-action btn-primary-action">
-                                        <i class='bx bx-box'></i> Verify Return Pickup
-                                    </button>
-                                <?php elseif ($job['status'] == 'returning' && $job['return_picked_up_at']): ?>
-                                    <?php if (!$job['return_agent_confirm_at']): ?>
-                                        <button onclick="updateStatus(<?php echo $job['id']; ?>, 'return_delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics);">
-                                            <i class='bx bx-check-circle'></i> Verify Return Delivery
-                                        </button>
-                                    <?php else: ?>
-                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default;">
+                                <?php if ($job['status'] !== 'returned'): ?>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%;">
+                                        <?php if (!$job['return_picked_up_at']): ?>
+                                            <button onclick="updateStatus(<?php echo $job['id']; ?>, 'returning_active')" class="btn-action btn-primary-action">
+                                                <i class='bx bx-box'></i> Pickup
+                                            </button>
+                                        <?php endif; ?>
+
+                                        <?php if (!$job['return_agent_confirm_at']): ?>
+                                            <button onclick="updateStatus(<?php echo $job['id']; ?>, 'return_delivered')" class="btn-action btn-primary-action" style="background: var(--success-logistics); <?php echo $job['return_picked_up_at'] ? 'grid-column: span 2;' : ''; ?>">
+                                                <i class='bx bx-check-circle'></i> Deliver
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <?php if ($job['return_agent_confirm_at'] && !$job['return_lender_confirm_at']): ?>
+                                        <button disabled class="btn-action" style="background: #f1f5f9; color: #94a3b8; cursor: default; width: 100%;">
                                             <i class='bx bx-time'></i> Waiting for Lender
                                         </button>
                                     <?php endif; ?>
-                                <?php elseif ($job['status'] == 'returned'): ?>
+                                <?php else: ?>
                                     <div style="text-align: center; color: var(--success-logistics); font-weight: 700; width: 100%;">
                                         <i class='bx bxs-check-shield'></i> Return Completed
                                     </div>

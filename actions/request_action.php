@@ -75,6 +75,10 @@ try {
         // Cost Calculation
         $listing = getListingWithQuantity($listingId);
         if (!$listing) throw new Exception("Listing not found.");
+
+        if ($listing['user_id'] == $userId) {
+            throw new Exception("You cannot request your own book.");
+        }
         
         $creditCost = list($cost) = $listing ? ($listing['credit_cost'] ?? 10) : 10;
         
@@ -220,7 +224,10 @@ try {
              if (!$transaction || $transaction['lender_id'] != $userId) throw new Exception("Unauthorized.");
              
              $pdo->prepare("UPDATE transactions SET status = 'returned', return_date = CURDATE() WHERE id = ?")->execute([$transactionId]);
-             updateListingQuantity($transaction['listing_id'], 1);
+              if (empty($transaction['is_restocked'])) {
+                  updateListingQuantity($transaction['listing_id'], 1);
+                  $pdo->prepare("UPDATE transactions SET is_restocked = 1 WHERE id = ?")->execute([$transactionId]);
+              }
              
              $penalty = calculatePenalty($transactionId);
              $penaltyApplied = false;

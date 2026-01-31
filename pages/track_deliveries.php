@@ -28,13 +28,13 @@ foreach ($deliveries as $d) {
     }
 
     // If it's in a return phase, it goes to Returns tab
-    $isReturnPhase = (in_array($d['status'], ['returning', 'returned']));
-    if ($isReturnPhase) {
+    $isActuallyReturning = (in_array($d['status'], ['returning', 'returned']));
+    if ($isActuallyReturning) {
         $returns[] = $d;
-        continue;
+        // Do NOT continue here; let it also appear in Incoming/Outgoing as a completed forward leg
     }
 
-    // Forward phase categorization
+    // Forward phase categorization (or historically forward)
     if ($d['borrower_id'] == $userId) {
         $incoming[] = $d;
     } else {
@@ -278,7 +278,7 @@ function getStatusLabel($status, $agentId) {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($incoming as $d): ?>
-                        <?php renderEnhancedDeliveryCard($d); ?>
+                        <?php renderEnhancedDeliveryCard($d, 'forward'); ?>
                     <?php endforeach; ?>
                 </div>
 
@@ -291,7 +291,7 @@ function getStatusLabel($status, $agentId) {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($outgoing as $d): ?>
-                        <?php renderEnhancedDeliveryCard($d); ?>
+                        <?php renderEnhancedDeliveryCard($d, 'forward'); ?>
                     <?php endforeach; ?>
                 </div>
 
@@ -304,7 +304,7 @@ function getStatusLabel($status, $agentId) {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($returns as $d): ?>
-                        <?php renderEnhancedDeliveryCard($d); ?>
+                        <?php renderEnhancedDeliveryCard($d, 'return'); ?>
                     <?php endforeach; ?>
                 </div>
 
@@ -400,23 +400,31 @@ function getStatusLabel($status, $agentId) {
 
 
     <?php
-    function renderEnhancedDeliveryCard($d) {
+    function renderEnhancedDeliveryCard($d, $forceLeg = null) {
         $userId = $_SESSION['user_id'];
         $isBorrower = ($d['borrower_id'] == $userId);
         
         // Progress Logic
-        $isReturnPhase = (in_array($d['status'], ['returning', 'returned']));
-        $steps = ['requested', 'approved', 'active', 'delivered'];
-        if ($isReturnPhase) {
-            $steps = ['delivered', 'returning', 'returned'];
+        $isReturnPhase = ($forceLeg === 'return') || ($forceLeg === null && in_array($d['status'], ['returning', 'returned']));
+        
+        if (!$isReturnPhase) {
+            $steps = ['requested', 'approved', 'active', 'delivered'];
+            // If the actual status is returning/returned but we are forcing forward leg, show as Delivered
+            $displayStatus = in_array($d['status'], ['returning', 'returned']) ? 'delivered' : $d['status'];
+            $currentIndex = array_search($displayStatus, $steps);
+            if ($currentIndex === false) $currentIndex = 0;
+        } else {
+            // Return journey: dot 0: Initiated, 1: Assigned, 2: In Transit, 3: Returned
+            $currentIndex = 0;
+            if (!empty($d['return_agent_id'])) $currentIndex = 1;
+            if (!empty($d['return_picked_up_at'])) $currentIndex = 2;
+            if ($d['status'] === 'returned') $currentIndex = 3;
         }
         
-        $currentIndex = array_search($d['status'], $steps);
-        if ($currentIndex === false) $currentIndex = 0;
-        
         // Custom labels for the badge
-        $badgeLabel = getStatusLabel($d['status'], $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id']);
-        if ($d['status'] === 'active' && $d['agent_confirm_delivery_at']) {
+        $effectiveStatus = (!$isReturnPhase && in_array($d['status'], ['returning', 'returned'])) ? 'delivered' : $d['status'];
+        $badgeLabel = getStatusLabel($effectiveStatus, $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id']);
+        if ($effectiveStatus === 'active' && $d['agent_confirm_delivery_at']) {
             $badgeLabel = "Awaiting Your Confirmation";
         }
         if ($d['status'] === 'returning' && $d['return_agent_confirm_at']) {
@@ -436,7 +444,7 @@ function getStatusLabel($status, $agentId) {
                 </div>
             <?php endif; ?>
 
-            <span class="status-badge <?php echo $d['status']; ?>">
+            <span class="status-badge <?php echo $effectiveStatus; ?>">
                 <?php echo $badgeLabel; ?>
             </span>
 
@@ -451,12 +459,14 @@ function getStatusLabel($status, $agentId) {
                     
                     <div class="location-info">
                         <div class="loc-item">
-                            <i class='bx bx-map-pin'></i>
+                            <i class='bx <?php echo $isReturnPhase ? 'bx-undo' : 'bx-map-pin'; ?>'></i>
                             <div>
-                                <strong>Destination:</strong><br>
-                                <?php echo htmlspecialchars($d['order_address']); ?>
-                                <?php if ($d['order_landmark']): ?>
-                                    <br><span class="landmark-tag">Near <?php echo htmlspecialchars($d['order_landmark']); ?></span>
+                                <strong><?php echo $isReturnPhase ? 'Returning to Owner (Destination):' : 'Destination:'; ?></strong><br>
+                                <?php echo $isReturnPhase ? htmlspecialchars($d['pickup_location']) : htmlspecialchars($d['order_address']); ?>
+                                <?php 
+                                    $landmark = $isReturnPhase ? $d['pickup_landmark'] : $d['order_landmark'];
+                                    if ($landmark): ?>
+                                    <br><span class="landmark-tag">Near <?php echo htmlspecialchars($landmark); ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -481,15 +491,20 @@ function getStatusLabel($status, $agentId) {
                                 <span class="step-label">Delivered</span>
                             </div>
                         <?php else: ?>
-                            <div class="step completed">
+                            <!-- Return Trip Stepper -->
+                            <div class="step <?php echo $currentIndex >= 0 ? ($currentIndex > 0 ? 'completed' : 'active') : ''; ?>">
                                 <div class="step-dot"></div>
-                                <span class="step-label">Delivered</span>
+                                <span class="step-label">Return Initiated</span>
                             </div>
                             <div class="step <?php echo $currentIndex >= 1 ? ($currentIndex > 1 ? 'completed' : 'active') : ''; ?>">
                                 <div class="step-dot"></div>
-                                <span class="step-label">Returning</span>
+                                <span class="step-label">Agent Assigned</span>
                             </div>
-                            <div class="step <?php echo $currentIndex >= 2 ? 'completed' : ''; ?>">
+                            <div class="step <?php echo $currentIndex >= 2 ? ($currentIndex > 2 ? 'completed' : 'active') : ''; ?>">
+                                <div class="step-dot"></div>
+                                <span class="step-label">In Transit</span>
+                            </div>
+                            <div class="step <?php echo $currentIndex >= 3 ? 'completed' : ''; ?>">
                                 <div class="step-dot"></div>
                                 <span class="step-label">Returned</span>
                             </div>
@@ -499,7 +514,14 @@ function getStatusLabel($status, $agentId) {
             </div>
 
             <?php if ($d['pickup_lat'] && $d['order_lat']): ?>
-                <div id="map-<?php echo $d['id']; ?>" class="mini-map"></div>
+                <div id="map-<?php echo $forceLeg; ?>-<?php echo $d['id']; ?>" 
+                     class="mini-map"
+                     data-lat1="<?php echo $d['pickup_lat']; ?>"
+                     data-lng1="<?php echo $d['pickup_lng']; ?>"
+                     data-lat2="<?php echo $d['order_lat']; ?>"
+                     data-lng2="<?php echo $d['order_lng']; ?>"
+                     data-is-return="<?php echo $isReturnPhase ? '1' : '0'; ?>">
+                </div>
             <?php endif; ?>
 
             <div class="confirmation-box">
@@ -548,7 +570,7 @@ function getStatusLabel($status, $agentId) {
                             </button>
                         </div>
 
-                    <?php elseif ($isBorrower && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['borrower_confirm_at'])): ?>
+                    <?php elseif ($isBorrower && in_array($d['status'], ['approved', 'assigned', 'active', 'delivered']) && !empty($d['delivery_agent_id']) && empty($d['borrower_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
                             <i class='bx bx-check-shield'></i> I Received My Book
                         </button>
@@ -574,17 +596,17 @@ function getStatusLabel($status, $agentId) {
                         </div>
 
 
-                    <?php elseif ($isBorrower && $d['status'] === 'returning' && !empty($d['return_agent_id']) && empty($d['return_borrower_confirm_at'])): ?>
+                    <?php elseif ($isBorrower && in_array($d['status'], ['delivered', 'returning', 'returned']) && !empty($d['return_agent_id']) && empty($d['return_borrower_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
                             <i class='bx bx-hand'></i> Handover to Return Agent
                         </button>
 
-                    <?php elseif (!$isBorrower && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['lender_confirm_at'])): ?>
+                    <?php elseif (!$isBorrower && in_array($d['status'], ['approved', 'assigned', 'active', 'delivered']) && !empty($d['delivery_agent_id']) && empty($d['lender_confirm_at'])): ?>
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_handover')" class="btn-confirm primary">
                             <i class='bx bx-hand'></i> Confirm Handover to Agent
                         </button>
 
-                    <?php elseif (!$isBorrower && ($d['status'] === 'returning' || $d['status'] === 'returned') && !empty($d['return_agent_confirm_at']) && empty($d['return_lender_confirm_at'])): ?>
+                    <?php elseif (!$isBorrower && in_array($d['status'], ['returning', 'returned']) && !empty($d['return_agent_id']) && empty($d['return_lender_confirm_at']) && empty($d['is_restocked'])): ?>
                         <button onclick="showRestockModal(<?php echo $d['id']; ?>)" class="btn-confirm primary">
                             <i class='bx bx-check-shield'></i> I Received My Returned Book
                         </button>
@@ -664,24 +686,29 @@ function getStatusLabel($status, $agentId) {
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const deliveriesData = <?php echo json_encode($deliveries); ?>;
 
         function initMaps() {
-            deliveriesData.forEach(d => {
-                const mapId = `map-${d.id}`;
-                const container = document.getElementById(mapId);
-                if (!container) return;
+            document.querySelectorAll('.mini-map').forEach(container => {
+                const lat1 = parseFloat(container.dataset.lat1);
+                const lng1 = parseFloat(container.dataset.lng1);
+                const lat2 = parseFloat(container.dataset.lat2);
+                const lng2 = parseFloat(container.dataset.lng2);
+                const isReturn = container.dataset.isReturn === '1';
 
-                const map = L.map(mapId, {
+                const startPoint = isReturn ? [lat2, lng2] : [lat1, lng1];
+                const endPoint = isReturn ? [lat1, lng1] : [lat2, lng2];
+
+                const map = L.map(container, {
                     zoomControl: false,
                     attributionControl: false
-                }).setView([d.pickup_lat, d.pickup_lng], 13);
+                }).setView(startPoint, 13);
 
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
                 const iconBase = 'display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; border:3px solid white; box-shadow:0 2px 10px rgba(0,0,0,0.2); font-size:16px;';
                 
-                L.marker([d.pickup_lat, d.pickup_lng], {
+                // Origin (Package Location)
+                L.marker(startPoint, {
                     icon: L.divIcon({
                         className: 'custom-div-icon',
                         html: `<div style="${iconBase} background:#3b82f6; color:white;"><i class='bx bx-package'></i></div>`,
@@ -690,7 +717,8 @@ function getStatusLabel($status, $agentId) {
                     })
                 }).addTo(map);
 
-                L.marker([d.order_lat, d.order_lng], {
+                // Home/Destination
+                L.marker(endPoint, {
                     icon: L.divIcon({
                         className: 'custom-div-icon',
                         html: `<div style="${iconBase} background:#10b981; color:white;"><i class='bx bx-home'></i></div>`,
@@ -699,8 +727,8 @@ function getStatusLabel($status, $agentId) {
                     })
                 }).addTo(map);
 
-                const line = L.polyline([[d.pickup_lat, d.pickup_lng], [d.order_lat, d.order_lng]], {
-                    color: '#6366f1',
+                const line = L.polyline([startPoint, endPoint], {
+                    color: isReturn ? '#e11d48' : '#6366f1',
                     weight: 3,
                     opacity: 0.6,
                     dashArray: '8, 12'

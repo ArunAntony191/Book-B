@@ -100,73 +100,63 @@ class DeliveryManager {
         $currentStatus = $tx['status'];
         
         if ($newStatus === 'active') { // Standard Pickup
-            if ($currentStatus !== 'approved') {
-                throw new Exception("Invalid transition: Can only pick up approved orders.");
+            // Flexible: Allow pickup if approved or assigned
+            $this->pdo->prepare("UPDATE transactions SET picked_up_at = IFNULL(picked_up_at, NOW()) WHERE id = ?")->execute([$transactionId]);
+            
+            if ($currentStatus === 'approved' || $currentStatus === 'assigned') {
+                $this->pdo->prepare("UPDATE transactions SET status = 'active' WHERE id = ?")->execute([$transactionId]);
             }
-            $sql = "UPDATE transactions SET status = 'active', picked_up_at = NOW() WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$transactionId]);
         } 
         elseif ($newStatus === 'returning_active') { // Return Pickup from Borrower
-            if ($currentStatus !== 'returning' && $currentStatus !== 'delivered') {
-                throw new Exception("Order must be in 'returning' or 'delivered' status for return pickup.");
+            $this->pdo->prepare("UPDATE transactions SET return_picked_up_at = IFNULL(return_picked_up_at, NOW()) WHERE id = ?")->execute([$transactionId]);
+            
+            if ($currentStatus === 'returning' || $currentStatus === 'delivered') {
+                $this->pdo->prepare("UPDATE transactions SET status = 'returning' WHERE id = ?")->execute([$transactionId]);
             }
-            $sql = "UPDATE transactions SET status = 'returning', return_picked_up_at = NOW() WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$transactionId]);
         }
         elseif ($newStatus === 'delivered') { // Agent marking as delivered (Standard Leg)
-            if ($currentStatus !== 'active') {
-                throw new Exception("Invalid transition: Order must be 'active' before delivery.");
-            }
-            
-            $sql = "UPDATE transactions SET agent_confirm_delivery_at = NOW() WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$transactionId]);
-            
-            // IMMEDIATE PAYOUT UPDATE:
-            // Mark as delivered immediately upon agent confirmation
-            $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
-                ->execute([$transactionId]);
+            if (!$tx['agent_confirm_delivery_at']) {
+                $this->pdo->prepare("UPDATE transactions SET agent_confirm_delivery_at = NOW() WHERE id = ?")->execute([$transactionId]);
                 
-            // Award credits immediately
-            addCredits($tx['delivery_agent_id'], 10, 'earn', "Mission Completed: Deliver '{$tx['title']}'", $transactionId);
-            
-            // Notify Borrower
-            $this->sendUpdateNotification($tx, 'delivered');
-            
-            // If not yet confirmed by borrower, remind them
-            if (!$tx['borrower_confirm_at']) {
-                $msg = "Delivery agent has marked '{$tx['title']}' as delivered. Please confirm receipt.";
-                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-                    ->execute([$tx['borrower_id'], 'delivery_pending_confirmation', $msg, $tx['id']]);
+                // Award credits only once
+                addCredits($tx['delivery_agent_id'], 10, 'earn', "Mission Completed: Deliver '{$tx['title']}'", $transactionId);
+                
+                // If not picked up, mark as picked up now
+                if (!$tx['picked_up_at']) {
+                    $this->pdo->prepare("UPDATE transactions SET picked_up_at = NOW() WHERE id = ?")->execute([$transactionId]);
+                }
+
+                // Progress status if in forward phase
+                if (in_array($currentStatus, ['approved', 'assigned', 'active'])) {
+                    $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
+                        ->execute([$transactionId]);
+                }
+                
+                // Notify Borrower
+                $this->sendUpdateNotification($tx, 'delivered');
             }
         }
         elseif ($newStatus === 'return_delivered') { // Agent marking as delivered (Return Leg)
-            if ($currentStatus !== 'returning') {
-                throw new Exception("Order must be in 'returning' status.");
-            }
+            if (!$tx['return_agent_confirm_at']) {
+                $this->pdo->prepare("UPDATE transactions SET return_agent_confirm_at = NOW() WHERE id = ?")->execute([$transactionId]);
 
-            $sql = "UPDATE transactions SET return_agent_confirm_at = NOW() WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$transactionId]);
+                if (!$tx['return_picked_up_at']) {
+                    $this->pdo->prepare("UPDATE transactions SET return_picked_up_at = NOW() WHERE id = ?")->execute([$transactionId]);
+                }
 
-            // DO NOT auto-set status to 'returned' - keep as 'returning'
-            // Owner must confirm receipt to complete the return
-            // Just update the return_delivered_at timestamp
-            $this->pdo->prepare("UPDATE transactions SET return_delivered_at = NOW() WHERE id = ?")
-                ->execute([$transactionId]);
-            
-            // Award credits immediately to agent
-            addCredits($tx['return_agent_id'], 10, 'earn', "Mission Completed: Return '{$tx['title']}' to owner", $transactionId);
-
-            // Notify both parties
-            $msg = "Return delivery complete! '{$tx['title']}' has been delivered back to the owner.";
-            $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-                ->execute([$tx['borrower_id'], 'return_complete', $msg, $transactionId]);
-            $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-                ->execute([$tx['lender_id'], 'return_complete', $msg, $transactionId]);
+                // Keep status as 'returning' but update delivered timestamp
+                $this->pdo->prepare("UPDATE transactions SET return_delivered_at = NOW() WHERE id = ?")
+                    ->execute([$transactionId]);
                 
-            if (!$tx['return_lender_confirm_at']) {
-                $msg = "Delivery agent has returned '{$tx['title']}'. Please confirm receipt to complete the return.";
-                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-                    ->execute([$tx['lender_id'], 'return_pending_confirmation', $msg, $tx['id']]);
+                // Award credits only once
+                addCredits($tx['return_agent_id'], 10, 'earn', "Mission Completed: Return '{$tx['title']}' to owner", $transactionId);
+
+                // Notify parties
+                $msg = "Return delivery complete! '{$tx['title']}' has been delivered back to the owner.";
+                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'return_complete', ?, ?)")
+                    ->execute([$tx['borrower_id'], $msg, $transactionId]);
+                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'return_complete', ?, ?)")
+                    ->execute([$tx['lender_id'], $msg, $transactionId]);
             }
         }
         else {
@@ -181,24 +171,19 @@ class DeliveryManager {
 
         // Case 1: Standard Leg (Lender handing to agent)
         if ($tx['lender_id'] == $userId) {
-            if ($tx['lender_confirm_at']) throw new Exception("Already confirmed handover.");
-            
-            $this->pdo->prepare("UPDATE transactions SET lender_confirm_at = NOW() WHERE id = ?")->execute([$transactionId]);
-            if ($tx['status'] === 'approved' || $tx['status'] === 'assigned') {
-                $this->pdo->prepare("UPDATE transactions SET status = 'active', picked_up_at = NOW() WHERE id = ?")
-                    ->execute([$transactionId]);
+            $this->pdo->prepare("UPDATE transactions SET lender_confirm_at = IFNULL(lender_confirm_at, NOW()) WHERE id = ?")->execute([$transactionId]);
+            // If not yet picked up by agent (officially), mark it picked up since owner says they handed it over
+            if (!$tx['picked_up_at'] && in_array($tx['status'], ['approved', 'assigned'])) {
+                 $this->pdo->prepare("UPDATE transactions SET status = 'active', picked_up_at = NOW() WHERE id = ?")->execute([$transactionId]);
             }
             return true;
         }
 
         // Case 2: Return Leg (Borrower handing to agent)
         if ($tx['borrower_id'] == $userId) {
-            if ($tx['return_borrower_confirm_at']) throw new Exception("Already confirmed return handover.");
-            
-            $this->pdo->prepare("UPDATE transactions SET return_borrower_confirm_at = NOW() WHERE id = ?")->execute([$transactionId]);
-            if ($tx['status'] === 'returning' || $tx['status'] === 'delivered') {
-                $this->pdo->prepare("UPDATE transactions SET status = 'returning', return_picked_up_at = NOW() WHERE id = ?")
-                    ->execute([$transactionId]);
+            $this->pdo->prepare("UPDATE transactions SET return_borrower_confirm_at = IFNULL(return_borrower_confirm_at, NOW()) WHERE id = ?")->execute([$transactionId]);
+            if (!$tx['return_picked_up_at'] && ($tx['status'] === 'returning' || $tx['status'] === 'delivered')) {
+                $this->pdo->prepare("UPDATE transactions SET status = 'returning', return_picked_up_at = NOW() WHERE id = ?")->execute([$transactionId]);
             }
             return true;
         }
@@ -211,32 +196,21 @@ class DeliveryManager {
 
         // Case 1: Standard Leg (Borrower receiving)
         if ($tx['borrower_id'] == $userId) {
-            if ($tx['borrower_confirm_at']) throw new Exception("Already confirmed receipt.");
-            
+            // Check if already confirmed to avoid double payment
+            $alreadyConfirmed = !empty($tx['borrower_confirm_at']);
+
             // Update borrower confirmation
-            $stmt = $this->pdo->prepare("UPDATE transactions SET borrower_confirm_at = NOW() WHERE id = ?");
+            $stmt = $this->pdo->prepare("UPDATE transactions SET borrower_confirm_at = IFNULL(borrower_confirm_at, NOW()) WHERE id = ?");
             $stmt->execute([$transactionId]);
             
-            // Auto-confirm Agent if missing (Implicit verification)
-            if (empty($tx['agent_confirm_delivery_at'])) {
-                $this->pdo->prepare("UPDATE transactions SET agent_confirm_delivery_at = NOW() WHERE id = ?")->execute([$transactionId]);
-            }
-            // Force status to delivered if active
-            if ($tx['status'] === 'active') {
-                $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")->execute([$transactionId]);
+
+            // Force status to delivered if not already there
+            if (in_array($tx['status'], ['approved', 'assigned', 'active'])) {
+                $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = IFNULL(delivered_at, NOW()) WHERE id = ?")->execute([$transactionId]);
             }
 
-            $tx = $this->getTransaction($transactionId); // Refresh
-            
-            // Agent already paid or will be paid? 
-            // If status was active, we just forced it to delivered. We should probably ensure the agent gets paid if they weren't already.
-            // However, payment logic is currently in updateStatus. 
-            // For simplicity and robustness, assuming agent marks delivered first is the happy path. 
-            // If borrower confirms first, we just ensure data consistency.
-
-            // Check if seller needs payment (purchase)
-            if ($tx['transaction_type'] === 'purchase') {
-                 // Payment logic for seller
+            // Pay seller only once
+            if (!$alreadyConfirmed && $tx['transaction_type'] === 'purchase') {
                  $credits = $tx['credit_cost'] ?? 10;
                  addCredits($tx['lender_id'], $credits, 'earn', "Book Sold: {$tx['title']}", $transactionId);
             }
@@ -245,39 +219,25 @@ class DeliveryManager {
 
         // Case 2: Return Leg (Lender receiving back)
         if ($tx['lender_id'] == $userId) {
-            if ($tx['return_lender_confirm_at']) throw new Exception("Already confirmed return receipt.");
-            
             // Update lender confirmation
-            $stmt = $this->pdo->prepare("UPDATE transactions SET return_lender_confirm_at = NOW() WHERE id = ?");
+            $stmt = $this->pdo->prepare("UPDATE transactions SET return_lender_confirm_at = IFNULL(return_lender_confirm_at, NOW()) WHERE id = ?");
             $stmt->execute([$transactionId]);
 
-            // Auto-confirm Return Agent if missing
-            if (empty($tx['return_agent_confirm_at'])) {
-                $this->pdo->prepare("UPDATE transactions SET return_agent_confirm_at = NOW() WHERE id = ?")->execute([$transactionId]);
-            }
-
             // Force status to returned
-            if ($tx['status'] === 'returning' || $tx['status'] === 'delivered') {
-                $this->pdo->prepare("UPDATE transactions SET status = 'returned', return_date = CURDATE(), return_delivered_at = NOW() WHERE id = ?")
+            if (in_array($tx['status'], ['approved', 'assigned', 'active', 'delivered', 'returning'])) {
+                $this->pdo->prepare("UPDATE transactions SET status = 'returned', return_date = CURDATE(), return_delivered_at = IFNULL(return_delivered_at, NOW()) WHERE id = ?")
                      ->execute([$transactionId]);
             }
 
-            $tx = $this->getTransaction($transactionId);
-            
-            // RESTOCK LOGIC: If owner chooses to restock, increment listing quantity
-            if ($restock) {
-                $listingId = $tx['listing_id'];
-                $this->pdo->prepare("UPDATE listings SET quantity = quantity + 1 WHERE id = ?")
-                     ->execute([$listingId]);
-                
-                // Log this action via notification
+            // RESTOCK LOGIC
+            if ($restock && empty($tx['is_restocked'])) {
+                $this->pdo->prepare("UPDATE listings SET quantity = quantity + 1 WHERE id = ?")->execute([$tx['listing_id']]);
+                $this->pdo->prepare("UPDATE transactions SET is_restocked = 1 WHERE id = ?")->execute([$transactionId]);
                 $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'book_restocked', ?, ?)")
-                     ->execute([$userId, "'{$tx['title']}' has been restocked and is available for lending again!", $transactionId]);
+                     ->execute([$userId, "'{$tx['title']}' has been restocked!", $transactionId]);
             }
             
-            // Just increase total_lends stats
-            $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")
-                     ->execute([$tx['lender_id']]);
+            $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$tx['lender_id']]);
                  
             return true;
         }
