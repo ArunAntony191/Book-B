@@ -8,7 +8,7 @@ $listingId = $_GET['id'] ?? 0;
 
 $pdo = getDBConnection();
 $stmt = $pdo->prepare("
-    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, 
+    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, b.condition_status,
            u.firstname, u.lastname, u.role, u.reputation_score, l.quantity
     FROM listings l
     JOIN books b ON l.book_id = b.id
@@ -374,13 +374,19 @@ if ($book['latitude'] && $book['longitude']) {
                                 <?php echo $book['price'] > 0 ? "₹" . $book['price'] : "Free"; ?>
                             </span>
                         </div>
-                        
                         <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; align-items: center;">
-                            <span style="color: var(--text-muted);">Type</span>
-                            <span class="badge badge-<?php echo $book['listing_type']; ?>" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">
-                                <?php echo ucfirst($book['listing_type']); ?>
-                            </span>
-                        </div>
+                              <span style="color: var(--text-muted);">Type</span>
+                              <span class="badge badge-<?php echo $book['listing_type']; ?>" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">
+                                  <?php echo ucfirst($book['listing_type']); ?>
+                              </span>
+                          </div>
+
+                          <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; align-items: center;">
+                              <span style="color: var(--text-muted);">Condition</span>
+                              <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-main); text-transform: capitalize;">
+                                  <?php echo str_replace('_', ' ', $book['condition_status'] ?? 'good'); ?>
+                              </span>
+                          </div>
 
                         <!-- Delivery Status -->
                         <div id="delivery-info" class="delivery-banner" style="display: <?php echo $deliveryAvailable ? 'flex' : 'none'; ?>;">

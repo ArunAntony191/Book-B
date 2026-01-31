@@ -1,46 +1,67 @@
 <?php
 session_start();
 require_once '../includes/db_helper.php';
+require_once '../includes/validation_helper.php';
 
-// Get form data
-$firstname = trim($_POST['firstname'] ?? '');
-$lastname = trim($_POST['lastname'] ?? '');
-$email = trim($_POST['email'] ?? '');
-$password = $_POST['password'] ?? '';
-$phone = trim($_POST['phone'] ?? '');
-$role = $_POST['role'] ?? 'user';
+// Get form data (Raw inputs, sanitization happens after check or during use)
+$firstnameRaw = $_POST['firstname'] ?? '';
+$lastnameRaw = $_POST['lastname'] ?? '';
+$emailRaw = $_POST['email'] ?? '';
+$passwordRaw = $_POST['password'] ?? '';
+$phoneRaw = $_POST['phone'] ?? '';
+$roleRaw = $_POST['role'] ?? 'user';
 
-// Security: Prevent registration as admin (unless authorized - for now just keeping the original check)
-if ($role === 'admin') {
-    $role = 'user';
-}
-
-// Validate inputs
-if (empty($firstname) || empty($lastname) || empty($email) || empty($password) || empty($role) || empty($phone)) {
-    header("Location: ../pages/register.php?error=missing_fields");
+// 1. Check Required Fields
+$missing = checkRequiredFields($_POST, ['firstname', 'lastname', 'email', 'password', 'phone', 'role']);
+if (!empty($missing)) {
+    $msg = "Please fill in all required fields: " . implode(', ', $missing);
+    header("Location: ../pages/register.php?error=missing_fields&msg=" . urlencode($msg));
     exit();
 }
 
-// Validate email
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    header("Location: ../pages/register.php?error=invalid_email");
+// 2. Validate Email
+$email = validateEmail($emailRaw);
+if (!$email) {
+    header("Location: ../pages/register.php?error=invalid_email&msg=" . urlencode("The email address provided is invalid."));
     exit();
 }
 
-// Validate names (Letters, spaces, hyphens, apostrophes only)
-if (!preg_match("/^[A-Za-z\s'\-]+$/", $firstname) || !preg_match("/^[A-Za-z\s'\-]+$/", $lastname)) {
-    header("Location: ../pages/register.php?error=invalid_name");
+// 3. Validate Phone
+$phone = validatePhone($phoneRaw);
+if (!$phone) {
+    header("Location: ../pages/register.php?error=invalid_phone&msg=" . urlencode("Phone number must be 10-15 digits."));
     exit();
 }
 
-// Validate password (min 4 chars for testing)
-if (strlen($password) < 4) {
-    header("Location: ../pages/register.php?error=weak_password");
+// 4. Validate Names
+$firstname = validateName($firstnameRaw);
+if (!$firstname) {
+    header("Location: ../pages/register.php?error=invalid_name&msg=" . urlencode("First name contains invalid characters. Only letters, spaces, hyphens, and apostrophes are allowed."));
     exit();
 }
+$lastname = validateName($lastnameRaw);
+if (!$lastname) {
+    header("Location: ../pages/register.php?error=invalid_name&msg=" . urlencode("Last name contains invalid characters."));
+    exit();
+}
+
+// 5. Validate Password Strength
+$passCheck = validatePassword($passwordRaw);
+if (!$passCheck['valid']) {
+    header("Location: ../pages/register.php?error=weak_password&msg=" . urlencode($passCheck['message']));
+    exit();
+}
+
+// 6. Security: Prevent unauthorized admin registration
+// (In a real app, 'admin' role should probably be completely blocked from public registration)
+if ($roleRaw === 'admin') {
+    $roleRaw = 'user';
+}
+$role = sanitizeInput($roleRaw);
+
 
 // Create user
-$result = createUser($email, $password, $firstname, $lastname, $role, $phone);
+$result = createUser($email, $passwordRaw, $firstname, $lastname, $role, $phone);
 
 if (is_numeric($result)) {
     // Set session
@@ -50,7 +71,6 @@ if (is_numeric($result)) {
     $_SESSION['lastname'] = $lastname;
     $_SESSION['role'] = $role;
     
-    // ... (Redirect logic remains same)
     switch ($role) {
         case 'library':
             header("Location: ../pages/dashboard_library.php");
@@ -70,11 +90,11 @@ if (is_numeric($result)) {
             break;
     }
 } elseif ($result === 'email_exists') {
-    header("Location: ../pages/register.php?error=user_exists");
+    header("Location: ../pages/register.php?error=user_exists&msg=" . urlencode("An account with this email already exists."));
 } elseif ($result === 'phone_exists') {
-    header("Location: ../pages/register.php?error=phone_exists");
+    header("Location: ../pages/register.php?error=phone_exists&msg=" . urlencode("This phone number is already registered."));
 } else {
-    header("Location: ../pages/register.php?error=server_error");
+    header("Location: ../pages/register.php?error=server_error&msg=" . urlencode("A server error occurred. Please try again later."));
 }
 exit();
 ?>

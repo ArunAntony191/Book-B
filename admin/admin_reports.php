@@ -79,7 +79,7 @@ $reports = getReports('pending');
             formData.append('report_id', reportId);
             formData.append('status', status);
             
-            const response = await fetch('request_action.php', { method: 'POST', body: formData });
+            const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
             const result = await response.json();
             
             if (result.success) {
@@ -101,7 +101,7 @@ $reports = getReports('pending');
             banData.append('action', 'ban_user');
             banData.append('user_id', userId);
             
-            const banResp = await fetch('request_action.php', { method: 'POST', body: banData });
+            const banResp = await fetch('../actions/request_action.php', { method: 'POST', body: banData });
             const banResult = await banResp.json();
             
             if (!banResult.success) {

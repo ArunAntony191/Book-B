@@ -17,6 +17,11 @@
             background-color: var(--bg-body);
             padding: 2rem;
         }
+        /* Hide native password reveal on Edge/IE */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none;
+        }
         .auth-card {
             background: white;
             border-radius: var(--radius-lg);
@@ -273,39 +278,40 @@
                 <p class="auth-subtitle">Start borrowing books for free in seconds</p>
             </div>
 
+            <style>
+                .error-text {
+                    color: #dc2626;
+                    font-size: 0.8rem;
+                    margin-top: 0.25rem;
+                    display: none;
+                }
+                .form-input.invalid {
+                    border-color: #dc2626;
+                }
+                .form-input.valid {
+                    border-color: #16a34a;
+                }
+            </style>
+
             <?php if (isset($_GET['error'])): ?>
                 <div style="background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.875rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; font-size: 0.9rem;">
-                    <?php
-                    switch($_GET['error']) {
-                        case 'missing_fields':
-                            echo 'Please fill in all required fields.';
-                            break;
-                        case 'invalid_email':
-                            echo 'Please enter a valid email address.';
-                            break;
-                        case 'invalid_name':
-                            echo 'Names can only contain letters, spaces, hyphens and apostrophes.';
-                            break;
-                        case 'weak_password':
-                            echo 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.';
-                            break;
-                        case 'user_exists':
-                            echo 'An account with this email already exists. Please <a href="login.php" style="color: inherit; text-decoration: underline;">login instead</a>.';
-                            break;
-                        case 'phone_exists':
-                            echo 'This phone number is already registered to another account. Please use a different number.';
-                            break;
-                        case 'server_error':
-                            echo 'A server error occurred. Please try again later.';
-                            break;
-                        default:
-                            echo 'An error occurred. Please try again.';
+                    <?php 
+                    if (isset($_GET['msg'])) {
+                        echo htmlspecialchars($_GET['msg']); 
+                    } else {
+                        switch($_GET['error']) {
+                            case 'missing_fields': echo 'Please fill in all required fields.'; break;
+                            case 'invalid_email': echo 'Please enter a valid email address.'; break;
+                            case 'weak_password': echo 'Password is too weak.'; break;
+                            case 'user_exists': echo 'User already exists.'; break;
+                            default: echo 'An error occurred.';
+                        }
                     }
                     ?>
                 </div>
             <?php endif; ?>
 
-            <form action="../actions/auth_register.php" method="POST">
+            <form action="../actions/auth_register.php" method="POST" id="registerForm" novalidate>
                 <!-- Account Type Selection - Now First -->
                 <div class="form-group">
                     <label class="form-label">Choose Your Account Type</label>
@@ -343,7 +349,7 @@
                         <label class="role-card" data-role="delivery_agent">
                             <input type="radio" name="role" value="delivery_agent" required>
                             <div class="checkmark"><i class='bx bx-check'></i></div>
-                            <div class="role-icon admin"> <!-- Using admin icon color for delivery agent -->
+                            <div class="role-icon admin">
                                 <i class='bx bxs-truck'></i>
                             </div>
                             <div class="role-title">Delivery Agent</div>
@@ -351,6 +357,7 @@
                         </label>
 
                     </div>
+                    <div class="error-text" id="roleError">Please select an account type.</div>
                 </div>
 
                 <!-- Name Fields -->
@@ -358,13 +365,13 @@
                     <div class="form-row">
                         <div>
                             <label class="form-label">First Name</label>
-                            <input type="text" name="firstname" class="form-input" placeholder="First Name" required 
-                                   pattern="[A-Za-z\s'\-]{2,50}" title="Only letters, spaces, hyphens and apostrophes allowed (min 2 chars)">
+                            <input type="text" id="firstname" name="firstname" class="form-input" placeholder="First Name" required>
+                            <div class="error-text" id="firstnameError"></div>
                         </div>
                         <div>
                             <label class="form-label">Last Name</label>
-                            <input type="text" name="lastname" class="form-input" placeholder="Last Name" required
-                                   pattern="[A-Za-z\s'\-]{1,50}" title="Only letters, spaces, hyphens and apostrophes allowed">
+                            <input type="text" id="lastname" name="lastname" class="form-input" placeholder="Last Name" required>
+                            <div class="error-text" id="lastnameError"></div>
                         </div>
                     </div>
                 </div>
@@ -374,12 +381,13 @@
                     <div class="form-row">
                         <div>
                             <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address (e.g. user@example.com)">
+                            <input type="email" id="email" name="email" class="form-input" placeholder="you@example.com" required>
+                            <div class="error-text" id="emailError"></div>
                         </div>
                         <div>
                             <label class="form-label">Phone Number</label>
-                            <input type="tel" name="phone" class="form-input" placeholder="+1234567890" required
-                                   pattern="[\d\s\-\+\(\)]{10,20}" title="Phone number must contain only digits, spaces, and symbols (+, -, parenthesis). Letters are not allowed.">
+                            <input type="tel" id="phone" name="phone" class="form-input" placeholder="1234567890" required>
+                            <div class="error-text" id="phoneError"></div>
                         </div>
                     </div>
                 </div>
@@ -388,21 +396,24 @@
                 <div class="form-group">
                     <label class="form-label">Create Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required
-                               minlength="4" title="Password must be at least 4 characters long.">
+                        <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
                         <i class='bx bx-hide password-toggle' id="togglePassword"></i>
                     </div>
-                    <p class="form-hint" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;">Minimal 4 characters for testing</p>
+                    <div class="error-text" id="passwordError"></div>
+                    <p class="form-hint" style="font-size: 0.75rem; margin-top: 0.25rem; color: #64748b;">
+                        Min 8 chars, 1 uppercase, 1 lowercase, 1 number.
+                    </p>
                 </div>
 
                 <!-- Terms Checkbox -->
                 <label class="checkbox-label">
-                    <input type="checkbox" required>
+                    <input type="checkbox" id="terms" required>
                     <span>I agree to the <a href="#">Terms</a> and <a href="#">Privacy Policy</a></span>
                 </label>
+                <div class="error-text" id="termsError">You must agree to the terms.</div>
 
                 <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary w-full">Create Free Account</button>
+                <button type="submit" class="btn btn-primary w-full" id="submitBtn">Create Free Account</button>
 
                 <!-- Divider -->
                 <div class="divider">Or</div>
@@ -436,28 +447,156 @@
 
     <script src="../assets/js/script.js"></script>
     <script>
-        // Handle role card selection
+        // --- UI Logic: Role Selection ---
         document.querySelectorAll('.role-card').forEach(card => {
             card.addEventListener('click', function() {
-                // Remove selected class from all cards
                 document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
-                
-                // Add selected class to clicked card
                 this.classList.add('selected');
-                
-                // Check the radio button
                 this.querySelector('input[type="radio"]').checked = true;
+                hideError('roleError');
             });
         });
-        // Password Strength Logic
-        // Password toggle logic only
-        const togglePassword = document.getElementById('togglePassword');
+
+
+
+        // --- Validation Logic ---
+        const form = document.getElementById('registerForm');
+        const firstname = document.getElementById('firstname');
+        const lastname = document.getElementById('lastname');
+        const email = document.getElementById('email');
+        const phone = document.getElementById('phone');
         const password = document.getElementById('password');
-        togglePassword.addEventListener('click', function (e) {
-            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-            password.setAttribute('type', type);
-            this.classList.toggle('bx-show');
-            this.classList.toggle('bx-hide');
+        const terms = document.getElementById('terms');
+
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            const inputEl = document.getElementById(elementId.replace('Error', '')); // Derive input ID
+            if(errorEl) {
+                errorEl.innerText = message;
+                errorEl.style.display = 'block';
+            }
+            if(inputEl) {
+                inputEl.classList.add('invalid');
+                inputEl.classList.remove('valid');
+            }
+        }
+
+        function hideError(elementId) {
+            const errorEl = document.getElementById(elementId);
+            const inputEl = document.getElementById(elementId.replace('Error', ''));
+            if(errorEl) {
+                errorEl.style.display = 'none';
+            }
+            if(inputEl) {
+                inputEl.classList.remove('invalid');
+                inputEl.classList.add('valid'); // Mark as valid
+            }
+        }
+
+        // Validators
+        function validateName(input, errorId) {
+            const val = input.value.trim();
+            if (val.length < 2) {
+                showError(errorId, "Must be at least 2 characters.");
+                return false;
+            }
+            if (!/^[A-Za-z\s'\-]+$/.test(val)) {
+                showError(errorId, "Only letters, spaces, hyphens, and apostrophes allowed.");
+                return false;
+            }
+            hideError(errorId);
+            return true;
+        }
+
+        function validateEmail() {
+            const val = email.value.trim();
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!re.test(val)) {
+                showError('emailError', "Please enter a valid email address.");
+                return false;
+            }
+            hideError('emailError');
+            return true;
+        }
+
+        function validatePhone() {
+            const val = phone.value.replace(/[\s\-\(\)\.]/g, ''); // Strip chars to check numeric length
+            // Regex: Allow + at start, then digits.
+            if (!/^\+?\d+$/.test(val)) {
+                showError('phoneError', "Phone number must only contain digits.");
+                return false;
+            }
+            if (val.length < 10 || val.length > 15) {
+                showError('phoneError', "Phone number must be between 10 and 15 digits.");
+                return false;
+            }
+            hideError('phoneError');
+            return true;
+        }
+
+        function validatePassword() {
+            const val = password.value;
+            if (val.length < 8) {
+                showError('passwordError', "Password must be at least 8 characters.");
+                return false;
+            }
+            if (!/[A-Z]/.test(val)) {
+                showError('passwordError', "Must contain at least one uppercase letter.");
+                return false;
+            }
+            if (!/[a-z]/.test(val)) {
+                showError('passwordError', "Must contain at least one lowercase letter.");
+                return false;
+            }
+            if (!/[0-9]/.test(val)) {
+                showError('passwordError', "Must contain at least one number.");
+                return false;
+            }
+            hideError('passwordError');
+            return true;
+        }
+
+        function validateTerms() {
+            if (!terms.checked) {
+                document.getElementById('termsError').style.display = 'block';
+                return false;
+            }
+            document.getElementById('termsError').style.display = 'none';
+            return true;
+        }
+
+        function validateRole() {
+            const role = document.querySelector('input[name="role"]:checked');
+            if (!role) {
+                document.getElementById('roleError').style.display = 'block';
+                return false;
+            }
+            document.getElementById('roleError').style.display = 'none';
+            return true;
+        }
+
+        // Event Listeners (Live Validation)
+        firstname.addEventListener('input', () => validateName(firstname, 'firstnameError'));
+        lastname.addEventListener('input', () => validateName(lastname, 'lastnameError'));
+        email.addEventListener('input', validateEmail);
+        phone.addEventListener('input', validatePhone);
+        password.addEventListener('input', validatePassword);
+        terms.addEventListener('change', validateTerms);
+
+        // Form Submission
+        form.addEventListener('submit', function(e) {
+            let isValid = true;
+            if (!validateName(firstname, 'firstnameError')) isValid = false;
+            if (!validateName(lastname, 'lastnameError')) isValid = false;
+            if (!validateEmail()) isValid = false;
+            if (!validatePhone()) isValid = false;
+            if (!validatePassword()) isValid = false;
+            if (!validateRole()) isValid = false;
+            if (!validateTerms()) isValid = false;
+
+            if (!isValid) {
+                e.preventDefault();
+            }
         });
     </script>
 </body>

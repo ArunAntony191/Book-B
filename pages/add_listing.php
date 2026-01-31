@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
+require_once '../includes/validation_helper.php';
 include '../includes/dashboard_header.php';
 
 $userId = $_SESSION['user_id'] ?? 0;
@@ -17,8 +18,8 @@ $userData = $userQuery->fetch(PDO::FETCH_ASSOC);
 $error = '';
 $success = '';
 
-// Edit Mode Logic
-$editId = $_GET['edit'] ?? 0;
+// Edit Mode Logic - Validated with helper
+$editId = isset($_GET['edit']) ? validateId($_GET['edit']) : 0;
 $editData = null;
 if ($editId) {
     $editData = getListingWithQuantity($editId);
@@ -35,32 +36,35 @@ $hasMinTokens = hasMinimumTokens($userId);
 $canList = ($user['role'] === 'admin') || ($currentTokens >= 10 && $hasMinTokens) || $editId;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Sanitize ALL inputs first
+    $_POST = sanitizeInput($_POST);
+
     if (!$canList) {
         $error = "Insufficient tokens. You need at least 10 tokens to list a new book, and maintain a minimum balance of " . MIN_TOKEN_LIMIT . " tokens.";
     } else {
-        $postEditId = $_POST['edit_id'] ?? 0;
+        $postEditId = isset($_POST['edit_id']) ? validateId($_POST['edit_id']) : 0;
         $title = $_POST['title'] ?? '';
         $author = $_POST['author'] ?? '';
         $type = $_POST['listing_type'] ?? 'borrow';
-        $price = $_POST['price'] ?? 0;
+        $price = floatval($_POST['price'] ?? 0);
         $location = $_POST['location_name'] ?? '';
         $lat = $_POST['latitude'] ?? null;
         $lng = $_POST['longitude'] ?? null;
         $description = $_POST['description'] ?? '';
-        $categories = isset($_POST['categories']) ? implode(', ', $_POST['categories']) : '';
+        $categories = isset($_POST['categories']) ? implode(', ', $_POST['categories']) : ''; // Already sanitized by recursive call
         $condition = $_POST['condition'] ?? 'good';
         $visibility = $_POST['visibility'] ?? 'public';
-        $communityId = !empty($_POST['community_id']) ? $_POST['community_id'] : null;
+        $communityId = !empty($_POST['community_id']) ? validateId($_POST['community_id']) : null;
         
         $district = $_POST['district'] ?? null;
         $city = $_POST['city'] ?? null;
         $pincode = $_POST['pincode'] ?? null;
         $landmark = $_POST['landmark'] ?? '';
         
-        // Quantity (allowing all users to set quantity)
+        // Quantity (Valid integer > 0)
         $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
         
-        // Credit cost
+        // Credit cost (Valid integer > 0)
         $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
         
         // Handle Cover Upload (URL or File)
@@ -77,35 +81,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fileName = time() . '_' . basename($_FILES['cover_upload']['name']);
             $targetPath = $uploadDir . $fileName;
             
-            if (move_uploaded_file($_FILES['cover_upload']['tmp_name'], $targetPath)) {
-                $cover = $targetPath;
+            // Basic Image Validation
+            $check = getimagesize($_FILES['cover_upload']['tmp_name']);
+            if($check !== false) {
+                 if (move_uploaded_file($_FILES['cover_upload']['tmp_name'], $targetPath)) {
+                    $cover = $targetPath;
+                }
+            } else {
+                $error = "File is not an image.";
             }
         }
 
-        if ($title && $author && $lat && $lng) {
-            if ($price < 0) {
-                $error = "Price cannot be less than 0.";
-            } else {
-                if ($postEditId) {
-                    // Update Logic
-                    if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
-                        $success = "Successfully updated your book!";
-                        $editData = getListingWithQuantity($postEditId); // Refresh data
-                    } else {
-                        $error = "Failed to update listing.";
-                    }
+        if (!$error) { // Only proceed if no upload error
+            if ($title && $author && $lat && $lng) {
+                if ($price < 0) {
+                    $error = "Price cannot be less than 0.";
                 } else {
-                    // Create Logic
-                    if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
-                        deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
-                        $success = "Successfully listed your book! 10 tokens have been deducted.";
+                    if ($postEditId) {
+                        // Update Logic
+                        if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
+                            $success = "Successfully updated your book!";
+                            $editData = getListingWithQuantity($postEditId); // Refresh data
+                        } else {
+                            $error = "Failed to update listing.";
+                        }
                     } else {
-                        $error = "Failed to add listing.";
+                        // Create Logic
+                        if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
+                            deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
+                            $success = "Successfully listed your book! 10 tokens have been deducted.";
+                        } else {
+                            $error = "Failed to add listing.";
+                        }
                     }
                 }
+            } else {
+                $error = "Please fill all required fields and pick a location on the map.";
             }
-        } else {
-            $error = "Please fill all required fields and pick a location on the map.";
         }
     }
 }

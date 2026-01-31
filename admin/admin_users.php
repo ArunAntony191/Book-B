@@ -162,7 +162,7 @@ try {
             formData.append('action', action + '_user');
             formData.append('user_id', userId);
             
-            const response = await fetch('request_action.php', {
+            const response = await fetch('../actions/request_action.php', {
                 method: 'POST',
                 body: formData
             });
@@ -195,7 +195,7 @@ try {
             formData.append('amount', amount);
             formData.append('reason', reason);
 
-            const response = await fetch('request_action.php', {
+            const response = await fetch('../actions/request_action.php', {
                 method: 'POST',
                 body: formData
             });
