@@ -5,8 +5,29 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Redirect if not logged in
 if (!isset($_SESSION['user_email'])) {
-    header("Location: login.php");
-    exit();
+    // Check for "Remember me" cookie
+    if (isset($_COOKIE['remember_me'])) {
+        require_once 'db_helper.php';
+        $user = getUserByRememberToken($_COOKIE['remember_me']);
+        if ($user) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_email'] = $user['email'];
+            $_SESSION['firstname'] = $user['firstname'];
+            $_SESSION['lastname'] = $user['lastname'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['theme_mode'] = $user['theme_mode'] ?? 'light';
+            $_SESSION['email_notifications'] = $user['email_notifications'] ?? 1;
+            // No redirect needed, continue to page
+        } else {
+            // Invalid token, clear cookie
+            setcookie('remember_me', '', time() - 3600, '/');
+            header("Location: login.php");
+            exit();
+        }
+    } else {
+        header("Location: login.php");
+        exit();
+    }
 }
 
 // Refresh role from database to ensure it's always up to date (Sync)

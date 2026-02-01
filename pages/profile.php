@@ -726,41 +726,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             loader.style.display = 'block';
             msg.innerText = "Fetching address details...";
 
-            // Reverse Geocoding
+            // Reverse Geocoding with Timeout
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+                    signal: controller.signal,
+                    headers: { 'Accept-Language': 'en' }
+                });
+                clearTimeout(timeoutId);
+                
                 const data = await res.json();
                 
                 if(data && data.address) {
                     const addr = data.address;
                     
-                    // 1. Better Address Parsing (House, Road, Suburb, City)
-                    const house = addr.house_number || '';
-                    const road = addr.road || addr.pedestrian || '';
-                    const suburb = addr.suburb || addr.neighbourhood || addr.residential || '';
-                    const cityVal = addr.city || addr.town || addr.village || '';
-                    const rural = addr.village || addr.hamlet || addr.isolated_dwelling || '';
-
-                    let parts = [];
-                    if (house) parts.push(house);
-                    if (road) parts.push(road);
-                    if (suburb) parts.push(suburb);
-                    if (cityVal) parts.push(cityVal);
-                    if (!cityVal && rural) parts.push(rural);
+                    const parts = [];
+                    if (addr.house_number) parts.push(addr.house_number);
+                    if (addr.road || addr.pedestrian || addr.secondary) parts.push(addr.road || addr.pedestrian || addr.secondary);
+                    if (addr.suburb || addr.neighbourhood || addr.residential) parts.push(addr.suburb || addr.neighbourhood || addr.residential);
+                    if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
+                    if (addr.county || addr.state_district) parts.push((addr.state_district || addr.county).replace(' District', '').replace(' district', ''));
+                    if (addr.state) parts.push(addr.state);
+                    if (addr.postcode) parts.push(addr.postcode);
+                    if (addr.country) parts.push(addr.country);
 
                     const shortAddr = parts.length > 0 ? parts.join(', ') : data.display_name;
                     document.getElementById('main-address').value = shortAddr;
                     
                     // 2. Form Auto-fill (Pincode, City, State, District)
-                    if (addr.postcode) document.getElementById('pincode-input').value = addr.postcode;
+                    document.getElementById('pincode-input').value = addr.postcode || '';
                     
-                    const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || '';
-                    if(cityOrTown) document.getElementById('city-input').value = cityOrTown;
+                    const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || addr.neighbourhood || '';
+                    document.getElementById('city-input').value = cityOrTown;
 
                     const stateFromOSM = addr.state || '';
                     if(stateFromOSM) {
-                        if(locationData[stateFromOSM]) {
-                            stateSelect.value = stateFromOSM;
+                        // Normalize state name (e.g. "Kerla" -> "Kerala" if applicable, though Kerala is usually correct)
+                        let matchedState = Object.keys(locationData).find(s => s.toLowerCase() === stateFromOSM.toLowerCase());
+                        
+                        if(matchedState) {
+                            stateSelect.value = matchedState;
                             manualState.style.display = 'none';
                         } else {
                             stateSelect.value = "Other";
@@ -770,11 +777,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         updateDistricts();
                     }
 
-                    const districtFromOSM = (addr.state_district || addr.county || '').replace(' District', '').replace(' district', '');
+                    const districtFromOSM = (addr.state_district || addr.county || addr.district || '').replace(' District', '').replace(' district', '');
                     if(districtFromOSM) {
-                        const districts = locationData[stateSelect.value] || [];
-                        if(districts.includes(districtFromOSM)) {
-                            districtSelect.value = districtFromOSM;
+                        const currentState = stateSelect.value;
+                        const districts = locationData[currentState] || [];
+                        
+                        // Try to find a match in our local data
+                        let matchedDistrict = districts.find(d => d.toLowerCase() === districtFromOSM.toLowerCase());
+                        
+                        if(matchedDistrict) {
+                            districtSelect.value = matchedDistrict;
                             manualDistrict.style.display = 'none';
                         } else {
                             districtSelect.value = "Other";
@@ -782,11 +794,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             manualDistrict.style.display = 'block';
                         }
                     }
+                } else {
+                    msg.innerText = "Address not found for this point.";
+                    setTimeout(() => { loader.style.display = 'none'; }, 2000);
                 }
             } catch(e) {
                 console.error("Geocoding failed", e);
+                msg.innerText = "Unable to fetch address. Please enter it manually.";
+                setTimeout(() => { loader.style.display = 'none'; }, 3000);
             } finally {
-                loader.style.display = 'none';
+                // Ensure loader hides if success (success case doesn't show "not found" msg)
+                if (msg.innerText === "Fetching address details...") {
+                    loader.style.display = 'none';
+                }
             }
         }
     </script>

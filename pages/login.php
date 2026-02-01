@@ -220,7 +220,7 @@
 
                 <div class="form-footer">
                     <label class="checkbox-label">
-                        <input type="checkbox">
+                        <input type="checkbox" name="remember">
                         <span>Remember me</span>
                     </label>
                     <a href="forgot_password.php" style="color: var(--primary); font-size: 0.9rem; text-decoration: none;">Forgot password?</a>

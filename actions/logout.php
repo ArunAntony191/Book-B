@@ -12,6 +12,11 @@ if (isset($_GET['delete']) && $_GET['delete'] == 'true' && isset($_SESSION['user
     }
 }
 
+if (isset($_SESSION['user_id'])) {
+    updateRememberToken($_SESSION['user_id'], null);
+}
+setcookie('remember_me', '', time() - 3600, '/');
+
 session_destroy();
 header("Location: ../pages/login.php");
 exit();

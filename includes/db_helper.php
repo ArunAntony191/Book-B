@@ -216,6 +216,35 @@ function authenticateUserByEmail($email) {
 }
 
 /**
+ * Update the remember token for a user
+ */
+function updateRememberToken($userId, $token) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE users SET remember_token = ? WHERE id = ?");
+        return $stmt->execute([$token, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update remember token error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get user by remember token
+ */
+function getUserByRememberToken($token) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role, theme_mode, email_notifications FROM users WHERE remember_token = ? AND is_banned = 0");
+        $stmt->execute([$token]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log("Get user by remember token error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Get user statistics
  */
 function getUserStats($userId) {

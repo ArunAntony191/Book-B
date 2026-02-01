@@ -28,6 +28,14 @@ if ($user) {
     $_SESSION['role'] = $user['role'];
     $_SESSION['theme_mode'] = $user['theme_mode'] ?? 'light';
     $_SESSION['email_notifications'] = $user['email_notifications'] ?? 1;
+
+    // Handle "Remember me"
+    if (isset($_POST['remember'])) {
+        $token = bin2hex(random_bytes(32));
+        updateRememberToken($user['id'], $token);
+        // Set cookie for 30 days
+        setcookie('remember_me', $token, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+    }
     
     // Redirect based on role
     switch ($user['role']) {
