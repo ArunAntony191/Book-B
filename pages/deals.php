@@ -402,9 +402,11 @@ try {
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
                                 <div class="btn-group">
-                                    <a href="chat/index.php?user=<?php echo $deal['lender_id']; ?>" class="btn btn-outline btn-sm">
-                                        <i class='bx bx-message-square-dots'></i> Chat
-                                    </a>
+                                    <?php if ($deal['lender_id'] != $userId): ?>
+                                     <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $deal['lender_id']; ?>" class="btn btn-outline btn-sm">
+                                         <i class='bx bx-message-square-dots'></i> Chat
+                                     </a>
+                                    <?php endif; ?>
                                     <?php if ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
                                         <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-primary btn-sm">
                                             <i class='bx bx-star'></i> Rate

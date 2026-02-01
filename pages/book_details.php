@@ -450,8 +450,9 @@ if ($book['latitude'] && $book['longitude']) {
                                 </button>
                             <?php endif; ?>
 
-                            <?php if ($book['role'] !== 'admin'): ?>
-                                <a href="chat/index.php?user=<?php echo $book['user_id']; ?>" class="btn btn-outline w-full" style="justify-content: center; padding: 0.8rem;">
+
+                            <?php if ($book['role'] !== 'admin' && $book['user_id'] != $userId): ?>
+                                <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $book['user_id']; ?>" class="btn btn-outline w-full" style="justify-content: center; padding: 0.8rem;">
                                     <i class='bx bx-message-rounded-dots'></i> Chat with Owner
                                 </a>
                             <?php endif; ?>

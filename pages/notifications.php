@@ -246,10 +246,14 @@ $status = $_GET['status'] ?? 'all';
                                 $bgType = 'var(--primary-light)15';
                             }
 
+
                             // Determine Link
                             $link = '#';
                             if ($n['type'] === 'message' || $n['type'] === 'support' || $n['type'] === 'support_reply') {
-                                $link = "chat/index.php?user=" . $n['reference_id'];
+                                // Prevent self-chat links
+                                if ($n['reference_id'] != $userId) {
+                                    $link = APP_URL . "/chat/index.php?user=" . $n['reference_id'];
+                                }
                             } elseif (preg_match('/request|delivery|receipt|borrower_confirmed/', $n['type'])) {
                                 $link = "delivery_details.php?id=" . $n['reference_id'];
                             }

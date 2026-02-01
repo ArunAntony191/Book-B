@@ -36,6 +36,7 @@ CREATE TABLE users (
     service_end_lat DECIMAL(10, 8) DEFAULT NULL,
     service_end_lng DECIMAL(11, 8) DEFAULT NULL,
     is_accepting_deliveries BOOLEAN DEFAULT 0,
+    profile_picture VARCHAR(255) DEFAULT NULL,
     INDEX idx_email (email),
     INDEX idx_role (role),
     INDEX idx_trust_score (trust_score)
@@ -222,4 +223,41 @@ CREATE TABLE reports (
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reported_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Communities table (Group Chat feature)
+CREATE TABLE communities (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_by INT NOT NULL,
+    cover_image VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_created_by (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Community Members table
+CREATE TABLE community_members (
+    community_id INT NOT NULL,
+    user_id INT NOT NULL,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (community_id, user_id),
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Community Messages table (Group Chat messages)
+CREATE TABLE community_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    community_id INT NOT NULL,
+    user_id INT NOT NULL,
+    message TEXT,
+    attachment_url VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_community (community_id),
+    INDEX idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

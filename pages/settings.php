@@ -377,6 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <!-- Support -->
+                    <?php if ($user['role'] !== 'admin'): ?>
                     <div class="settings-section">
                         <div class="section-header">
                             <i class='bx bx-support'></i>
@@ -390,6 +391,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <button type="submit" name="contact_admin" class="btn btn-outline">Send Message to Admin</button>
                         </form>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Danger Zone -->
                     <div class="settings-section" style="margin-top: 4rem; padding-top: 2rem; border-top: 2px dashed #fee2e2;">

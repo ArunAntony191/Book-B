@@ -34,14 +34,24 @@ if (!isset($_SESSION['user_email'])) {
 $userId = $_SESSION['user_id'] ?? null;
 if ($userId) {
     syncSessionRole($userId);
+    // Fetch full user data including profile picture
+    $userData = getUserById($userId);
+    $user = [
+        'firstname' => $userData['firstname'] ?? $_SESSION['firstname'] ?? 'User',
+        'lastname' => $userData['lastname'] ?? $_SESSION['lastname'] ?? '',
+        'role' => $_SESSION['role'] ?? 'user',
+        'email' => $_SESSION['user_email'] ?? '',
+        'profile_picture' => $userData['profile_picture'] ?? null
+    ];
+} else {
+    $user = [
+        'firstname' => $_SESSION['firstname'] ?? 'User',
+        'lastname' => $_SESSION['lastname'] ?? '',
+        'role' => $_SESSION['role'] ?? 'user',
+        'email' => $_SESSION['user_email'] ?? '',
+        'profile_picture' => null
+    ];
 }
-
-$user = [
-    'firstname' => $_SESSION['firstname'] ?? 'User',
-    'lastname' => $_SESSION['lastname'] ?? '',
-    'role' => $_SESSION['role'] ?? 'user',
-    'email' => $_SESSION['user_email'] ?? ''
-];
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
@@ -52,43 +62,66 @@ $user = [
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/style.css?v=1.1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
+        .navbar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: none !important;
+            padding: 0 2rem !important;
+        }
         .role-badge {
-            font-size: 0.75rem;
-            background: var(--primary-light);
-            color: var(--primary-dark);
-            padding: 4px 12px;
-            border-radius: 20px;
+            font-size: 0.7rem;
+            background: var(--primary);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 30px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+            display: inline-flex;
+            align-items: center;
+            height: fit-content;
         }
         .user-profile-nav {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 6px 12px;
-            border-radius: 12px;
+            gap: 0.75rem;
+            padding: 4px 16px 4px 4px;
+            border-radius: 40px;
             transition: all 0.2s;
-            background: #f8fafc;
+            background: #fff;
             border: 1px solid #e2e8f0;
+            cursor: pointer;
         }
         .user-profile-nav:hover {
-            background: #f1f5f9;
+            border-color: var(--primary);
+            background: #f8fafc;
         }
         .logout-link {
             color: #ef4444;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
             text-decoration: none;
-            font-weight: 600;
-            font-size: 0.9rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+            font-size: 1.4rem;
             transition: all 0.2s;
+            padding: 8px;
+            border-radius: 50%;
         }
         .logout-link:hover {
             background: #fef2f2;
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -99,15 +132,19 @@ $user = [
                 <div class="logo-icon"><i class='bx bx-book-bookmark'></i></div>
                 BOOK-<span>B</span>
             </a>
-            <div style="display: flex; gap: 1.5rem; align-items: center;">
+            <div style="display: flex; gap: 1rem; align-items: center;">
                 <span class="role-badge"><?php echo $user['role']; ?></span>
-                <div class="user-profile-nav">
-                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($user['firstname'] . ' ' . $user['lastname']); ?>&background=4f46e5&color=fff" alt="Profile" style="width: 32px; height: 32px; border-radius: 50%;">
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);"><?php echo $user['firstname']; ?></span>
-                    </div>
+                <div class="user-profile-nav" onclick="location.href='profile.php'">
+                    <?php if (!empty($user['profile_picture'])): ?>
+                        <img src="<?php echo APP_URL . '/' . $user['profile_picture']; ?>" alt="Profile" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <?php else: ?>
+                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($user['firstname'] . ' ' . $user['lastname']); ?>&background=4f46e5&color=fff" alt="Profile" style="width: 32px; height: 32px; border-radius: 50%;">
+                    <?php endif; ?>
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);"><?php echo $user['firstname'] . ' ' . $user['lastname']; ?></span>
                 </div>
-                <a href="<?php echo APP_URL; ?>/actions/logout.php" class="logout-link"><i class='bx bx-log-out'></i></a>
+                <a href="<?php echo APP_URL; ?>/actions/logout.php" class="logout-link" title="Logout">
+                    <i class='bx bx-power-off'></i>
+                </a>
             </div>
         </div>
     </nav>

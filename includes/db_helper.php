@@ -113,7 +113,8 @@ function getUserById($userId) {
                    total_lends, total_borrows, average_rating, total_ratings, created_at,
                    address, landmark, district, city, pincode, state, 
                    theme_mode, email_notifications,
-                   service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries
+                   service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
+                   profile_picture
             FROM users 
             WHERE id = ?
         ");
@@ -1384,6 +1385,24 @@ function getUnreadDeliveryUpdatesCount($userId) {
 }
 
 /**
+ * Get count of available delivery jobs for agents
+ */
+function getAvailableDeliveryJobsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE (delivery_method = 'delivery' AND status = 'approved' AND delivery_agent_id IS NULL)
+               OR (return_delivery_method = 'delivery' AND status = 'active' AND return_agent_id IS NULL)
+        ");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
  * Get unread "System" notifications count (excluding deals and deliveries)
  */
 function getUnreadSystemNotificationsCount($userId) {
@@ -1792,7 +1811,93 @@ function createNotification($userId, $type, $message, $referenceId = null) {
             INSERT INTO notifications (user_id, type, message, reference_id, is_read) 
             VALUES (?, ?, ?, ?, 0)
         ");
-        return $stmt->execute([$userId, $type, $message, $referenceId]);
+        $success = $stmt->execute([$userId, $type, $message, $referenceId]);
+        
+        // Send email notification if enabled
+        if ($success) {
+            require_once __DIR__ . '/mail_helper.php';
+            require_once __DIR__ . '/../paths.php';
+            
+            // Determine email subject and action based on notification type
+            $subject = 'New Notification from BOOK-B';
+            $actionUrl = null;
+            $actionText = null;
+            
+            switch ($type) {
+                case 'borrow_request':
+                case 'sell_request':
+                case 'exchange_request':
+                    $subject = 'New Book Request';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Request';
+                    break;
+                    
+                case 'request_accepted':
+                    $subject = 'Your Request Was Accepted!';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'request_declined':
+                    $subject = 'Request Update';
+                    break;
+                    
+                case 'delivery_assigned':
+                    $subject = 'Delivery Agent Assigned';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'Track Delivery';
+                    break;
+                    
+                case 'delivery_update':
+                case 'delivery_pending_confirmation':
+                    $subject = 'Delivery Update';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Update';
+                    break;
+                    
+                case 'receipt_confirmed':
+                case 'borrower_confirmed':
+                    $subject = 'Delivery Confirmed';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'due_soon':
+                    $subject = 'Book Return Reminder';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'Arrange Return';
+                    break;
+                    
+                case 'extension_request':
+                    $subject = 'Extension Request Received';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'Review Request';
+                    break;
+                    
+                case 'extension_approved':
+                case 'extension_declined':
+                    $subject = 'Extension Request Update';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'support':
+                    $subject = 'Support Request Received';
+                    $actionUrl = APP_URL . '/pages/notifications.php';
+                    $actionText = 'View Message';
+                    break;
+                    
+                default:
+                    $actionUrl = APP_URL . '/pages/notifications.php';
+                    $actionText = 'View Notification';
+                    break;
+            }
+            
+            // Send email (will check user preference inside the function)
+            sendNotificationEmail($userId, $type, $subject, $message, $actionUrl, $actionText);
+        }
+        
+        return $success;
     } catch (PDOException $e) {
         error_log("Create notification error: " . $e->getMessage());
         return false;

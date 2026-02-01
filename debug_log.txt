@@ -18,3 +18,10 @@
 [2026-01-03 20:19:03] Creating community: Christmas Day
 [2026-01-03 20:22:10] Action: create - Start
 [2026-01-03 20:22:10] Creating community: Christmas Day
+[2026-02-01 11:41:13] Action: create - Start
+[2026-02-01 11:41:13] Creating community: manga
+[2026-02-01 11:41:13] Cover uploaded: images/communities/1769926273_images (2).jfif
+[2026-02-01 11:41:13] Attempting to insert into communities table
+[2026-02-01 11:41:13] Community created with ID: 1
+[2026-02-01 11:41:13] Auto-joining creator
+[2026-02-01 11:41:13] Creator joined successfully

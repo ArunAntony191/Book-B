@@ -55,6 +55,12 @@ $reviews = getUserReviews($viewUserId, 20);
             font-weight: 800;
             border: 4px solid white;
             box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .profile-info h1 {
             font-size: 2.5rem;
@@ -132,7 +138,11 @@ $reviews = getUserReviews($viewUserId, 20);
             <div class="profile-container">
                 <div class="profile-header">
                     <div class="profile-avatar">
-                        <?php echo strtoupper(substr($user['firstname'], 0, 1)); ?>
+                        <?php if (!empty($user['profile_picture'])): ?>
+                            <img src="<?php echo APP_URL . '/' . $user['profile_picture']; ?>" alt="<?php echo htmlspecialchars($user['firstname']); ?>">
+                        <?php else: ?>
+                            <?php echo strtoupper(substr($user['firstname'], 0, 1)); ?>
+                        <?php endif; ?>
                     </div>
                     <div class="profile-info">
                         <h1><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></h1>

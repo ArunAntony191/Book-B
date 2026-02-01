@@ -206,7 +206,7 @@ function getStatusLabel($status, $agentId) {
                         <?php elseif ($isLender && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['lender_confirm_at'])): ?>
                             <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover to Agent</button>
                         <?php endif; ?>
-                        <a href="chat/index.php?user=<?php echo $isLender ? $d['borrower_id'] : $d['lender_id']; ?>" class="btn btn-outline">
+                        <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $isLender ? $d['borrower_id'] : $d['lender_id']; ?>" class="btn btn-outline">
                             <i class='bx bx-message-square-dots'></i> Chat with <?php echo $isLender ? 'Borrower' : 'Owner'; ?>
                         </a>
                     </div>

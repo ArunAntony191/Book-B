@@ -365,10 +365,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="glass-card">
                     <div class="profile-header">
                         <div class="profile-avatar-wrapper">
-                            <div class="profile-avatar">
-                                <?php echo strtoupper($user['firstname'][0] . $user['lastname'][0]); ?>
+                            <div class="profile-avatar" id="profile-avatar-display">
+                                <?php if (!empty($user['profile_picture'])): ?>
+                                    <img src="<?php echo APP_URL . '/' . $user['profile_picture']; ?>" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">
+                                <?php else: ?>
+                                    <?php echo strtoupper($user['firstname'][0] . $user['lastname'][0]); ?>
+                                <?php endif; ?>
                             </div>
-                            <div class="avatar-edit-btn" title="Update Profile Picture">
+                            <input type="file" id="profile-picture-input" accept="image/*" style="display: none;">
+                            <div class="avatar-edit-btn" title="Update Profile Picture" onclick="document.getElementById('profile-picture-input').click()">
                                 <i class='bx bx-camera'></i>
                             </div>
                         </div>
@@ -809,6 +814,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        
+        // Profile Picture Upload
+        document.getElementById('profile-picture-input').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Validate file type
+            if (!file.type.match('image.*')) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('profile_picture', file);
+            
+            try {
+                const response = await fetch('../actions/profile_upload.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the avatar display
+                    const avatarDisplay = document.getElementById('profile-avatar-display');
+                    avatarDisplay.innerHTML = `<img src="<?php echo APP_URL; ?>/${result.profile_picture}?t=${Date.now()}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">`;
+                    
+                    alert('Profile picture updated successfully!');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                alert('Failed to upload profile picture');
+            }
+        });
     </script>
 </body>
 </html>

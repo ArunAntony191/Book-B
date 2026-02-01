@@ -10,6 +10,13 @@ if (!$userId) {
     exit();
 }
 
+// Prevent self-chat
+$targetUserId = $_GET['user'] ?? null;
+if ($targetUserId && (int)$targetUserId === (int)$userId) {
+    header("Location: index.php");
+    exit();
+}
+
 $users = getRecentChats($userId);
 ?>
 <!DOCTYPE html>

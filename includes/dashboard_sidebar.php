@@ -19,6 +19,7 @@ $total_unread = $user_id ? getTotalUnreadCount($user_id) : 0;
 $total_notifs = $user_id ? getUnreadSystemNotificationsCount($user_id) : 0;
 $deals_notifs = $user_id ? getUnreadRequestsCount($user_id) : 0;
 $delivery_notifs = $user_id ? getUnreadDeliveryUpdatesCount($user_id) : 0;
+$sidebar_available_jobs_count = ($user_role == 'delivery_agent') ? getAvailableDeliveryJobsCount() : 0;
 $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 ?>
 
@@ -46,7 +47,12 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
     <?php if($user_role == 'delivery_agent'): ?>
     <div class="sidebar-section-title">Logistics</div>
     <a href="<?php echo APP_URL; ?>/pages/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bx-grid-alt'></i> Agent Dashboard</a>
-    <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>"><i class='bx bx-radar'></i> Find New Jobs</a>
+    <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>">
+        <i class='bx bx-radar'></i> Find New Jobs
+        <?php if ($sidebar_available_jobs_count > 0): ?>
+            <span class="nav-badge"><?php echo $sidebar_available_jobs_count; ?></span>
+        <?php endif; ?>
+    </a>
     <a href="<?php echo APP_URL; ?>/pages/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
     <a href="<?php echo APP_URL; ?>/pages/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
     <a href="<?php echo APP_URL; ?>/pages/agent_reports.php" class="nav-item <?php echo $current_page == 'agent_reports.php' ? 'active' : ''; ?>"><i class='bx bx-file'></i> Performance Reports</a>

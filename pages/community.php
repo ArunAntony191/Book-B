@@ -141,9 +141,12 @@ include '../includes/dashboard_header.php';
                     <div id="chat-view" style="display: none; height: 100%; flex-direction: column;">
                         <div class="chat-header">
                             <img id="active-img" class="comm-img">
-                            <div>
+                            <div style="flex: 1;">
                                 <div id="active-name" style="font-size: 1.1rem;"></div>
                                 <div id="active-desc" style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);"></div>
+                            </div>
+                            <div id="action-buttons" style="display: flex; gap: 0.5rem;">
+                                <!-- Buttons will be added dynamically -->
                             </div>
                         </div>
                         <div class="chat-messages" id="messages-box"></div>
@@ -189,14 +192,42 @@ include '../includes/dashboard_header.php';
         </form>
     </div>
 
+    <!-- Edit Cover Modal -->
+    <div class="modal" id="edit-cover-modal">
+        <form class="modal-content" onsubmit="updateCoverImage(event)">
+            <h3>Edit Community Profile Picture</h3>
+            <div class="form-group">
+                <label class="form-label">New Cover Image</label>
+                <input type="file" name="cover" class="form-input" accept="image/*" required>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('edit-cover-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="delete-modal">
+        <div class="modal-content">
+            <h3 style="color: #dc2626;">Delete Community?</h3>
+            <p style="margin: 1.5rem 0; color: var(--text-muted);">This action cannot be undone. All messages and members will be removed.</p>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('delete-modal').style.display='none'">Cancel</button>
+                <button type="button" class="btn" style="background: #dc2626; color: white;" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentCommId = null;
+        let currentCommCreator = null;
         let userId = <?php echo $_SESSION['user_id']; ?>;
 
         // 1. Load my communities & Discover
         function loadCommunities() {
             // My Communities
-            fetch('community/api.php?action=my_communities')
+            fetch('../community/api.php?action=my_communities')
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('community-list');
@@ -205,8 +236,9 @@ include '../includes/dashboard_header.php';
                     
                     data.forEach(c => {
                         list.innerHTML += `
-                            <div class="comm-item ${c.id == currentCommId ? 'active' : ''}" onclick="selectCommunity(${c.id}, '${c.name}', '${c.description}', '${c.cover_image}')">
-                                <img src="${c.cover_image || '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                            <div class="comm-item ${c.id == currentCommId ? 'active' : ''}" onclick="selectCommunity(${c.id}, '${c.name.replace(/'/g, "\\'")
+}', '${(c.description || '').replace(/'/g, "\\'")}', '${c.cover_image || ''}', ${c.created_by})">
+                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
                                 <div>
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -217,7 +249,7 @@ include '../includes/dashboard_header.php';
                 });
 
             // Discover
-            fetch('community/api.php?action=discover')
+            fetch('../community/api.php?action=discover')
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('discover-list');
@@ -227,7 +259,7 @@ include '../includes/dashboard_header.php';
                     data.forEach(c => {
                         list.innerHTML += `
                             <div class="comm-item">
-                                <img src="${c.cover_image || '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
                                 <div style="flex:1;">
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -240,23 +272,54 @@ include '../includes/dashboard_header.php';
         }
         
         // 2. Select a community
-        function selectCommunity(id, name, desc, img) {
+        function selectCommunity(id, name, desc, img, createdBy) {
             currentCommId = id;
+            currentCommCreator = createdBy;
             document.getElementById('empty-choice').style.display = 'none';
             document.getElementById('chat-view').style.display = 'flex';
             
             document.getElementById('active-name').textContent = name;
             document.getElementById('active-desc').textContent = desc;
-            document.getElementById('active-img').src = img || '../assets/images/book-placeholder.jpg';
+            document.getElementById('active-img').src = img ? '../' + img : '../assets/images/book-placeholder.jpg';
+            
+            // Update action buttons
+            updateActionButtons();
             
             loadMessages();
             loadCommunities(); // Refresh active state in list
         }
         
+        // Update action buttons based on creator status
+        function updateActionButtons() {
+            const buttonContainer = document.getElementById('action-buttons');
+            buttonContainer.innerHTML = '';
+            
+            const isCreator = currentCommCreator == userId;
+            
+            if (isCreator) {
+                // Creator buttons: Edit and Delete
+                buttonContainer.innerHTML = `
+                    <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="showEditCoverModal()">
+                        <i class='bx bx-edit'></i> Edit Picture
+                    </button>
+                    <button class="btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: #dc2626; color: white;" onclick="showDeleteModal()">
+                        <i class='bx bx-trash'></i> Delete
+                    </button>
+                `;
+            } else {
+                // Member button: Leave
+                buttonContainer.innerHTML = `
+                    <button class="btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="leaveCommunity()">
+                        <i class='bx bx-exit'></i> Leave
+                    </button>
+                `;
+            }
+        }
+        
         // 3. Load Messages
         function loadMessages() {
             if (!currentCommId) return;
-            fetch(`community/api.php?action=messages&community_id=${currentCommId}`)
+            fetch(`../community/api.php?action=messages&community_id=${currentCommId}`)
                 .then(res => res.json())
                 .then(msgs => {
                     const box = document.getElementById('messages-box');
@@ -265,7 +328,7 @@ include '../includes/dashboard_header.php';
                         const isMine = m.user_id == userId;
                         let content = `<span class="msg-sender">${m.firstname} ${m.lastname}</span>`;
                         if (m.message) content += `<div>${m.message}</div>`;
-                        if (m.attachment_url) content += `<img src="${m.attachment_url}" style="max-width:200px; border-radius:8px; margin-top:0.5rem;">`;
+                        if (m.attachment_url) content += `<img src="../${m.attachment_url}" style="max-width:200px; border-radius:8px; margin-top:0.5rem;">`;
                         
                         box.innerHTML += `
                             <div class="message ${isMine ? 'mine' : 'theirs'}">
@@ -291,7 +354,7 @@ include '../includes/dashboard_header.php';
             formData.append('message', input.value);
             if (fileInput.files[0]) formData.append('image', fileInput.files[0]);
             
-            fetch('community/api.php?action=send_message', { method: 'POST', body: formData })
+            fetch('../community/api.php?action=send_message', { method: 'POST', body: formData })
                 .then(() => {
                     input.value = '';
                     fileInput.value = '';
@@ -302,7 +365,7 @@ include '../includes/dashboard_header.php';
         // 5. Search & Join
         function searchCommunity(q) {
             if (!q) { loadCommunities(); return; }
-            fetch(`community/api.php?action=search&q=${q}`)
+            fetch(`../community/api.php?action=search&q=${q}`)
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('community-list');
@@ -312,7 +375,7 @@ include '../includes/dashboard_header.php';
                         
                         list.innerHTML += `
                             <div class="comm-item">
-                                <img src="${c.cover_image || '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
                                 <div style="flex:1;">
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -327,7 +390,7 @@ include '../includes/dashboard_header.php';
         function joinCommunity(id) {
             const formData = new FormData();
             formData.append('community_id', id);
-            fetch('community/api.php?action=join', { method: 'POST', body: formData })
+            fetch('../community/api.php?action=join', { method: 'POST', body: formData })
                 .then(() => {
                     alert('Joined!');
                     loadCommunities(); // reload list logic will probably clear search
@@ -340,7 +403,7 @@ include '../includes/dashboard_header.php';
         function createCommunity(e) {
             e.preventDefault();
             const formData = new FormData(e.target);
-            fetch('community/api.php?action=create', { method: 'POST', body: formData })
+            fetch('../community/api.php?action=create', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -355,6 +418,87 @@ include '../includes/dashboard_header.php';
                 .catch(err => {
                     alert('Network or Server Error. Check console.');
                     console.error('Fetch error:', err);
+                });
+        }
+        
+        // 7. Leave Community
+        function leaveCommunity() {
+            if (!confirm('Are you sure you want to leave this community?')) return;
+            
+            const formData = new FormData();
+            formData.append('community_id', currentCommId);
+            fetch('../community/api.php?action=leave', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Left community successfully');
+                        currentCommId = null;
+                        document.getElementById('chat-view').style.display = 'none';
+                        document.getElementById('empty-choice').style.display = 'flex';
+                        loadCommunities();
+                    }
+                })
+                .catch(err => console.error('Leave error:', err));
+        }
+        
+        // 8. Edit Cover Image
+        function showEditCoverModal() {
+            document.getElementById('edit-cover-modal').style.display = 'flex';
+        }
+        
+        function updateCoverImage(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            formData.append('community_id', currentCommId);
+            
+            fetch('../community/api.php?action=update_cover', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Profile picture updated successfully!');
+                        document.getElementById('edit-cover-modal').style.display = 'none';
+                        // Update image in UI
+                        if (data.cover_image) {
+                            document.getElementById('active-img').src = '../' + data.cover_image;
+                        }
+                        loadCommunities(); // Refresh list
+                        e.target.reset();
+                    } else {
+                        alert('Error: ' + (data.error || 'Failed to update'));
+                    }
+                })
+                .catch(err => {
+                    alert('Error updating cover image');
+                    console.error('Update error:', err);
+                });
+        }
+        
+        // 9. Delete Community
+        function showDeleteModal() {
+            document.getElementById('delete-modal').style.display = 'flex';
+        }
+        
+        function confirmDelete() {
+            const formData = new FormData();
+            formData.append('community_id', currentCommId);
+            
+            fetch('../community/api.php?action=delete', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Community deleted successfully');
+                        document.getElementById('delete-modal').style.display = 'none';
+                        currentCommId = null;
+                        document.getElementById('chat-view').style.display = 'none';
+                        document.getElementById('empty-choice').style.display = 'flex';
+                        loadCommunities();
+                    } else {
+                        alert('Error: ' + (data.error || 'Failed to delete'));
+                    }
+                })
+                .catch(err => {
+                    alert('Error deleting community');
+                    console.error('Delete error:', err);
                 });
         }
 

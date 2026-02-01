@@ -101,12 +101,21 @@ foreach ($all_raw_jobs as $job) {
     }
 }
 
-// Sort by relevance (District first, then distance)
-usort($available_jobs, function($a, $b) {
-    if ($a['in_district'] && !$b['in_district']) return -1;
-    if (!$a['in_district'] && $b['in_district']) return 1;
-    return $a['relevance_dist'] <=> $b['relevance_dist'];
-});
+// Sort by relevance (District first, then distance) - only if we have jobs
+if (!empty($available_jobs) && is_array($available_jobs)) {
+    usort($available_jobs, function($a, $b) {
+        $aInDistrict = $a['in_district'] ?? false;
+        $bInDistrict = $b['in_district'] ?? false;
+        
+        if ($aInDistrict && !$bInDistrict) return -1;
+        if (!$aInDistrict && $bInDistrict) return 1;
+        
+        $aDist = $a['relevance_dist'] ?? 0;
+        $bDist = $b['relevance_dist'] ?? 0;
+        
+        return $aDist <=> $bDist;
+    });
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -480,6 +489,17 @@ usort($available_jobs, function($a, $b) {
         function claimJob(id) {
             if(!confirm('Accept this delivery job?')) return;
             
+            // Find both button types (card button and map popup button)
+            const buttons = document.querySelectorAll(`button[onclick="claimJob(${id})"]`);
+            
+            // Disable all buttons for this job to prevent double-clicks
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            });
+
             const formData = new FormData();
             formData.append('action', 'claim_job');
             formData.append('transaction_id', id);
@@ -488,11 +508,34 @@ usort($available_jobs, function($a, $b) {
                 .then(res => res.json())
                 .then(data => {
                     if(data.success) {
-                        alert('Job Accepted!');
-                        window.location.href = 'dashboard_delivery_agent.php';
+                        // Keep disabled, redirecting...
+                        buttons.forEach(btn => {
+                            btn.innerHTML = '<i class="bx bx-check"></i> Accepted!';
+                            btn.className = 'btn-claim success'; 
+                            btn.style.background = '#10b981';
+                        });
+                        setTimeout(() => {
+                            window.location.href = 'dashboard_delivery_agent.php';
+                        }, 500);
                     } else {
                         alert('Error: ' + data.message);
+                        // Re-enable on error
+                        buttons.forEach(btn => {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="bx bx-check-double"></i> Accept Assignment';
+                            btn.style.opacity = '1';
+                            btn.style.cursor = 'pointer';
+                        });
                     }
+                })
+                .catch(err => {
+                    alert('Network error occurred.');
+                    buttons.forEach(btn => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bx bx-check-double"></i> Accept Assignment';
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    });
                 });
         }
     </script>
