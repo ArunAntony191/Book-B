@@ -330,7 +330,7 @@ try {
                                             <i class='bx bx-check-circle'></i> Mark Returned
                                         </button>
                                     <?php endif; ?>
-                                <?php elseif ($deal['status'] === 'approved' || $deal['status'] === 'active'): ?>
+                                <?php elseif (($deal['status'] === 'approved' || $deal['status'] === 'active') && $deal['listing_type'] === 'borrow'): ?>
                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
                                         <i class='bx bx-check-circle'></i> Mark Returned
                                     </button>
@@ -377,7 +377,7 @@ try {
                                         </a>
                                     </div>
                                     <div class="meta-item"><i class='bx bx-calendar'></i> Requested: <?php echo date('M d', strtotime($deal['created_at'])); ?></div>
-                                    <?php if ($deal['due_date']): ?>
+                                    <?php if ($deal['listing_type'] === 'borrow' && $deal['due_date']): ?>
                                         <?php 
                                             $dueDate = new DateTime($deal['due_date']);
                                             $today = new DateTime();

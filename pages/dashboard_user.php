@@ -9,6 +9,12 @@ $stats = getUserStatsEnhanced($userId);
 $books = getAllBooks(4);
 $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
 $hasMinTokens = hasMinimumTokens($userId);
+
+// Fetch latest reviews for the modal
+$userReviews = getUserReviews($userId, 5); 
+
+// Fetch Recommended Books
+$recommendedBooks = getRecommendedBooks($userId, 4);
 ?>
 
 <div class="dashboard-wrapper">
@@ -70,7 +76,7 @@ $hasMinTokens = hasMinimumTokens($userId);
             </div>
 
             <!-- Rating Widget -->
-            <div class="widget-card" style="text-align: center; background: linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%); border: 2px solid #fbbf24;">
+            <div class="widget-card" style="text-align: center; background: linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%); border: 2px solid #fbbf24; cursor: pointer;" onclick="openReviewsModal()">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bxs-star'></i> Your Rating</span>
                 </div>
@@ -126,6 +132,49 @@ $hasMinTokens = hasMinimumTokens($userId);
             </div>
         </div>
 
+        <?php if (!empty($recommendedBooks)): ?>
+        <!-- Recommended Books Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                <i class='bx bxs-magic-wand' style="color: #818cf8;"></i>
+                Recommended for You
+            </h2>
+            <span style="font-size: 0.85rem; color: var(--text-muted); background: #818cf815; padding: 4px 12px; border-radius: 20px; font-weight: 600; color: #818cf8;">
+                Based on your interest in <?php echo htmlspecialchars($user['favorite_category']); ?>
+            </span>
+        </div>
+
+        <div class="book-grid" style="margin-bottom: 3rem;">
+            <?php foreach ($recommendedBooks as $item): ?>
+            <div class="book-card" style="transition: all 0.3s; cursor: pointer; border: 2px solid transparent; hover: border-color: #818cf8;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                <div class="book-cover">
+                    <span style="position: absolute; top: 10px; right: 10px; background: #818cf8; color: white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Tailored</span>
+                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                         alt="<?php echo htmlspecialchars($item['title']); ?>"
+                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                </div>
+                <div class="book-info">
+                    <div class="book-title"><?php echo htmlspecialchars($item['title']); ?></div>
+                    <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem;">
+                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                            </span>
+                            <div style="display: flex; align-items: center; gap: 4px; color: #f59e0b; font-size: 0.75rem; font-weight: 700;">
+                                <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem; background: #818cf8; border-color: #818cf8;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                            Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
         <!-- Community Books Section -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
@@ -170,6 +219,71 @@ $hasMinTokens = hasMinimumTokens($userId);
             <?php endforeach; ?>
         </div>
     </main>
+
+    <!-- Reviews Modal -->
+    <div id="reviewsModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                    <i class='bx bxs-star' style="color: #fbbf24;"></i> Your Reviews
+                </h2>
+                <button class="modal-close" onclick="closeReviewsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <?php if (empty($userReviews)): ?>
+                    <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class='bx bx-message-rounded-dots' style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p>No reviews received yet.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="reviews-list">
+                        <?php foreach ($userReviews as $r): ?>
+                            <div class="review-item">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                    <span style="font-weight: 700; color: var(--text-main);">
+                                        <?php echo htmlspecialchars($r['firstname'] . ' ' . $r['lastname']); ?>
+                                    </span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                                        <?php echo date('M d, Y', strtotime($r['created_at'])); ?>
+                                    </span>
+                                </div>
+                                <div style="color: #fbbf24; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                                    <?php for($i=1; $i<=5; $i++): ?>
+                                        <i class='bx <?php echo $i <= $r['rating'] ? "bxs-star" : "bx-star"; ?>'></i>
+                                    <?php endfor; ?>
+                                </div>
+                                <?php if ($r['comment']): ?>
+                                    <p style="font-size: 0.9rem; color: var(--text-body); line-height: 1.5;">
+                                        <?php echo nl2br(htmlspecialchars($r['comment'])); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <div style="margin-top: 2rem; text-align: center;">
+                    <a href="user_profile.php?id=<?php echo $userId; ?>#reviews" class="btn btn-outline btn-sm">View All Reviews on Profile</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openReviewsModal() {
+            document.getElementById('reviewsModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeReviewsModal() {
+            document.getElementById('reviewsModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Close on overlay click
+        document.getElementById('reviewsModal').addEventListener('click', function(e) {
+            if (e.target === this) closeReviewsModal();
+        });
+    </script>
 </div>
 
 <style>
@@ -197,6 +311,84 @@ $hasMinTokens = hasMinimumTokens($userId);
 .book-card:hover {
     transform: translateY(-8px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    width: 90%;
+    max-width: 500px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-overlay.active .modal-content {
+    transform: translateY(0);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.review-item {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.review-item:last-child {
+    border-bottom: none;
 }
 </style>
 

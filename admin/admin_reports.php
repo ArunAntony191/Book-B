@@ -49,7 +49,11 @@ $reports = getReports('pending');
                             </div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-weight: 600;">Reported: <?php echo htmlspecialchars($r['reported_fname'] . ' ' . $r['reported_lname']); ?></div>
+                            <?php if ($r['type'] === 'community'): ?>
+                                <div style="font-weight: 600;">Community: <?php echo htmlspecialchars($r['community_name'] ?? 'Deleted Community'); ?></div>
+                            <?php else: ?>
+                                <div style="font-weight: 600;">Reported: <?php echo htmlspecialchars($r['reported_fname'] . ' ' . $r['reported_lname']); ?></div>
+                            <?php endif; ?>
                             <div style="font-size: 0.85rem; color: var(--text-muted);">by <?php echo htmlspecialchars($r['reporter_fname'] . ' ' . $r['reporter_lname']); ?></div>
                         </div>
                     </div>
@@ -60,7 +64,12 @@ $reports = getReports('pending');
 
                     <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                         <button onclick="resolveReport(<?php echo $r['id']; ?>, 'dismissed')" class="btn btn-outline btn-sm">Dismiss Report</button>
-                        <button onclick="banAndResolve(<?php echo $r['id']; ?>, <?php echo $r['reported_uid']; ?>)" class="btn btn-danger btn-sm" style="background: #ef4444; color: white; border: none;">Ban User & Resolve</button>
+                        <?php if ($r['type'] === 'community'): ?>
+                            <button onclick="warnCommunity(<?php echo $r['reported_community_id']; ?>, '<?php echo addslashes($r['reason']); ?>')" class="btn btn-sm" style="background: #f59e0b; color: white; border: none;">Warn Community</button>
+                            <button onclick="deleteCommunityAndResolve(<?php echo $r['id']; ?>, <?php echo $r['reported_community_id']; ?>, '<?php echo addslashes($r['reason']); ?>')" class="btn btn-danger btn-sm" style="background: #ef4444; color: white; border: none;">Delete Community & Resolve</button>
+                        <?php else: ?>
+                            <button onclick="banAndResolve(<?php echo $r['id']; ?>, <?php echo $r['reported_uid']; ?>)" class="btn btn-danger btn-sm" style="background: #ef4444; color: white; border: none;">Ban User & Resolve</button>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -113,6 +122,50 @@ $reports = getReports('pending');
             
         } catch (error) {
             alert('Error: ' + error.message);
+        }
+    }
+
+    async function deleteCommunityAndResolve(reportId, communityId, reason) {
+        if (!confirm('This will DELETE the community group and resolve the report. Members will be notified of the reason: ' + reason + '. Continue?')) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'delete_community');
+            formData.append('community_id', communityId);
+            formData.append('reason', reason);
+            
+            const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
+            const result = await response.json();
+            
+            if (result.success) {
+                await resolveReport(reportId, 'resolved');
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            alert('Error deleting community');
+        }
+    }
+
+    async function warnCommunity(communityId, reason) {
+        if (!confirm('Send an official warning to this community group for: ' + reason + '?')) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'warn_community');
+            formData.append('community_id', communityId);
+            formData.append('reason', reason);
+            
+            const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('Warning sent successfully.');
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            alert('Error sending warning');
         }
     }
     </script>

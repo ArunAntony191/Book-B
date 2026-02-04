@@ -678,8 +678,7 @@ $users = getRecentChats($userId);
             formData.append('reported_id', currentReceiverId);
 
             try {
-                // Pointing to request_action.php relative to this file
-                const response = await fetch('../request_action.php', {
+                const response = await fetch('../actions/request_action.php', {
                     method: 'POST',
                     body: formData
                 });

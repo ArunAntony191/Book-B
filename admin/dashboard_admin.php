@@ -221,6 +221,7 @@ try {
                         'user' => ['color' => '#3b82f6', 'icon' => 'bx-user'],
                         'library' => ['color' => '#10b981', 'icon' => 'bx-library'],
                         'bookstore' => ['color' => '#f59e0b', 'icon' => 'bx-store'],
+                        'delivery_agent' => ['color' => '#8b5cf6', 'icon' => 'bx-truck'],
                         'admin' => ['color' => '#ef4444', 'icon' => 'bx-shield-alt-2']
                     ];
                     $info = $roleColors[$role] ?? ['color' => '#6b7280', 'icon' => 'bx-user'];

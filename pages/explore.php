@@ -48,6 +48,13 @@ $filters = [
 ];
 
 $results = searchListingsAdvanced($filters);
+
+// Separate Rare Books
+$rareResults = getRareBooks(10);
+// Filter out rare books from main results if they appear there
+$results = array_filter($results, function($r) {
+    return !($r['is_rare'] ?? 0);
+});
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
@@ -59,136 +66,327 @@ $results = searchListingsAdvanced($filters);
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .explore-container {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            height: calc(100vh - 120px);
-            background: white;
-            border-radius: var(--radius-lg);
+        :root {
+            --sidebar-width: 420px;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --accent-gold: #f59e0b;
+        }
+
+        [data-theme="dark"] {
+            --glass-bg: rgba(15, 23, 42, 0.85);
+            --glass-border: rgba(51, 65, 85, 0.5);
+        }
+
+        /* Full Screen Adjustment */
+        .main-content {
+            padding: 0 !important;
+            max-width: none !important;
+            height: calc(100vh - 64px);
             overflow: hidden;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
-        }
-        .search-sidebar {
-            padding: 2rem;
-            border-right: 1px solid var(--border-color);
-            overflow-y: auto;
-            background: #f8fafc;
             display: flex;
-            flex-direction: column;
-            gap: 2rem;
+            background: var(--bg-body);
         }
-        .filter-section-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-        }
-        #map {
+
+        .explore-wrapper {
+            display: flex;
             height: 100%;
             width: 100%;
-            z-index: 1;
-        }
-        .results-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .book-card-mini {
-            background: white;
-            padding: 1.25rem;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            gap: 1rem;
             position: relative;
         }
-        .book-card-mini:hover {
-            transform: translateY(-3px);
-            border-color: var(--primary);
-            box-shadow: var(--shadow-md);
+
+        /* Premium Sidebar */
+        .premium-sidebar {
+            width: var(--sidebar-width);
+            height: 100%;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 15px 0 45px rgba(0,0,0,0.04);
         }
-        .book-card-mini.active {
-            border-color: var(--primary);
-            background: #f5f3ff;
-            box-shadow: 0 0 0 1px var(--primary);
+
+        .sidebar-header {
+            padding: 2.5rem 2rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%);
         }
-        .book-mini-img {
-            width: 70px;
-            height: 90px;
-            border-radius: var(--radius-sm);
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Custom Modern Scrollbar */
+        .sidebar-content::-webkit-scrollbar { width: 5px; }
+        .sidebar-content::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-content::-webkit-scrollbar-thumb { 
+            background: var(--border-color);
+            border-radius: 10px;
+        }
+        .sidebar-content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Filter Section */
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .premium-select {
+            appearance: none;
+            background: var(--bg-body) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 0.75rem center;
+            background-size: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .premium-select:hover { border-color: var(--primary); background-color: var(--bg-card); }
+
+        /* Scroller for Rare Books */
+        .exclusive-banner {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1px solid #fde68a;
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 10px 20px rgba(245, 158, 11, 0.05);
+            position: relative;
+        }
+
+        [data-theme="dark"] .exclusive-banner {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            border-color: #4338ca;
+        }
+
+        .rare-scroller {
+            display: flex;
+            gap: 1.25rem;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            scrollbar-width: none;
+        }
+        .rare-scroller::-webkit-scrollbar { display: none; }
+
+        .rare-item-card {
+            flex: 0 0 140px;
+            background: var(--bg-card);
+            padding: 0.75rem;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .rare-item-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-gold);
+            box-shadow: 0 15px 30px rgba(245, 158, 11, 0.15);
+        }
+
+        .rare-item-img {
+            width: 100%;
+            aspect-ratio: 2/3;
+            border-radius: 10px;
             object-fit: cover;
-            box-shadow: var(--shadow-sm);
+            margin-bottom: 0.75rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .book-mini-content {
+
+        /* Modern Result Cards */
+        .result-card-premium {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 1.25rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.25rem;
+            display: flex;
+            gap: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card-premium:hover {
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+            transform: translateY(-4px);
+        }
+
+        .result-card-premium::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--primary);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .result-card-premium:hover::after { opacity: 1; }
+
+        .result-img-premium {
+            width: 110px;
+            height: 150px;
+            border-radius: 14px;
+            object-fit: cover;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        .result-info {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
-        .chat-btn-mini {
+
+        .result-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1.3;
+            margin-bottom: 0.25rem;
+        }
+
+        .result-author {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .pill-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .premium-pill {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .result-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .price-display {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+
+        /* Map UI Controls */
+        #map {
+            flex: 1;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .map-overlay-controls {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            top: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            align-items: flex-end;
+        }
+
+        .glass-box {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 0.75rem;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 0 1.25rem;
+            border: 1px solid var(--border-color);
+            width: 320px;
+            transition: all 0.3s;
+        }
+
+        .search-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+
+        .search-container input {
+            border: none;
+            background: none;
+            padding: 0.85rem 0.75rem;
+            width: 100%;
+            outline: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .icon-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f1f5f9;
-            color: var(--text-muted);
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-        .chat-btn-mini:hover {
             background: var(--primary);
             color: white;
-            transform: scale(1.1);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.25rem;
         }
 
-        /* Toggle Switch */
+        .icon-btn:hover { background: var(--primary-dark); transform: translateY(-2px); }
+        .icon-btn.white { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
+        .icon-btn.white:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.5); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
         .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(22px); }
-        
-        .distance-label {
-            font-size: 0.7rem; color: var(--primary); font-weight: 700;
-            display: flex; align-items: center; gap: 2px;
-        }
-
-        /* Accuracy Circle */
-        .accuracy-circle {
-            border: 2px solid var(--primary);
-            background: rgba(var(--primary-rgb), 0.1);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        /* Pulsing Pin Marker */
-        .pulsing-marker { position: relative; }
-        .pulsing-marker .pin {
-            width: 14px; height: 14px; background: var(--primary);
-            border: 2px solid white; border-radius: 50%;
-            position: absolute; z-index: 10;
-        }
-        .pulsing-marker .pulse {
-            width: 30px; height: 30px; background: var(--primary);
-            border-radius: 50%; position: absolute;
-            top: -8px; left: -8px; opacity: 0.4;
-            animation: pin-pulse 1.5s infinite;
-        }
-        @keyframes pin-pulse {
-            0% { transform: scale(0.5); opacity: 0.5; }
-            100% { transform: scale(2.5); opacity: 0; }
-        }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
@@ -198,133 +396,145 @@ $results = searchListingsAdvanced($filters);
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
         <main class="main-content">
-            <div class="explore-container">
-                <div class="search-sidebar">
-                    <div>
-                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem;">Explore</h2>
-                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Find books available near you</p>
-                        
-                        <form action="explore.php" method="GET">
-                            <div class="form-group">
-                                <label class="form-label">Search</label>
-                                <div style="position: relative;">
-                                    <i class='bx bx-search' style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                                    <input type="text" name="query" class="form-input" style="padding-left: 2.75rem;" value="<?php echo htmlspecialchars($filters['query']); ?>" placeholder="Title, author, or ISBN...">
-                                </div>
+            <div class="explore-wrapper">
+                <!-- Premium Sidebar -->
+                <aside class="premium-sidebar">
+                    <div class="sidebar-header">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h1 style="font-size: 1.75rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px; margin-bottom: 0.25rem;">Explore</h1>
+                                <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">Discover literature in your city.</p>
                             </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div class="form-group">
-                                    <label class="form-label">Provider</label>
-                                    <select name="role" class="form-input">
-                                        <option value="">All</option>
-                                        <option value="user" <?php echo $filters['role'] == 'user' ? 'selected' : ''; ?>>Users</option>
-                                        <option value="library" <?php echo $filters['role'] == 'library' ? 'selected' : ''; ?>>Library</option>
-                                        <option value="bookstore" <?php echo $filters['role'] == 'bookstore' ? 'selected' : ''; ?>>Store</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">Type</label>
-                                    <select name="type" class="form-input">
-                                        <option value="">Any</option>
-                                        <option value="borrow" <?php echo $filters['type'] == 'borrow' ? 'selected' : ''; ?>>Borrow</option>
-                                        <option value="sell" <?php echo $filters['type'] == 'sell' ? 'selected' : ''; ?>>Buy</option>
-                                        <option value="exchange" <?php echo $filters['type'] == 'exchange' ? 'selected' : ''; ?>>Trade</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group" style="margin-bottom: 2rem;">
-                                <label class="form-label">Category</label>
-                                <select name="category" class="form-input">
-                                    <option value="">All Categories</option>
-                                    <?php 
-                                    $cats = ['Authentication', 'Education', 'Fiction', 'Non-Fiction', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
-                                    foreach($cats as $c) {
-                                        $sel = ($filters['category'] == $c) ? 'selected' : '';
-                                        echo "<option value='$c' $sel>$c</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary w-full" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.8rem;">
-                                <i class='bx bx-search-alt'></i> Search Books
-                            </button>
-                            
-                            <div style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Search as I move</div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Live Sync</span>
                                 <label class="switch">
                                     <input type="checkbox" id="live-search-toggle" checked>
                                     <span class="slider round"></span>
                                 </label>
                             </div>
+                        </div>
+
+                        <form action="explore.php" method="GET" class="filter-grid" style="margin-top: 2rem;">
+                            <select name="category" class="premium-select" onchange="this.form.submit()">
+                                <option value="">All Genres</option>
+                                <?php 
+                                $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
+                                foreach($cats as $c) {
+                                    $sel = ($filters['category'] == $c) ? 'selected' : '';
+                                    echo "<option value='$c' $sel>$c</option>";
+                                }
+                                ?>
+                            </select>
+                            
+                            <select name="type" class="premium-select" onchange="this.form.submit()">
+                                <option value="">Any Intent</option>
+                                <option value="borrow" <?php echo $filters['type'] == 'borrow' ? 'selected' : ''; ?>>Borrow</option>
+                                <option value="sell" <?php echo $filters['type'] == 'sell' ? 'selected' : ''; ?>>Buy</option>
+                                <option value="exchange" <?php echo $filters['type'] == 'exchange' ? 'selected' : ''; ?>>Trade</option>
+                            </select>
+                            <input type="hidden" name="query" value="<?php echo htmlspecialchars($filters['query']); ?>">
                         </form>
                     </div>
 
-                    <div>
-                        <div class="filter-section-title">Results (<?php echo count($results); ?>)</div>
+                    <div class="sidebar-content">
+                        <!-- Rare Books Spotlight -->
+                        <?php if (!empty($rareResults)): ?>
+                        <div class="exclusive-banner">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                                <h3 style="font-size: 0.8rem; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    <i class='bx bxs-diamond'></i> Rare Spotlight
+                                </h3>
+                                <div style="display: flex; gap: 3px;">
+                                    <div style="width: 4px; height: 4px; background: #f59e0b; border-radius: 50%;"></div>
+                                    <div style="width: 4px; height: 4px; background: #f59e0b; border-radius: 50%; opacity: 0.5;"></div>
+                                    <div style="width: 4px; height: 4px; background: #f59e0b; border-radius: 50%; opacity: 0.3;"></div>
+                                </div>
+                            </div>
+                            <div class="rare-scroller">
+                                <?php foreach ($rareResults as $rare): ?>
+                                <div class="rare-item-card" onclick="window.location.href='book_details.php?id=<?php echo $rare['id']; ?>'">
+                                    <img src="<?php echo $rare['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=400'; ?>" 
+                                         class="rare-item-img" alt="Rare Book">
+                                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                        <?php echo htmlspecialchars($rare['title']); ?>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- Standard Results -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <h3 class="results-info-text" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em;">
+                                Discoveries (<?php echo count($results); ?>)
+                            </h3>
+                        </div>
+
                         <div class="results-list">
                             <?php foreach ($results as $item): ?>
-                                <div class="book-card-mini" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                                <div class="result-card-premium" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                                     <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
-                                         class="book-mini-img" alt="Book Cover"
+                                         class="result-img-premium" alt="Book Cover"
                                          onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
-                                    <div class="book-mini-content">
+                                    
+                                    <div class="result-info">
                                         <div>
-                                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;"><?php echo htmlspecialchars($item['title']); ?></div>
-                                            <div style="font-size: 0.8rem; color: var(--text-muted);">by <?php echo htmlspecialchars($item['author']); ?></div>
-                                                <a href="user_profile.php?id=<?php echo $item['user_id']; ?>" onclick="event.stopPropagation();" style="display: flex; flex-direction: column; gap: 2px; text-decoration: none;">
-                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                        <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
-                                                            <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
-                                                        </div>
-                                                        <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
-                                                            <i class='bx bxs-shield-check'></i> <?php echo $item['trust_score']; ?>
-                                                        </div>
-                                                    </div>
-                                                    <span style="font-size: 0.65rem; color: var(--primary); font-weight: 600;">View Feedback</span>
-                                                </a>
-                                        </div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <div style="display: flex; flex-direction: column; gap: 2px;">
-                                                <span class="badge badge-<?php echo $item['listing_type']; ?>"><?php echo ucfirst($item['listing_type']); ?></span>
+                                            <div class="result-title"><?php echo htmlspecialchars($item['title']); ?></div>
+                                            <div class="result-author">by <?php echo htmlspecialchars($item['author']); ?></div>
+                                            
+                                            <div class="pill-group">
+                                                <span class="premium-pill badge-<?php echo $item['listing_type']; ?>"><?php echo ucfirst($item['listing_type']); ?></span>
                                                 <?php if (isset($item['distance'])): ?>
-                                                    <span style="font-size: 0.7rem; color: var(--primary); font-weight: 700;">
-                                                        <i class='bx bx-navigation'></i> <?php echo number_format($item['distance'], 1); ?> km away
+                                                    <span class="premium-pill" style="background: var(--bg-body); color: var(--primary); border: 1px solid var(--border-color);">
+                                                        <i class='bx bx-navigation'></i> <?php echo number_format($item['distance'], 1); ?> km
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
-                                            <div style="text-align: right;">
-                                                <div style="font-size: 0.75rem; color: var(--text-muted);"><i class='bx bx-layer'></i> Qty: <?php echo $item['quantity']; ?></div>
-                                                <span style="font-weight: 800; color: var(--primary); font-size: 1rem;">₹<?php echo number_format($item['price'], 2); ?></span>
+                                        </div>
+
+                                        <div class="result-footer">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <div style="width: 32px; height: 32px; background: var(--bg-body); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
+                                                    <i class='bx bxs-star'></i>
+                                                </div>
+                                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;"><?php echo number_format($item['average_rating'], 1); ?></span>
                                             </div>
+                                            <div class="price-display">₹<?php echo number_format($item['price'], 0); ?></div>
                                         </div>
                                     </div>
+
                                     <?php if ($item['quantity'] <= 0): ?>
-                                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: var(--radius-md);">
-                                            <span class="badge" style="background: #ef4444; color: white;">Sold Out</span>
+                                        <div style="position: absolute; inset: 0; background: rgba(var(--bg-body-rgb), 0.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 5;">
+                                            <span style="background: var(--text-main); color: var(--bg-card); padding: 8px 24px; border-radius: 30px; font-weight: 900; font-size: 0.75rem; letter-spacing: 1px;">SOLD OUT</span>
                                         </div>
                                     <?php endif; ?>
-                                    <a href="chat/index.php?user=<?php echo $item['user_id']; ?>" onclick="event.stopPropagation();" class="chat-btn-mini" title="Chat with Owner">
-                                        <i class='bx bx-message-square-dots'></i>
-                                    </a>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
-                </div>
+                </aside>
 
-                <div style="position: relative; height: 100%;">
-                    <div id="map"></div>
-                    <!-- Map Search Overlay -->
-                    <div style="position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; gap: 5px;">
-                        <input type="text" id="map-loc-search" placeholder="Go to city..." 
-                               style="border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; outline: none;"
-                               onkeydown="if(event.key === 'Enter') { event.preventDefault(); searchMapLoc(); }">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="searchMapLoc()">Go</button>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="useMyLoc()" title="Use Current Location" style="border: 1px solid #ccc;"><i class='bx bx-current-location'></i></button>
+                <!-- Interactive Map Area -->
+                <div id="map"></div>
+
+                <!-- Floating Overlays -->
+                <div class="map-overlay-controls">
+                    <div class="glass-box">
+                        <div class="search-container">
+                            <i class='bx bx-map-pin' style="color: var(--primary); font-size: 1.2rem;"></i>
+                            <input type="text" id="map-loc-search" placeholder="Search any neighborhood..." 
+                                   onkeydown="if(event.key === 'Enter') searchMapLoc()">
+                        </div>
+                        <button class="icon-btn" onclick="searchMapLoc()" title="Navigate">
+                            <i class='bx bx-right-arrow-alt'></i>
+                        </button>
+                    </div>
+
+                    <div class="glass-box">
+                        <button class="icon-btn white" onclick="useMyLoc()" title="Recenter to my position">
+                            <i class='bx bx-target-lock'></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -363,7 +573,7 @@ $results = searchListingsAdvanced($filters);
 
             if (!listings || listings.length === 0) {
                 resultsList.innerHTML = '<div class="empty-state" style="padding: 2rem; text-align: center; color: var(--text-muted);">No books found in this area.</div>';
-                document.querySelector('.filter-section-title').innerText = 'Results (0)';
+                document.querySelector('.results-info-text').innerText = 'Discoveries (0)';
                 return;
             }
 
@@ -371,71 +581,69 @@ $results = searchListingsAdvanced($filters);
                 if (m.latitude && m.longitude) {
                     const marker = L.marker([m.latitude, m.longitude])
                         .bindPopup(`
-                            <div style="font-family: inherit; padding: 5px; min-width: 180px;">
+                            <div style="font-family: inherit; padding: 10px; min-width: 220px; border-radius: 16px;">
                                 <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
-                                     style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;"
+                                     style="width: 100%; height: 120px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"
                                      onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
-                                <strong style="display:block; font-size: 1.1rem; margin-bottom: 2px; color: var(--text-main);">${m.title}</strong>
-                                <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">by ${m.author}</span>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <span class="badge badge-${m.listing_type}" style="font-size: 0.7rem;">${m.listing_type}</span>
-                                    <div style="display:flex; align-items:center; gap:8px;">
-                                        <span style="color: #f59e0b; font-size: 0.85rem; font-weight: 700;"><i class='bx bxs-star'></i> ${m.average_rating}</span>
-                                    </div>
+                                <strong style="display:block; font-size: 1.1rem; margin-bottom: 2px; color: var(--text-main); line-height: 1.2;">${m.title}</strong>
+                                <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">by ${m.author}</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <span class="premium-pill badge-${m.listing_type}" style="font-size: 0.65rem;">${m.listing_type}</span>
+                                    <span style="color: #f59e0b; font-size: 0.9rem; font-weight: 800;"><i class='bx bxs-star'></i> ${m.average_rating}</span>
                                 </div>
-                                <div style="display: grid; gap: 0.5rem;">
-                                    <a href="book_details.php?id=${m.id}" class="btn btn-primary btn-sm" style="text-decoration: none; color: white;">Get Book</a>
-                                    <a href="user_profile.php?id=${m.user_id}" class="btn btn-outline btn-sm" style="text-decoration: none; font-size: 0.75rem;">View User Reviews</a>
+                                <div style="display: grid; gap: 0.75rem;">
+                                    <a href="book_details.php?id=${m.id}" class="icon-btn" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">View Details</a>
+                                    <a href="chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>
                                 </div>
                             </div>
-                        `);
+                        `, { className: 'premium-popup' });
                     markerCluster.addLayer(marker);
                 }
 
                 // Sidebar Card
                 const card = document.createElement('div');
-                card.className = 'book-card-mini';
+                card.className = 'result-card-premium';
                 card.onclick = () => window.location.href = `book_details.php?id=${m.id}`;
+                
+                let quantityOverlay = m.quantity <= 0 ? `
+                    <div style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: 20px;">
+                        <span style="background: #000; color: white; padding: 6px 18px; border-radius: 30px; font-weight: 900; font-size: 0.75rem;">TAKEN</span>
+                    </div>
+                ` : '';
+
                 card.innerHTML = `
                     <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
-                         class="book-mini-img" alt="Book Cover"
+                         class="result-img-premium" alt="Book Cover"
                          onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
-                    <div class="book-mini-content">
+                    <div class="result-info">
                         <div>
-                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px;">${m.title}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">by ${m.author}</div>
-                                <a href="user_profile.php?id=${m.user_id}" style="display: flex; flex-direction: column; gap: 2px; text-decoration: none;" onclick="event.stopPropagation();">
-                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <div style="display: flex; align-items: center; color: #f59e0b; font-size: 0.8rem; font-weight: 700;">
-                                            <i class='bx bxs-star'></i> ${m.average_rating}
-                                        </div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">
-                                            <i class='bx bxs-shield-check'></i> ${m.trust_score}
-                                        </div>
-                                    </div>
-                                    <div style="font-size: 0.65rem; color: var(--primary); font-weight: 600;">View Reviews</div>
-                                </a>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; flex-direction: column; gap: 2px;">
-                                <span class="badge badge-${m.listing_type}">${m.listing_type}</span>
+                            <div class="result-title">${m.title}</div>
+                            <div class="result-author">by ${m.author}</div>
+                            <div class="pill-group">
+                                <span class="premium-pill badge-${m.listing_type}">${m.listing_type}</span>
                                 ${m.distance ? `
-                                    <span class="distance-label">
+                                    <span class="premium-pill" style="background: var(--bg-body); color: var(--primary); border: 1px solid var(--border-color);">
                                         <i class='bx bx-navigation'></i> ${parseFloat(m.distance).toFixed(1)} km
                                     </span>
                                 ` : ''}
                             </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 0.75rem; color: var(--text-muted);"><i class='bx bx-layer'></i> Qty: ${m.quantity}</div>
-                                <span style="font-weight: 800; color: var(--primary); font-size: 1rem;">₹${parseFloat(m.price).toFixed(2)}</span>
+                        </div>
+                        <div class="result-footer">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="width: 32px; height: 32px; background: var(--bg-body); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
+                                    <i class='bx bxs-star'></i>
+                                </div>
+                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${m.average_rating}</span>
                             </div>
+                            <div class="price-display">₹${parseFloat(m.price).toFixed(0)}</div>
                         </div>
                     </div>
+                    ${quantityOverlay}
                 `;
                 resultsList.appendChild(card);
             });
             
-            document.querySelector('.filter-section-title').innerText = `Results (${listings.length})`;
+            document.querySelector('.results-info-text').innerText = `Discoveries (${listings.length})`;
         }
 
         async function fetchNewResults() {

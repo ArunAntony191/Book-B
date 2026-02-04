@@ -219,6 +219,35 @@ include '../includes/dashboard_header.php';
         </div>
     </div>
 
+    <!-- Report Modal -->
+    <div class="modal" id="report-modal">
+        <form class="modal-content" onsubmit="submitReport(event)">
+            <h3>Report Community Group</h3>
+            <p style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">Please explain why you are reporting this community.</p>
+            
+            <div class="form-group">
+                <label class="form-label">Reason</label>
+                <select name="reason" class="form-input" required>
+                    <option value="Inappropriate Content">Inappropriate Content</option>
+                    <option value="Harassment">Harassment</option>
+                    <option value="Spam">Spam</option>
+                    <option value="Illegal Activities">Illegal Activities</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-input" style="height: 100px;" placeholder="Provide additional details..." required></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('report-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background: #ef4444; border-color: #ef4444;">Submit Report</button>
+            </div>
+        </form>
+    </div>
+
     <script>
         let currentCommId = null;
         let currentCommCreator = null;
@@ -307,8 +336,11 @@ include '../includes/dashboard_header.php';
                     </button>
                 `;
             } else {
-                // Member button: Leave
+                // Member button: Leave & Report
                 buttonContainer.innerHTML = `
+                    <button class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem; color: #ef4444; border-color: #ef4444;" onclick="showReportModal()">
+                        <i class='bx bx-flag'></i> Report
+                    </button>
                     <button class="btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="leaveCommunity()">
                         <i class='bx bx-exit'></i> Leave
                     </button>
@@ -500,6 +532,37 @@ include '../includes/dashboard_header.php';
                     alert('Error deleting community');
                     console.error('Delete error:', err);
                 });
+        }
+
+        // 10. Report Community
+        function showReportModal() {
+            document.getElementById('report-modal').style.display = 'flex';
+        }
+
+        async function submitReport(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            formData.append('action', 'submit_report');
+            formData.append('reported_community_id', currentCommId);
+            formData.append('type', 'community');
+
+            try {
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Report submitted successfully. Thank you for making the community safe.');
+                    document.getElementById('report-modal').style.display = 'none';
+                    e.target.reset();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to submit report. Please try again later.');
+            }
         }
 
         // Init

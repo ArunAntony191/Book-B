@@ -41,7 +41,8 @@ if ($userId) {
         'lastname' => $userData['lastname'] ?? $_SESSION['lastname'] ?? '',
         'role' => $_SESSION['role'] ?? 'user',
         'email' => $_SESSION['user_email'] ?? '',
-        'profile_picture' => $userData['profile_picture'] ?? null
+        'profile_picture' => $userData['profile_picture'] ?? null,
+        'favorite_category' => $userData['favorite_category'] ?? null
     ];
 } else {
     $user = [

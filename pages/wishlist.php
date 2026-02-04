@@ -41,6 +41,7 @@ $wishlist = $stmt->fetchAll();
             overflow: hidden;
             transition: all 0.2s;
             cursor: pointer;
+            position: relative;
         }
         .book-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--primary); }
         .book-cover {
@@ -49,6 +50,39 @@ $wishlist = $stmt->fetchAll();
             object-fit: cover;
         }
         .book-info { padding: 1rem; }
+        
+        .compare-btn-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+        }
+        .compare-btn-toggle:hover {
+            background: white;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .compare-btn-toggle.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .book-card.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
     </style>
 </head>
 <body>
@@ -62,6 +96,9 @@ $wishlist = $stmt->fetchAll();
                 <div class="books-grid">
                     <?php foreach ($wishlist as $item): ?>
                         <div class="book-card" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                            <button class="compare-btn-toggle" data-id="<?php echo $item['id']; ?>" onclick="toggleCompare(this, event)">
+                                <i class='bx bx-plus'></i> Compare
+                            </button>
                             <img src="<?php echo $item['cover_image'] ?: '../assets/images/book-placeholder.jpg'; ?>" class="book-cover">
                             <div class="book-info">
                                 <div style="font-weight: 700; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo htmlspecialchars($item['title']); ?></div>
@@ -79,6 +116,74 @@ $wishlist = $stmt->fetchAll();
                 </div>
             <?php endif; ?>
         </main>
+        
+        <!-- Comparison Action Bar -->
+        <div id="compare-bar" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text-main); color: white; padding: 1rem 2rem; border-radius: 50px; display: none; align-items: center; gap: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 1000;">
+            <div style="font-weight: 600;">
+                <span id="selected-count">0</span>/3 Selected
+            </div>
+            <button onclick="goToCompare()" class="btn btn-primary" style="padding: 0.5rem 1.5rem; border-radius: 25px;">Ready to Compare</button>
+            <button onclick="clearSelection()" style="background: none; border: none; color: #cbd5e1; cursor: pointer;"><i class='bx bx-x' style="font-size: 1.5rem;"></i></button>
+        </div>
+
+        <script>
+            let selectedIds = [];
+            const compareBar = document.getElementById('compare-bar');
+            const selectedCountSpan = document.getElementById('selected-count');
+            
+            function toggleCompare(btn, event) {
+                event.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                const card = btn.closest('.book-card');
+                
+                if (selectedIds.includes(id)) {
+                    // Deselect
+                    selectedIds = selectedIds.filter(i => i !== id);
+                    btn.classList.remove('active');
+                    btn.innerHTML = "<i class='bx bx-plus'></i> Compare";
+                    card.classList.remove('selected');
+                } else {
+                    // Select
+                    if (selectedIds.length >= 3) {
+                        alert('You can only compare up to 3 books at a time.');
+                        return;
+                    }
+                    selectedIds.push(id);
+                    btn.classList.add('active');
+                    btn.innerHTML = "<i class='bx bx-check'></i> Selected";
+                    card.classList.add('selected');
+                }
+                
+                updateSelectionUI();
+            }
+
+            function updateSelectionUI() {
+                if (selectedIds.length > 0) {
+                    compareBar.style.display = 'flex';
+                } else {
+                    compareBar.style.display = 'none';
+                }
+                selectedCountSpan.textContent = selectedIds.length;
+            }
+
+            function clearSelection() {
+                selectedIds = [];
+                document.querySelectorAll('.compare-btn-toggle').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.innerHTML = "<i class='bx bx-plus'></i> Compare";
+                });
+                document.querySelectorAll('.book-card').forEach(card => card.classList.remove('selected'));
+                updateSelectionUI();
+            }
+
+            function goToCompare() {
+                if (selectedIds.length < 2) {
+                    alert('Please select at least 2 books to compare.');
+                    return;
+                }
+                window.location.href = `compare_books.php?ids=${selectedIds.join(',')}`;
+            }
+        </script>
     </div>
 </body>
 </html>

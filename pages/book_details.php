@@ -8,7 +8,7 @@ $listingId = $_GET['id'] ?? 0;
 
 $pdo = getDBConnection();
 $stmt = $pdo->prepare("
-    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, b.condition_status,
+    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, b.condition_status, b.is_rare, b.rare_details,
            u.firstname, u.lastname, u.role, u.reputation_score, l.quantity
     FROM listings l
     JOIN books b ON l.book_id = b.id
@@ -41,6 +41,18 @@ if ($book['latitude'] && $book['longitude']) {
         $book['longitude'], 
         $book['district']
     );
+}
+
+// Check for existing pending/active request
+$existingRequest = false;
+$existingStatus = '';
+if ($userId) {
+    $rStmt = $pdo->prepare("SELECT status FROM transactions WHERE listing_id = ? AND borrower_id = ? AND status IN ('requested', 'approved', 'assigned', 'active', 'returning', 'delivered')");
+    $rStmt->execute([$listingId, $userId]);
+    if ($row = $rStmt->fetch()) {
+        $existingRequest = true;
+        $existingStatus = $row['status'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -349,6 +361,20 @@ if ($book['latitude'] && $book['longitude']) {
                         </button>
                     </div>
                     
+                    <?php if ($book['is_rare']): ?>
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -10px; right: -10px; font-size: 4rem; opacity: 0.1; transform: rotate(15deg); color: #92400e;">
+                            <i class='bx bxs-diamond'></i>
+                        </div>
+                        <h3 style="color: #92400e; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <i class='bx bxs-award'></i> Rare & Collectible Item
+                        </h3>
+                        <p style="color: #b45309; font-weight: 600; line-height: 1.5;">
+                            <?php echo htmlspecialchars($book['rare_details'] ?: 'This book has been marked as a rare find by the owner.'); ?>
+                        </p>
+                    </div>
+                    <?php endif; ?>
+                    
                     <div class="section-card">
                         <h3 style="margin-bottom: 1rem; font-weight: 700;">Description</h3>
                         <p style="line-height: 1.7; color: var(--text-muted);"><?php echo nl2br(htmlspecialchars($book['description'] ?: 'No description available.')); ?></p>
@@ -422,6 +448,7 @@ if ($book['latitude'] && $book['longitude']) {
                                         <i class='bx bx-cog'></i> Manage Listings
                                     </a>
                                 </div>
+
                             <?php elseif ($book['quantity'] > 0): ?>
                                 <?php if (!$hasMinTokens && $userId): ?>
                                     <div class="token-warning">
@@ -568,7 +595,7 @@ if ($book['latitude'] && $book['longitude']) {
         </div>
         <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="submitRequest()">Send Request</button>
+                <button class="btn btn-primary" id="btn-submit-request" onclick="submitRequest()">Send Request</button>
             </div>
         </div>
     </div>
@@ -840,7 +867,15 @@ if ($book['latitude'] && $book['longitude']) {
             });
 
             if(dMarker) dMap.removeLayer(dMarker);
-            dMarker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(dMap);
+            dMarker = L.marker([lat, lng], { 
+                icon: pulsingIcon,
+                draggable: true 
+            }).addTo(dMap);
+
+            dMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                updateMarkerAndAddress(pos.lat, pos.lng);
+            });
 
             document.getElementById('order-lat').value = lat;
             document.getElementById('order-lng').value = lng;
@@ -907,6 +942,11 @@ if ($book['latitude'] && $book['longitude']) {
                 return;
             }
 
+            
+            const btn = document.getElementById('btn-submit-request');
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+
             fetch('../actions/request_action.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -916,10 +956,18 @@ if ($book['latitude'] && $book['longitude']) {
             .then(data => {
                 if(data.success) {
                     alert(data.message);
-                    closeModal();
+                    location.reload(); 
                 } else {
                     alert('Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerText = 'Send Request';
                 }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('An error occurred. Please try again.');
+                btn.disabled = false;
+                btn.innerText = 'Send Request';
             });
         }
 

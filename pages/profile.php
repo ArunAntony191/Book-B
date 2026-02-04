@@ -29,7 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'service_start_lng' => !empty($_POST['service_start_lng']) ? $_POST['service_start_lng'] : null,
         'service_end_lat' => !empty($_POST['service_end_lat']) ? $_POST['service_end_lat'] : null,
         'service_end_lng' => !empty($_POST['service_end_lng']) ? $_POST['service_end_lng'] : null,
-        'is_accepting_deliveries' => isset($_POST['is_accepting_deliveries']) ? 1 : 0
+        'is_accepting_deliveries' => isset($_POST['is_accepting_deliveries']) ? 1 : 0,
+        'favorite_category' => trim($_POST['favorite_category'] ?? '')
     ];
 
     if (updateUser($userId, $data)) {
@@ -419,6 +420,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input type="tel" name="phone" class="form-input" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" required
                                            pattern="[\d\s\-\+\(\)]{10,20}" title="Phone number must contain only digits, spaces, and symbols (+, -, parenthesis). Letters are not allowed.">
                                 </div>
+                                <div class="form-group" style="margin-top: 1.25rem;">
+                                    <label class="form-label">Favorite Category / Interest</label>
+                                    <select name="favorite_category" class="form-input">
+                                        <option value="">None Selected</option>
+                                        <?php 
+                                        $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History', 'Technology', 'Science', 'Art', 'Cooking', 'Comics'];
+                                        foreach($cats as $c) {
+                                            $sel = (isset($user['favorite_category']) && $user['favorite_category'] == $c) ? 'selected' : '';
+                                            echo "<option value='$c' $sel>$c</option>";
+                                        }
+                                        ?>
+                                    </select>
+                                    <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">
+                                        Setting this helps us recommend books you'll love on your dashboard!
+                                    </p>
+                                </div>
                             </div>
 
                             <!-- Section: Delivery Address -->
@@ -608,8 +625,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
         const cartoAttr = '©OpenStreetMap ©CartoDB';
 
-        const initialLat = <?php echo !empty($user['service_start_lat']) ? $user['service_start_lat'] : '9.4124'; ?>;
-        const initialLng = <?php echo !empty($user['service_start_lng']) ? $user['service_start_lng'] : '76.6946'; ?>;
+        const initialLat = <?php echo !empty($user['service_start_lat']) ? floatval($user['service_start_lat']) : 9.4124; ?>;
+        const initialLng = <?php echo !empty($user['service_start_lng']) ? floatval($user['service_start_lng']) : 76.6946; ?>;
         const addressMap = L.map('address-map', { zoomControl: true }).setView([initialLat, initialLng], 13);
         L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(addressMap);
         
@@ -622,8 +639,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         let addressMarker = null;
         let accuracyCircle = null;
+        
+        function createMarker(lat, lng) {
+            if (addressMarker) addressMap.removeLayer(addressMarker);
+            addressMarker = L.marker([lat, lng], { 
+                icon: pulsingIcon,
+                draggable: true 
+            }).addTo(addressMap);
+
+            addressMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                updateAddressFromCoords(pos.lat, pos.lng);
+            });
+        }
+
         <?php if (!empty($user['service_start_lat']) && !empty($user['service_start_lng'])): ?>
-            addressMarker = L.marker([<?php echo $user['service_start_lat']; ?>, <?php echo $user['service_start_lng']; ?>], { icon: pulsingIcon }).addTo(addressMap);
+            createMarker(<?php echo floatval($user['service_start_lat']); ?>, <?php echo floatval($user['service_start_lng']); ?>);
         <?php endif; ?>
 
         addressMap.on('click', (e) => updateAddressFromCoords(e.latlng.lat, e.latlng.lng));
@@ -720,8 +751,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         async function updateAddressFromCoords(lat, lng, manualAddress = null) {
-            if(addressMarker) addressMap.removeLayer(addressMarker);
-            addressMarker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(addressMap);
+            createMarker(lat, lng);
             document.getElementById('lat').value = lat;
             document.getElementById('lng').value = lng;
 

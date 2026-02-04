@@ -61,6 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pincode = $_POST['pincode'] ?? null;
         $landmark = $_POST['landmark'] ?? '';
         
+        $isRare = isset($_POST['is_rare']) ? 1 : 0;
+        $rareDetails = $_POST['rare_details'] ?? null;
+        
         // Quantity (Valid integer > 0)
         $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
         
@@ -99,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     if ($postEditId) {
                         // Update Logic
-                        if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
+                        if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark, $isRare, $rareDetails)) {
                             $success = "Successfully updated your book!";
                             $editData = getListingWithQuantity($postEditId); // Refresh data
                         } else {
@@ -107,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     } else {
                         // Create Logic
-                        if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark)) {
+                        if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark, $isRare, $rareDetails)) {
                             deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
                             $success = "Successfully listed your book! 10 tokens have been deducted.";
                         } else {
@@ -413,6 +416,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">Description</label>
                                 <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..." minlength="10" title="Description must be at least 10 characters long to provide enough detail."><?php echo htmlspecialchars($editData['description'] ?? ''); ?></textarea>
                             </div>
+
+                            <div class="form-group" style="background: #fffbeb; padding: 1.5rem; border-radius: 12px; border: 1px solid #fde68a;">
+                                <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 700; color: #92400e;">
+                                    <input type="checkbox" name="is_rare" id="is_rare" style="width: 20px; height: 20px; cursor: pointer;" <?php echo ($editData['is_rare'] ?? 0) ? 'checked' : ''; ?> onchange="document.getElementById('rare-details-group').style.display = this.checked ? 'block' : 'none'">
+                                    <span>💎 Rare / Collectible Book</span>
+                                </label>
+                                <div id="rare-details-group" style="margin-top: 1rem; display: <?php echo ($editData['is_rare'] ?? 0) ? 'block' : 'none'; ?>;">
+                                    <label class="form-label">Rarity Details (e.g. Signed by Author, First Edition)</label>
+                                    <input type="text" name="rare_details" class="form-input" placeholder="Enter details why this book is rare..." value="<?php echo htmlspecialchars($editData['rare_details'] ?? ''); ?>">
+                                </div>
+                            </div>
+
                             <!-- Location Picker -->
                             <div class="form-group">
                                 <!-- High Precision Search -->
@@ -609,7 +624,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
             window.updateLocation = function(lat, lng, manualAddress = null) {
                 if (marker) map.removeLayer(marker);
-                marker = L.marker([lat, lng], { icon: pulsingIcon }).addTo(map);
+                marker = L.marker([lat, lng], { 
+                    icon: pulsingIcon,
+                    draggable: true 
+                }).addTo(map);
+
+                marker.on('dragend', function(e) {
+                    const pos = e.target.getLatLng();
+                    window.updateLocation(pos.lat, pos.lng);
+                });
     
                 document.getElementById('lat').value = lat;
                 document.getElementById('lng').value = lng;

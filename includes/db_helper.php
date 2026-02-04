@@ -114,7 +114,7 @@ function getUserById($userId) {
                    address, landmark, district, city, pincode, state, 
                    theme_mode, email_notifications,
                    service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
-                   profile_picture
+                   profile_picture, favorite_category
             FROM users 
             WHERE id = ?
         ");
@@ -143,7 +143,7 @@ function updateUser($userId, $data) {
                 'firstname', 'lastname', 'email', 'phone', 'address', 'landmark', 'district', 'city', 'pincode', 'state',
                 'service_start_lat', 'service_start_lng', 
                 'service_end_lat', 'service_end_lng', 
-                'is_accepting_deliveries', 'role'
+                'is_accepting_deliveries', 'role', 'favorite_category'
             ])) {
                 $fields[] = "$key = ?";
                 $values[] = $value;
@@ -524,14 +524,14 @@ function approveExtension($transactionId) {
 /**
  * Add a new book listing
  */
-function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null) {
+function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null, $isRare = 0, $rareDetails = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
 
         // 1. Create/Get book
-        $stmt = $pdo->prepare("INSERT INTO books (title, author, cover_image, description, category, condition_status) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition]);
+        $stmt = $pdo->prepare("INSERT INTO books (title, author, cover_image, description, category, condition_status, is_rare, rare_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $isRare, $rareDetails]);
         $bookId = $pdo->lastInsertId();
 
         // 2. Create listing with quantity and credit_cost
@@ -553,7 +553,7 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
 /**
  * Update an existing book listing
  */
-function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null) {
+function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null, $isRare = 0, $rareDetails = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
@@ -566,8 +566,8 @@ function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, 
         $bookId = $listing['book_id'];
 
         // 2. Update book
-        $stmt = $pdo->prepare("UPDATE books SET title = ?, author = ?, cover_image = ?, description = ?, category = ?, condition_status = ? WHERE id = ?");
-        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $bookId]);
+        $stmt = $pdo->prepare("UPDATE books SET title = ?, author = ?, cover_image = ?, description = ?, category = ?, condition_status = ?, is_rare = ?, rare_details = ? WHERE id = ?");
+        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $isRare, $rareDetails, $bookId]);
 
         // 3. Update listing
         $stmt = $pdo->prepare("
@@ -690,6 +690,47 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
     }
 }
 
+/**
+ * Get recommended books based on user's favorite category
+ */
+function getRecommendedBooks($userId, $limit = 4) {
+    try {
+        $pdo = getDBConnection();
+        
+        // 1. Get user's favorite category
+        $stmt = $pdo->prepare("SELECT favorite_category FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $favoriteCategory = $stmt->fetchColumn();
+        
+        if (!$favoriteCategory) {
+            return [];
+        }
+        
+        // 2. Fetch books matching the category, excluding user's own listings
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, 
+                   u.firstname, u.lastname, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.availability_status = 'available' 
+            AND l.visibility = 'public'
+            AND l.quantity > 0
+            AND b.category LIKE ?
+            AND l.user_id != ?
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        ");
+        
+        $stmt->execute(["%$favoriteCategory%", $userId, $limit]);
+        return $stmt->fetchAll();
+        
+    } catch (PDOException $e) {
+        error_log("Get recommended books error: " . $e->getMessage());
+        return [];
+    }
+}
+
 // ==================== CREDIT MANAGEMENT FUNCTIONS ====================
 
 /**
@@ -721,7 +762,9 @@ function addCredits($userId, $amount, $type, $description, $transactionId = null
         $stmt->execute([$userId]);
         $currentBalance = (int)$stmt->fetchColumn();
         
+        // Cap new balance at MAX_TOKEN_LIMIT
         $newBalance = min($currentBalance + $amount, MAX_TOKEN_LIMIT);
+        $actualAdded = $newBalance - $currentBalance;
         
         // Update user credits
         $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
@@ -732,7 +775,7 @@ function addCredits($userId, $amount, $type, $description, $transactionId = null
             INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
             VALUES (?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$userId, $transactionId, $amount, $newBalance, $type, $description]);
+        $stmt->execute([$userId, $transactionId, $actualAdded, $newBalance, $type, $description]);
         
         $pdo->commit();
         return true;
@@ -756,9 +799,11 @@ function deductCredits($userId, $amount, $type, $description, $transactionId = n
         $stmt->execute([$userId]);
         $currentBalance = (int)$stmt->fetchColumn();
         
-        $newBalance = $currentBalance - $amount;
+        // Floor new balance at 0 (tokens cannot be negative)
+        $newBalance = max(0, $currentBalance - $amount);
+        $actualDeducted = $currentBalance - $newBalance;
         
-        // Update user credits (allow negative balance for penalties)
+        // Update user credits
         $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
         $stmt->execute([$newBalance, $userId]);
         
@@ -767,16 +812,12 @@ function deductCredits($userId, $amount, $type, $description, $transactionId = n
             INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
             VALUES (?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$userId, $transactionId, -$amount, $newBalance, $type, $description]);
+        $stmt->execute([$userId, $transactionId, -$actualDeducted, $newBalance, $type, $description]);
 
         // Trigger Notification if hitting minimum limit
         if ($newBalance < MIN_TOKEN_LIMIT && $currentBalance >= MIN_TOKEN_LIMIT) {
-            $stmt = $pdo->prepare("
-                INSERT INTO notifications (user_id, type, message, is_read) 
-                VALUES (?, 'system', ?, 0)
-            ");
             $msg = "Warning: Your token balance has dropped below " . MIN_TOKEN_LIMIT . ". You must increase your tokens to continue listing or borrowing books.";
-            $stmt->execute([$userId, $msg]);
+            createNotification($userId, 'system', $msg);
         }
         
         $pdo->commit();
@@ -1044,11 +1085,7 @@ function banUser($userId) {
         // 2. Clear any active sessions (handled by login check usually, but good to flag)
         
         // 3. Send notification
-        $stmt = $pdo->prepare("
-            INSERT INTO notifications (user_id, type, message, is_read) 
-            VALUES (?, 'system', 'Your account has been suspended due to policy violations. Contact admin for appeal.', 0)
-        ");
-        $stmt->execute([$userId]);
+        createNotification($userId, 'system', 'Your account has been suspended due to policy violations. Contact admin for appeal.');
 
         $pdo->commit();
         return true;
@@ -1070,11 +1107,7 @@ function unbanUser($userId) {
         $stmt = $pdo->prepare("UPDATE users SET is_banned = 0 WHERE id = ?");
         $stmt->execute([$userId]);
 
-        $stmt = $pdo->prepare("
-            INSERT INTO notifications (user_id, type, message, is_read) 
-            VALUES (?, 'system', 'Your account suspension has been lifted. Welcome back.', 0)
-        ");
-        $stmt->execute([$userId]);
+        createNotification($userId, 'system', 'Your account suspension has been lifted. Welcome back.');
 
         $pdo->commit();
         return true;
@@ -1086,16 +1119,15 @@ function unbanUser($userId) {
 }
 
 /**
- * Create a user report
+ * Create a report (user or community)
  */
-function createReport($reporterId, $reportedId, $reason, $description) {
+function createReport($reporterId, $targetId, $reason, $description, $type = 'user') {
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("
-            INSERT INTO reports (reporter_id, reported_id, reason, description, status) 
-            VALUES (?, ?, ?, ?, 'pending')
-        ");
-        return $stmt->execute([$reporterId, $reportedId, $reason, $description]);
+        $sql = "INSERT INTO reports (reporter_id, " . ($type === 'community' ? 'reported_community_id' : 'reported_id') . ", reason, type, description, status) 
+                VALUES (?, ?, ?, ?, ?, 'pending')";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([$reporterId, $targetId, $reason, $type, $description]);
     } catch (PDOException $e) {
         error_log("Create report error: " . $e->getMessage());
         return false;
@@ -1111,10 +1143,12 @@ function getReports($status = 'pending') {
         $stmt = $pdo->prepare("
             SELECT r.*, 
                    u_reporter.firstname as reporter_fname, u_reporter.lastname as reporter_lname,
-                   u_reported.firstname as reported_fname, u_reported.lastname as reported_lname, u_reported.id as reported_uid
+                   u_reported.firstname as reported_fname, u_reported.lastname as reported_lname, u_reported.id as reported_uid,
+                   c.name as community_name
             FROM reports r
             JOIN users u_reporter ON r.reporter_id = u_reporter.id
-            JOIN users u_reported ON r.reported_id = u_reported.id
+            LEFT JOIN users u_reported ON r.reported_id = u_reported.id
+            LEFT JOIN communities c ON r.reported_community_id = c.id
             WHERE r.status = ?
             ORDER BY r.created_at DESC
         ");
@@ -1187,7 +1221,7 @@ function getListingWithQuantity($listingId) {
     try {
         $pdo = getDBConnection();
         $stmt = $pdo->prepare("
-            SELECT l.*, b.title, b.author, b.cover_image, b.description, b.category,
+            SELECT l.*, b.title, b.author, b.cover_image, b.description, b.category, b.is_rare, b.rare_details,
                    u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
             FROM listings l
             JOIN books b ON l.book_id = b.id
@@ -1554,8 +1588,7 @@ function assignDeliveryAgent($transactionId) {
                 ->execute([$bestAgentId, $transactionId]);
             
             // Notify agent
-            $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'delivery_assigned', ?, ?)")
-                ->execute([$bestAgentId, "New delivery task assigned! Travel to pickup location.", $transactionId]);
+            createNotification($bestAgentId, 'delivery_assigned', "New delivery task assigned! Travel to pickup location.", $transactionId);
             
             return true;
         }
@@ -1802,6 +1835,89 @@ function deleteUserAccount($userId) {
 }
 
 /**
+ * Delete a community group
+ */
+function deleteCommunity($communityId, $reason = "Violation of community guidelines") {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get community name and members before deletion
+        $stmt = $pdo->prepare("SELECT name FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+        $communityName = $stmt->fetchColumn();
+
+        if (!$communityName) throw new Exception("Community not found.");
+
+        $stmt = $pdo->prepare("SELECT user_id FROM community_members WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+        $memberIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // 2. Notify members
+        $msg = "The community group '$communityName' has been deleted by an admin. Reason: $reason";
+        foreach ($memberIds as $mId) {
+            createNotification($mId, 'system', $msg);
+        }
+
+        // 3. Delete listings that are restricted to this community
+        $stmt = $pdo->prepare("DELETE FROM listings WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+
+        // 4. Members and Messages are handled by ON DELETE CASCADE in schema
+        
+        // 5. Delete the community itself
+        $stmt = $pdo->prepare("DELETE FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete community error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Send a warning to a community group
+ */
+function warnCommunity($communityId, $adminId, $reason) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get community name and members
+        $stmt = $pdo->prepare("SELECT name FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+        $communityName = $stmt->fetchColumn();
+
+        if (!$communityName) throw new Exception("Community not found.");
+
+        $stmt = $pdo->prepare("SELECT user_id FROM community_members WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+        $memberIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // 2. Notify individual members
+        $msg = "ADMIN WARNING: The community group '$communityName' has received a warning for: $reason. Continued violations will lead to group deletion.";
+        foreach ($memberIds as $mId) {
+            createNotification($mId, 'system', $msg);
+        }
+
+        // 3. Post an official message in the group chat
+        $chatMsg = "🚨 OFFICIAL ADMIN WARNING: This group has been reported for: $reason. Please ensure all discussions follow community guidelines to avoid group deletion.";
+        $stmt = $pdo->prepare("INSERT INTO community_messages (community_id, user_id, message) VALUES (?, ?, ?)");
+        $stmt->execute([$communityId, $adminId, $chatMsg]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Warn community error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Global function to create a notification
  */
 function createNotification($userId, $type, $message, $referenceId = null) {
@@ -1885,6 +2001,18 @@ function createNotification($userId, $type, $message, $referenceId = null) {
                     $subject = 'Support Request Received';
                     $actionUrl = APP_URL . '/pages/notifications.php';
                     $actionText = 'View Message';
+                    break;
+
+                case 'return_complete':
+                    $subject = 'Return Delivery Completed';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Details';
+                    break;
+
+                case 'book_restocked':
+                    $subject = 'Book Restocked';
+                    $actionUrl = APP_URL . '/pages/my_books.php';
+                    $actionText = 'View Inventory';
                     break;
                     
                 default:
@@ -2138,5 +2266,34 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
     } catch (PDOException $e) {
         error_log("Get business report stats error: " . $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * Get available rare books
+ */
+function getRareBooks($limit = 10) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE b.is_rare = 1
+            AND l.availability_status = 'available'
+            AND l.visibility = 'public'
+            AND l.quantity > 0
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        ");
+        // Ensure limit is an integer
+        $stmt->bindValue(1, (int)$limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get rare books error: " . $e->getMessage());
+        return [];
     }
 }

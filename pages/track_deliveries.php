@@ -21,6 +21,9 @@ $returns = [];
 $exchanges = [];
 
 foreach ($deliveries as $d) {
+    // Skip cancelled deliveries from tracking
+    if ($d['status'] === 'cancelled') continue;
+
     // If it's an exchange transaction, it goes to Exchanges tab
     if ($d['transaction_type'] === 'exchange') {
         $exchanges[] = $d;
@@ -28,10 +31,11 @@ foreach ($deliveries as $d) {
     }
 
     // If it's in a return phase, it goes to Returns tab
-    $isActuallyReturning = (in_array($d['status'], ['returning', 'returned']));
+    // Expanded list to catch ALL return stages
+    $isActuallyReturning = (in_array($d['status'], ['return_requested', 'return_approved', 'returning', 'returned', 'return_delivery_assigned', 'return_pending_confirmation']));
     if ($isActuallyReturning) {
         $returns[] = $d;
-        // Do NOT continue here; let it also appear in Incoming/Outgoing as a completed forward leg
+        continue; // Don't show in "Incoming" once the return process starts
     }
 
     // Forward phase categorization (or historically forward)
@@ -574,12 +578,11 @@ function getStatusLabel($status, $agentId) {
                         <button onclick="confirmAction(<?php echo $d['id']; ?>, 'confirm_receipt')" class="btn-confirm primary">
                             <i class='bx bx-check-shield'></i> I Received My Book
                         </button>
-                    
-                    <?php elseif ($isBorrower && $d['status'] === 'delivered' && ($d['transaction_type'] === 'borrow' || $d['transaction_type'] === 'exchange')): ?>
+                     
+                    <?php elseif ($isBorrower && $d['status'] === 'delivered' && $d['transaction_type'] === 'borrow'): ?>
                         <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
-                            <?php $btnLabel = ($d['transaction_type'] === 'exchange') ? 'Send Exchange Book via Agent' : 'Return Book via Agent'; ?>
                             <button onclick="confirmAction(<?php echo $d['id']; ?>, 'request_return_delivery')" class="btn-confirm primary" style="background: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);">
-                                <i class='bx bx-undo'></i> <?php echo $btnLabel; ?> (10 Credits)
+                                <i class='bx bx-undo'></i> Return Book via Agent (10 Credits)
                             </button>
                             
                             <?php if ($d['transaction_type'] === 'borrow'): ?>

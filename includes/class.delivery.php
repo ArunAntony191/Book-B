@@ -153,10 +153,8 @@ class DeliveryManager {
 
                 // Notify parties
                 $msg = "Return delivery complete! '{$tx['title']}' has been delivered back to the owner.";
-                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'return_complete', ?, ?)")
-                    ->execute([$tx['borrower_id'], $msg, $transactionId]);
-                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'return_complete', ?, ?)")
-                    ->execute([$tx['lender_id'], $msg, $transactionId]);
+                createNotification($tx['borrower_id'], 'return_complete', $msg, $transactionId);
+                createNotification($tx['lender_id'], 'return_complete', $msg, $transactionId);
             }
         }
         else {
@@ -233,8 +231,7 @@ class DeliveryManager {
             if ($restock && empty($tx['is_restocked'])) {
                 $this->pdo->prepare("UPDATE listings SET quantity = quantity + 1 WHERE id = ?")->execute([$tx['listing_id']]);
                 $this->pdo->prepare("UPDATE transactions SET is_restocked = 1 WHERE id = ?")->execute([$transactionId]);
-                $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'book_restocked', ?, ?)")
-                     ->execute([$userId, "'{$tx['title']}' has been restocked!", $transactionId]);
+                createNotification($userId, 'book_restocked', "'{$tx['title']}' has been restocked!", $transactionId);
             }
             
             $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$tx['lender_id']]);
@@ -270,8 +267,7 @@ class DeliveryManager {
         }
 
         if ($msg) {
-            $this->pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-                ->execute([$tx['borrower_id'], $type, $msg, $tx['id']]);
+            createNotification($tx['borrower_id'], $type, $msg, $tx['id']);
         }
     }
 }

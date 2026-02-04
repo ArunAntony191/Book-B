@@ -57,7 +57,15 @@ try {
         $type = $_POST['type'] ?? 'borrow'; 
         $ownerId = validateId($_POST['owner_id'] ?? 0);
         $dueDate = $_POST['due_date'] ?? null;
+        $dueDate = $_POST['due_date'] ?? null;
         $bookTitle = $_POST['book_title'] ?? 'a book';
+
+        // Duplicate Check
+        $stmt = $pdo->prepare("SELECT id FROM transactions WHERE listing_id = ? AND borrower_id = ? AND status IN ('requested', 'approved', 'assigned', 'active', 'returning', 'delivered')");
+        $stmt->execute([$listingId, $userId]);
+        if ($stmt->fetch()) {
+            throw new Exception("You have already requested or are currently processing an order for this book.");
+        }
 
         if (!$ownerId) throw new Exception("Invalid Owner ID.");
         if ($type === 'borrow') {
@@ -123,8 +131,7 @@ try {
         elseif ($type === 'sell') $msg .= "buy '{$bookTitle}'";
         else $msg .= "swap for '{$bookTitle}'";
 
-        $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, ?, ?, ?)")
-            ->execute([$ownerId, $type . '_request', $msg, $transactionId]);
+        createNotification($ownerId, $type . '_request', $msg, $transactionId);
 
         $chatMsg = "Hi, I would like to ";
         if ($type === 'borrow') $chatMsg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate)) . ". Is this date okay?";
@@ -162,7 +169,7 @@ try {
              $pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$transaction['borrower_id']]);
              
              $msg = "Your request for '{$transaction['title']}' has been ACCEPTED! {$totalDeduct} credits deducted.";
-             $pdo->prepare("INSERT INTO notifications (user_id, type, message, reference_id) VALUES (?, 'request_accepted', ?, ?)")->execute([$transaction['borrower_id'], $msg, $transactionId]);
+             createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
              echo json_encode(['success' => true, 'message' => 'Request accepted!']);
 
         } elseif ($action === 'decline_request') {
@@ -173,7 +180,7 @@ try {
              if (!$transaction || $transaction['lender_id'] != $userId) throw new Exception("Unauthorized.");
              
              $pdo->prepare("UPDATE transactions SET status = 'cancelled' WHERE id = ?")->execute([$transactionId]);
-             $pdo->prepare("INSERT INTO notifications (user_id, type, message) VALUES (?, 'request_declined', 'Your request was declined.')")->execute([$transaction['borrower_id']]);
+             createNotification($transaction['borrower_id'], 'request_declined', 'Your request was declined.');
              echo json_encode(['success' => true, 'message' => 'Request declined']);
 
         } elseif ($action === 'request_extension') {
@@ -222,6 +229,7 @@ try {
              $stmt->execute([$transactionId]);
              $transaction = $stmt->fetch();
              if (!$transaction || $transaction['lender_id'] != $userId) throw new Exception("Unauthorized.");
+             if ($transaction['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
              
              $pdo->prepare("UPDATE transactions SET status = 'returned', return_date = CURDATE() WHERE id = ?")->execute([$transactionId]);
               if (empty($transaction['is_restocked'])) {
@@ -282,6 +290,7 @@ try {
              $tx = $stmt->fetch();
              
              if (!$tx) throw new Exception("Unauthorized or transaction not found.");
+             if ($tx['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
              if ($tx['status'] === 'returning' || $tx['return_delivery_method'] === 'delivery') throw new Exception("Already requested.");
              
              if (!checkSufficientCredits($userId, 10)) throw new Exception("Insufficient credits (10 required).");
@@ -324,24 +333,78 @@ try {
             
             if (!$targetId || $amount === 0) throw new Exception("Invalid parameters.");
             
+            $currentCredits = getUserCredits($targetId);
+            
             if ($amount > 0) {
-                if (addCredits($targetId, $amount, 'bonus', $reason)) echo json_encode(['success' => true, 'message' => "Added $amount tokens."]);
-                else throw new Exception("Failed to add.");
+                if ($currentCredits >= 500) throw new Exception("User already has maximum tokens (500).");
+                $newBalance = min($currentCredits + $amount, 500);
+                $actualAdded = $newBalance - $currentCredits;
+                
+                if (addCredits($targetId, $amount, 'bonus', $reason)) {
+                    echo json_encode(['success' => true, 'message' => "Added $actualAdded tokens. New balance: $newBalance."]);
+                } else {
+                    throw new Exception("Failed to add tokens.");
+                }
             } else {
-                if (deductCredits($targetId, abs($amount), 'penalty', $reason)) echo json_encode(['success' => true, 'message' => "Removed " . abs($amount) . " tokens."]);
-                else throw new Exception("Failed to deduct.");
+                if ($currentCredits <= 0) throw new Exception("User already has 0 tokens.");
+                $absAmount = abs($amount);
+                $newBalance = max(0, $currentCredits - $absAmount);
+                $actualRemoved = $currentCredits - $newBalance;
+                
+                if (deductCredits($targetId, $absAmount, 'penalty', $reason)) {
+                    echo json_encode(['success' => true, 'message' => "Removed $actualRemoved tokens. New balance: $newBalance."]);
+                } else {
+                    throw new Exception("Failed to remove tokens.");
+                }
             }
         }
 
     // --- Report Submission ---
     } elseif ($action === 'submit_report') {
         $reportedId = validateId($_POST['reported_id'] ?? 0);
+        $communityId = validateId($_POST['reported_community_id'] ?? 0);
         $reason = $_POST['reason'] ?? '';
         $description = $_POST['description'] ?? '';
+        $type = $_POST['type'] ?? 'user';
         
-        if (!$reportedId || !$reason) throw new Exception("Missing required fields.");
-        if (createReport($userId, $reportedId, $reason, $description)) echo json_encode(['success' => true, 'message' => 'Report submitted.']);
-        else throw new Exception("Failed to submit report.");
+        if (!$reason) throw new Exception("Missing required fields.");
+        
+        $targetId = ($type === 'community') ? $communityId : $reportedId;
+        if (!$targetId) throw new Exception("Invalid target ID.");
+
+        if (createReport($userId, $targetId, $reason, $description, $type)) {
+            echo json_encode(['success' => true, 'message' => 'Report submitted.']);
+        } else {
+            throw new Exception("Failed to submit report.");
+        }
+
+    } elseif ($action === 'delete_community') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized access.");
+        
+        $communityId = validateId($_POST['community_id'] ?? 0);
+        $reason = trim($_POST['reason'] ?? 'Violation of community guidelines');
+        
+        if (!$communityId) throw new Exception("Invalid Community ID.");
+        
+        if (deleteCommunity($communityId, $reason)) {
+            echo json_encode(['success' => true, 'message' => 'Community deleted successfully.']);
+        } else {
+            throw new Exception("Failed to delete community.");
+        }
+
+    } elseif ($action === 'warn_community') {
+        if ($userRole !== 'admin') throw new Exception("Unauthorized access.");
+        
+        $communityId = validateId($_POST['community_id'] ?? 0);
+        $reason = trim($_POST['reason'] ?? 'Violation of community guidelines');
+        
+        if (!$communityId) throw new Exception("Invalid Community ID.");
+        
+        if (warnCommunity($communityId, $userId, $reason)) {
+            echo json_encode(['success' => true, 'message' => 'Warning sent to the community.']);
+        } else {
+            throw new Exception("Failed to send warning.");
+        }
 
     } elseif ($action === 'update_availability') {
         $status = $_POST['status'] ?? 0;

@@ -27,6 +27,8 @@ try {
         $query .= " AND role = 'bookstore'";
     } elseif ($filter === 'users') {
         $query .= " AND role = 'user'";
+    } elseif ($filter === 'agents') {
+        $query .= " AND role = 'delivery_agent'";
     }
     
     if ($search) {
@@ -77,6 +79,7 @@ try {
                         <a href="?filter=users" class="btn btn-<?php echo $filter === 'users' ? 'primary' : 'outline'; ?> btn-sm">Regular</a>
                         <a href="?filter=libraries" class="btn btn-<?php echo $filter === 'libraries' ? 'primary' : 'outline'; ?> btn-sm">Libraries</a>
                         <a href="?filter=bookstores" class="btn btn-<?php echo $filter === 'bookstores' ? 'primary' : 'outline'; ?> btn-sm">Bookstores</a>
+                        <a href="?filter=agents" class="btn btn-<?php echo $filter === 'agents' ? 'primary' : 'outline'; ?> btn-sm">Agents</a>
                         <a href="?filter=low_trust" class="btn btn-<?php echo $filter === 'low_trust' ? 'primary' : 'outline'; ?> btn-sm">Low Trust</a>
                     </div>
                     <form method="GET" style="display: flex; gap: 0.5rem;">
