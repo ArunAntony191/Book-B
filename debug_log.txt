@@ -1,27 +1,16 @@
-[2026-01-03 20:18:42] Action: create - Start
-[2026-01-03 20:18:42] Creating community: manga
-[2026-01-03 20:18:43] Action: create - Start
-[2026-01-03 20:18:43] Creating community: manga
-[2026-01-03 20:18:43] Action: create - Start
-[2026-01-03 20:18:43] Creating community: manga
-[2026-01-03 20:18:43] Action: create - Start
-[2026-01-03 20:18:43] Creating community: manga
-[2026-01-03 20:18:44] Action: create - Start
-[2026-01-03 20:18:44] Creating community: manga
-[2026-01-03 20:18:44] Action: create - Start
-[2026-01-03 20:18:44] Creating community: manga
-[2026-01-03 20:18:44] Action: create - Start
-[2026-01-03 20:18:44] Creating community: manga
-[2026-01-03 20:18:44] Action: create - Start
-[2026-01-03 20:18:44] Creating community: manga
-[2026-01-03 20:19:03] Action: create - Start
-[2026-01-03 20:19:03] Creating community: Christmas Day
-[2026-01-03 20:22:10] Action: create - Start
-[2026-01-03 20:22:10] Creating community: Christmas Day
-[2026-02-01 11:41:13] Action: create - Start
-[2026-02-01 11:41:13] Creating community: manga
-[2026-02-01 11:41:13] Cover uploaded: images/communities/1769926273_images (2).jfif
-[2026-02-01 11:41:13] Attempting to insert into communities table
-[2026-02-01 11:41:13] Community created with ID: 1
-[2026-02-01 11:41:13] Auto-joining creator
-[2026-02-01 11:41:13] Creator joined successfully
+[2026-02-09 19:25:51] Action: create - Start
+[2026-02-09 19:25:51] Creating community: manga
+[2026-02-09 19:25:51] Cover uploaded: images/communities/1770645351_images.jfif
+[2026-02-09 19:25:51] Attempting to insert into communities table
+[2026-02-09 19:25:51] Community created with ID: 3
+[2026-02-09 19:25:51] Auto-joining creator
+[2026-02-09 19:25:51] Creator joined successfully
+[2026-02-09 20:09:57] Action: create - Start
+[2026-02-09 20:09:57] Creating community: anime
+[2026-02-09 20:09:57] Cover uploaded: images/communities/1770647997_images (2).jfif
+[2026-02-09 20:09:57] Attempting to insert into communities table
+[2026-02-09 20:09:57] Community created with ID: 4
+[2026-02-09 20:09:57] Auto-joining creator
+[2026-02-09 20:09:57] Creator joined successfully
+[2026-02-09 21:34:56] Message Attachment: Processing image upload
+[2026-02-09 21:34:56] Image uploaded successfully: images/chat_uploads/1770653096_images (2).jfif

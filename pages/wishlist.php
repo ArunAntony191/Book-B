@@ -99,7 +99,14 @@ $wishlist = $stmt->fetchAll();
                             <button class="compare-btn-toggle" data-id="<?php echo $item['id']; ?>" onclick="toggleCompare(this, event)">
                                 <i class='bx bx-plus'></i> Compare
                             </button>
-                            <img src="<?php echo $item['cover_image'] ?: '../assets/images/book-placeholder.jpg'; ?>" class="book-cover">
+                            <?php 
+                                $cover = $item['cover_image'];
+                                $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=400';
+                                $cover = $cover ?: $fallback;
+                            ?>
+                            <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                                 class="book-cover" 
+                                 onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                             <div class="book-info">
                                 <div style="font-weight: 700; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo htmlspecialchars($item['title']); ?></div>
                                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><?php echo htmlspecialchars($item['author']); ?></div>
@@ -145,7 +152,7 @@ $wishlist = $stmt->fetchAll();
                 } else {
                     // Select
                     if (selectedIds.length >= 3) {
-                        alert('You can only compare up to 3 books at a time.');
+                        showToast('You can only compare up to 3 books at a time.', 'warning');
                         return;
                     }
                     selectedIds.push(id);
@@ -178,7 +185,7 @@ $wishlist = $stmt->fetchAll();
 
             function goToCompare() {
                 if (selectedIds.length < 2) {
-                    alert('Please select at least 2 books to compare.');
+                    showToast('Please select at least 2 books to compare.', 'info');
                     return;
                 }
                 window.location.href = `compare_books.php?ids=${selectedIds.join(',')}`;

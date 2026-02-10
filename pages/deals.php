@@ -13,6 +13,7 @@ if (!$userId) {
 markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined']);
 
 $deals = getUserDeals($userId);
+$all_deals = $deals; // All deals
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
 
@@ -270,7 +271,10 @@ try {
                 </div>
 
                 <div class="tabs-header">
-                    <button class="tab-btn active" onclick="switchTab('incoming', this)">
+                    <button class="tab-btn active" onclick="switchTab('all', this)">
+                        All <span class="tab-count"><?php echo count($all_deals); ?></span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('incoming', this)">
                         Incoming Offers <span class="tab-count"><?php echo count($incoming); ?></span>
                     </button>
                     <button class="tab-btn" onclick="switchTab('outgoing', this)">
@@ -279,6 +283,54 @@ try {
                     <button class="tab-btn" onclick="switchTab('listings', this)">
                         My Listings <span class="tab-count"><?php echo count($myListings); ?></span>
                     </button>
+                </div>
+
+                <!-- All Deals Tab -->
+                <div id="all-list">
+                    <?php if (empty($all_deals)): ?>
+                        <div class="empty-deals">
+                            <i class='bx bx-archive-in' style="font-size: 4rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"></i>
+                            <p style="font-size: 1.1rem; font-weight: 500;">No transactions yet.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($all_deals as $deal): ?>
+                        <div class="deal-card">
+                            <div class="deal-visual">
+                                <?php 
+                                    $cover = $deal['cover_image'];
+                                    $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
+                            </div>
+                            <div class="deal-main">
+                                <div class="deal-title"><?php echo htmlspecialchars($deal['title']); ?></div>
+                                <div class="deal-meta">
+                                    <div class="meta-item">
+                                        <?php if ($deal['lender_id'] == $userId): ?>
+                                            <i class='bx bx-user'></i> Borrower: 
+                                            <a href="user_profile.php?id=<?php echo $deal['borrower_id']; ?>" style="color: var(--primary); text-decoration: none; font-weight: 700;">
+                                                <?php echo htmlspecialchars($deal['borrower_name']); ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <i class='bx bx-store-alt'></i> Owner: 
+                                            <a href="user_profile.php?id=<?php echo $deal['lender_id']; ?>" style="color: var(--primary); text-decoration: none; font-weight: 700;">
+                                                <?php echo htmlspecialchars($deal['lender_name']); ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($deal['created_at'])); ?></div>
+                                </div>
+                            </div>
+                            <div class="deal-actions">
+                                <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                <!-- Actions logic copied from specific tabs logic below, simplified or linking to detailed tab -->
+                                <button onclick="window.location.href='track_deliveries.php'" class="btn btn-outline btn-sm">
+                                    <i class='bx bx-radar'></i> Track
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <!-- Incoming Offers Tab -->
@@ -292,7 +344,11 @@ try {
                     <?php foreach ($incoming as $deal): ?>
                         <div class="deal-card" id="deal-<?php echo $deal['id']; ?>">
                             <div class="deal-visual">
-                                <img src="<?php echo $deal['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'; ?>" class="deal-img">
+                                <?php 
+                                    $cover = $deal['cover_image'];
+                                    $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -363,7 +419,11 @@ try {
                     <?php foreach ($outgoing as $deal): ?>
                         <div class="deal-card">
                             <div class="deal-visual">
-                                <img src="<?php echo $deal['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'; ?>" class="deal-img">
+                                <?php 
+                                    $cover = $deal['cover_image'];
+                                    $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -432,7 +492,12 @@ try {
                     <?php foreach ($myListings as $listing): ?>
                         <div class="deal-card" id="listing-<?php echo $listing['id']; ?>">
                             <div class="deal-visual">
-                                <img src="<?php echo $listing['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'; ?>" class="deal-img">
+                                <?php 
+                                    $cover = $listing['cover_image'];
+                                    $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
+                                    $cover = $cover ?: $fallback;
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                 <span class="deal-type-tag"><?php echo $listing['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -515,21 +580,12 @@ try {
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
             
+            document.getElementById('all-list').style.display = tab === 'all' ? 'block' : 'none';
             document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
             document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
             document.getElementById('listings-list').style.display = tab === 'listings' ? 'block' : 'none';
         }
 
-        function showMessage(message, type) {
-            const msgEl = document.getElementById('statusMessage');
-            msgEl.textContent = message;
-            msgEl.className = type;
-            msgEl.style.display = 'block';
-            
-            setTimeout(() => {
-                msgEl.style.display = 'none';
-            }, 3000);
-        }
 
         async function handleDeal(transactionId, action) {
             try {
@@ -545,17 +601,17 @@ try {
                 const result = await response.json();
 
                 if (result.success) {
-                    showMessage(result.message, 'success');
+                    showToast(result.message, 'success');
                     
                     // Refresh the deal card
                     setTimeout(() => {
                         location.reload();
                     }, 1500);
                 } else {
-                    showMessage(result.message || 'Action failed', 'error');
+                    showToast(result.message || 'Action failed', 'error');
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
+                showToast('Network error. Please try again.', 'error');
             }
         }
 
@@ -584,14 +640,14 @@ try {
 
                     if (result.success) {
                         card.style.display = 'none';
-                        showMessage('Listing deleted successfully', 'success');
+                        showToast('Listing deleted successfully', 'success');
                     } else {
                         card.style.opacity = '1';
-                        showMessage(result.message || 'Delete failed', 'error');
+                        showToast(result.message || 'Delete failed', 'error');
                     }
                 } catch (error) {
                     card.style.opacity = '1';
-                    showMessage('Network error. Please try again.', 'error');
+                    showToast('Network error. Please try again.', 'error');
                 }
             } else {
                 card.style.opacity = '1';
@@ -649,7 +705,7 @@ try {
 
         async function submitFeedback() {
             if (currentRatingValue === 0) {
-                alert('Please select a rating');
+                showToast('Please select a rating', 'warning');
                 return;
             }
 
@@ -668,14 +724,14 @@ try {
                 const result = await response.json();
 
                 if (result.success) {
-                    showMessage(result.message, 'success');
+                    showToast(result.message, 'success');
                     closeFeedbackModal();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showMessage(result.message, 'error');
+                    showToast(result.message, 'error');
                 }
             } catch (err) {
-                showMessage('Network error. Please try again.', 'error');
+                showToast('Network error. Please try again.', 'error');
             }
         }
 
@@ -708,13 +764,13 @@ try {
 
                 if (result.success) {
                     closeRestockModal();
-                    showMessage(result.message, 'success');
+                    showToast(result.message, 'success');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showMessage(result.message, 'error');
+                    showToast(result.message, 'error');
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
+                showToast('Network error. Please try again.', 'error');
             }
         }
     </script>

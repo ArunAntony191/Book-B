@@ -12,8 +12,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         'query'    => $_GET['query'] ?? '',
         'role'     => $_GET['role'] ?? '',
         'type'     => $_GET['type'] ?? '',
-        'category' => $_GET['category'] ?? '',
-        'has_location' => true
+        'category' => $_GET['category'] ?? ''
     ];
     
     if (isset($_GET['sw_lat'], $_GET['ne_lat'], $_GET['sw_lng'], $_GET['ne_lng'])) {
@@ -43,18 +42,13 @@ $filters = [
     'type'     => $_GET['type'] ?? '',
     'category' => $_GET['category'] ?? '',
     'min_price' => isset($_GET['min_price']) && $_GET['min_price'] !== '' ? (float)$_GET['min_price'] : null,
-    'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null,
-    'has_location' => true
+    'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null
 ];
 
 $results = searchListingsAdvanced($filters);
 
-// Separate Rare Books
+// Separate Rare Books for Spotlight
 $rareResults = getRareBooks(10);
-// Filter out rare books from main results if they appear there
-$results = array_filter($results, function($r) {
-    return !($r['is_rare'] ?? 0);
-});
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
@@ -186,19 +180,34 @@ $results = array_filter($results, function($r) {
 
         .rare-item-card {
             flex: 0 0 140px;
-            background: var(--bg-card);
+            background: #fffbeb;
             padding: 0.75rem;
             border-radius: 14px;
-            border: 1px solid var(--border-color);
+            border: 2px solid #f59e0b;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             cursor: pointer;
             text-align: center;
+            position: relative;
         }
 
         .rare-item-card:hover {
             transform: translateY(-8px) scale(1.02);
-            border-color: var(--accent-gold);
+            border-color: #d97706;
             box-shadow: 0 15px 30px rgba(245, 158, 11, 0.15);
+        }
+
+        .rare-badge-mini {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #f59e0b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.55rem;
+            font-weight: 800;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .rare-item-img {
@@ -213,22 +222,31 @@ $results = array_filter($results, function($r) {
         /* Modern Result Cards */
         .result-card-premium {
             background: var(--bg-card);
-            border-radius: 20px;
+            border-radius: var(--radius-lg);
+            border: 2px solid transparent;
             padding: 1.25rem;
-            border: 1px solid var(--border-color);
-            margin-bottom: 1.25rem;
             display: flex;
             gap: 1.5rem;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             cursor: pointer;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+
+        .result-card-premium.rare-result {
+            border-color: #f59e0b;
+            background: #fffbeb;
         }
 
         .result-card-premium:hover {
+            transform: translateX(8px);
             border-color: var(--primary);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.06);
-            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-card-premium.rare-result:hover {
+            border-color: #d97706;
         }
 
         .result-card-premium::after {
@@ -451,9 +469,20 @@ $results = array_filter($results, function($r) {
                                 </div>
                             </div>
                             <div class="rare-scroller">
-                                <?php foreach ($rareResults as $rare): ?>
+                                <?php foreach ($rareResults as $rare): 
+                                    $rCover = $rare['cover_image'];
+                                    // Local images are stored relative to pages/ directory
+                                    if ($rCover && preg_match('/^https?:\/\//', $rCover)) {
+                                        // Absolute URL, keep as is
+                                    } else if ($rCover) {
+                                        // Relative path, already in correct context for explore.php
+                                    }
+                                    $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=400';
+                                    $rCover = $rCover ?: $fallback;
+                                ?>
                                 <div class="rare-item-card" onclick="window.location.href='book_details.php?id=<?php echo $rare['id']; ?>'">
-                                    <img src="<?php echo $rare['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=400'; ?>" 
+                                    <span class="rare-badge-mini">RARE</span>
+                                    <img src="<?php echo $rCover; ?>" 
                                          class="rare-item-img" alt="Rare Book">
                                     <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
                                         <?php echo htmlspecialchars($rare['title']); ?>
@@ -472,11 +501,19 @@ $results = array_filter($results, function($r) {
                         </div>
 
                         <div class="results-list">
-                            <?php foreach ($results as $item): ?>
-                                <div class="result-card-premium" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                            <?php foreach ($results as $item): 
+                                $iCover = $item['cover_image'];
+                                $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
+                                $iCover = $iCover ?: $fallback;
+                                $isRare = $item['is_rare'] ?? 0;
+                            ?>
+                                <div class="result-card-premium <?php echo $isRare ? 'rare-result' : ''; ?>" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                                    <?php if ($isRare): ?>
+                                        <span class="rare-badge-mini" style="top: 10px; left: 10px;">RARE</span>
+                                    <?php endif; ?>
+                                    <img src="<?php echo htmlspecialchars($iCover, ENT_QUOTES, 'UTF-8', false); ?>" 
                                          class="result-img-premium" alt="Book Cover"
-                                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                                         onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                     
                                     <div class="result-info">
                                         <div>
@@ -578,13 +615,17 @@ $results = array_filter($results, function($r) {
             }
 
             listings.forEach(m => {
+                let mCover = m.cover_image;
+                const fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
+                mCover = mCover || fallback;
+
                 if (m.latitude && m.longitude) {
                     const marker = L.marker([m.latitude, m.longitude])
                         .bindPopup(`
                             <div style="font-family: inherit; padding: 10px; min-width: 220px; border-radius: 16px;">
-                                <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
+                                <img src="${mCover}" 
                                      style="width: 100%; height: 120px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"
-                                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                                     onerror="this.onerror=null; this.src='${fallback}';">
                                 <strong style="display:block; font-size: 1.1rem; margin-bottom: 2px; color: var(--text-main); line-height: 1.2;">${m.title}</strong>
                                 <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">by ${m.author}</span>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -601,8 +642,12 @@ $results = array_filter($results, function($r) {
                 }
 
                 // Sidebar Card
+                const isRare = m.is_rare == 1;
+                const rareClass = isRare ? 'rare-result' : '';
+                const rareBadge = isRare ? '<span class="rare-badge-mini" style="top: 10px; left: 10px;">RARE</span>' : '';
+                
                 const card = document.createElement('div');
-                card.className = 'result-card-premium';
+                card.className = `result-card-premium ${rareClass}`;
                 card.onclick = () => window.location.href = `book_details.php?id=${m.id}`;
                 
                 let quantityOverlay = m.quantity <= 0 ? `
@@ -612,15 +657,16 @@ $results = array_filter($results, function($r) {
                 ` : '';
 
                 card.innerHTML = `
-                    <img src="${m.cover_image || 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'}" 
+                    ${rareBadge}
+                    <img src="${mCover}" 
                          class="result-img-premium" alt="Book Cover"
-                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                         onerror="this.onerror=null; this.src='${fallback}';">
                     <div class="result-info">
                         <div>
                             <div class="result-title">${m.title}</div>
                             <div class="result-author">by ${m.author}</div>
                             <div class="pill-group">
-                                <span class="premium-pill badge-${m.listing_type}">${m.listing_type}</span>
+                                <span class="premium-pill badge-${m.listing_type}">${m.listing_type.charAt(0).toUpperCase() + m.listing_type.slice(1)}</span>
                                 ${m.distance ? `
                                     <span class="premium-pill" style="background: var(--bg-body); color: var(--primary); border: 1px solid var(--border-color);">
                                         <i class='bx bx-navigation'></i> ${parseFloat(m.distance).toFixed(1)} km
@@ -633,9 +679,9 @@ $results = array_filter($results, function($r) {
                                 <div style="width: 32px; height: 32px; background: var(--bg-body); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
                                     <i class='bx bxs-star'></i>
                                 </div>
-                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${m.average_rating}</span>
+                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${parseFloat(m.average_rating).toFixed(1)}</span>
                             </div>
-                            <div class="price-display">₹${parseFloat(m.price).toFixed(0)}</div>
+                            <div class="price-display">₹${new Intl.NumberFormat().format(m.price)}</div>
                         </div>
                     </div>
                     ${quantityOverlay}
@@ -701,7 +747,7 @@ $results = array_filter($results, function($r) {
                         map.setView([data[0].lat, data[0].lon], 16);
                         L.marker([data[0].lat, data[0].lon]).addTo(map).bindPopup(data[0].display_name).openPopup();
                     } else {
-                        alert('Location not found in India');
+                        showToast('Location not found in India', 'warning');
                     }
                 });
         }
@@ -739,14 +785,14 @@ $results = array_filter($results, function($r) {
                     let msg = "Unable to retrieve your location.";
                     if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
                     else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
-                    alert(msg);
+                    showToast(msg, 'error');
                 }, {
                     enableHighAccuracy: true,
                     timeout: 10000,
                     maximumAge: 0
                 });
             } else {
-                alert('Geolocation is not supported by your browser');
+                showToast('Geolocation is not supported by your browser', 'error');
             }
         }
     </script>

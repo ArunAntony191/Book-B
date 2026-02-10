@@ -130,7 +130,12 @@ function getStatusLabel($status, $agentId) {
                     </div>
 
                     <div class="book-details-grid">
-                        <img src="<?php echo htmlspecialchars($d['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400'); ?>" class="book-cover">
+                        <?php 
+                            $cover = $d['cover_image'];
+                            $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
+                            $cover = $cover ?: $fallback;
+                        ?>
+                        <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="book-cover" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                         <div>
                             <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($d['title']); ?></h2>
                             <p style="color: var(--text-muted); font-size: 1rem;">by <?php echo htmlspecialchars($d['author']); ?></p>

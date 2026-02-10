@@ -61,7 +61,9 @@ if ($userId) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo ucfirst($user['role']); ?> Dashboard | BOOK-B</title>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/style.css?v=1.1">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast.css?v=1.0">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="<?php echo APP_URL; ?>/assets/js/toast.js?v=1.0"></script>
     <style>
         .navbar {
             height: 70px;

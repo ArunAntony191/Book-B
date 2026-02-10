@@ -375,7 +375,12 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
                             </div>
                             
                             <div class="book-snapshot">
-                                <img src="<?php echo htmlspecialchars($job['cover_image'] ?: '../assets/img/book-placeholder.jpg'); ?>" style="width: 50px; height: 75px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                                <?php 
+                                    $cover = $job['cover_image'];
+                                    $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
+                                    $cover = $cover ?: $fallback;
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" style="width: 50px; height: 75px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                 <div style="flex: 1;">
                                     <div style="font-weight: 850; font-size: 1.1rem; color: #1e293b; line-height: 1.2; margin-bottom: 4px;"><?php echo htmlspecialchars($job['title']); ?></div>
                                     <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">

@@ -130,23 +130,41 @@ try {
             echo json_encode(['status' => 'success']);
 
         } elseif ($action === 'send_message') {
-            $commId = $_POST['community_id'];
+            $commId = $_POST['community_id'] ?? null;
             $message = $_POST['message'] ?? '';
             
+            if (!$commId) {
+                echo json_encode(['status' => 'error', 'error' => 'Community ID is required']);
+                exit;
+            }
+
             $attachment = null;
             if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = '../images/chat_uploads/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                
                 $fileName = time() . '_' . basename($_FILES['image']['name']);
-                if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadDir . $fileName)) {
+                $targetPath = $uploadDir . $fileName;
+                
+                if (move_uploaded_file($_FILES['image']['tmp_name'], $targetPath)) {
                     $attachment = 'images/chat_uploads/' . $fileName;
+                } else {
+                    logDebug("Failed to move uploaded file to $targetPath");
+                    echo json_encode(['status' => 'error', 'error' => 'Failed to save uploaded image']);
+                    exit;
                 }
+            } elseif (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
+                logDebug("Upload error: " . $_FILES['image']['error']);
+                echo json_encode(['status' => 'error', 'error' => 'Image upload failed (Error code: ' . $_FILES['image']['error'] . ')']);
+                exit;
             }
 
             if ($message || $attachment) {
                 $stmt = $pdo->prepare("INSERT INTO community_messages (community_id, user_id, message, attachment_url) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$commId, $userId, $message, $attachment]);
                 echo json_encode(['status' => 'success']);
+            } else {
+                echo json_encode(['status' => 'error', 'error' => 'Message or image is required']);
             }
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -196,6 +214,11 @@ try {
             ");
             $stmt->execute([$commId]);
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        } elseif ($action === 'books') {
+            $commId = $_GET['community_id'];
+            $listings = getCommunityListings($commId);
+            echo json_encode($listings);
         }
     }
 } catch (Exception $e) {

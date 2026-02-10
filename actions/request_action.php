@@ -1,8 +1,8 @@
 <?php
+ob_start();
 require_once '../includes/db_helper.php';
 require_once '../includes/validation_helper.php';
 session_start();
-
 header('Content-Type: application/json');
 
 $userId = $_SESSION['user_id'] ?? 0;
@@ -31,11 +31,14 @@ try {
         $stmt->execute([$userId, $listingId]);
         
         if ($stmt->fetch()) {
-            $pdo->prepare("DELETE FROM wishlist WHERE user_id = ? AND listing_id = ?")->execute([$userId, $listingId]);
+            ob_clean();
             echo json_encode(['success' => true, 'status' => 'removed']);
+            exit;
         } else {
+            ob_clean();
             $pdo->prepare("INSERT INTO wishlist (user_id, listing_id) VALUES (?, ?)")->execute([$userId, $listingId]);
             echo json_encode(['success' => true, 'status' => 'added']);
+            exit;
         }
 
     // --- Delivery Check ---
@@ -48,7 +51,9 @@ try {
         if (!$lLat || !$lLng || !$bLat || !$bLng) throw new Exception("Missing location coordinates.");
 
         $available = checkDeliveryAvailability($lLat, $lLng, $bLat, $bLng);
+        ob_clean();
         echo json_encode(['success' => true, 'available' => $available]);
+        exit;
 
     // --- Create Request ---
     } elseif ($action === 'create_request') {
@@ -56,7 +61,6 @@ try {
         
         $type = $_POST['type'] ?? 'borrow'; 
         $ownerId = validateId($_POST['owner_id'] ?? 0);
-        $dueDate = $_POST['due_date'] ?? null;
         $dueDate = $_POST['due_date'] ?? null;
         $bookTitle = $_POST['book_title'] ?? 'a book';
 
@@ -88,7 +92,7 @@ try {
             throw new Exception("You cannot request your own book.");
         }
         
-        $creditCost = list($cost) = $listing ? ($listing['credit_cost'] ?? 10) : 10;
+        $creditCost = $listing['credit_cost'] ?? 10;
         
         $wantDelivery = ($_POST['delivery'] ?? 0) == 1;
         $totalCost = $creditCost + ($wantDelivery ? 10 : 0);
@@ -141,7 +145,9 @@ try {
         $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)")
             ->execute([$userId, $ownerId, $chatMsg]);
 
+        ob_clean();
         echo json_encode(['success' => true, 'message' => 'Request sent successfully!']);
+        exit;
 
     // --- Interactions (Accept/Decline/Return etc) ---
     } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receipt', 'claim_job', 'cancel_job', 'request_return_delivery'])) {
@@ -170,7 +176,9 @@ try {
              
              $msg = "Your request for '{$transaction['title']}' has been ACCEPTED! {$totalDeduct} credits deducted.";
              createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Request accepted!']);
+             exit;
 
         } elseif ($action === 'decline_request') {
              // ... existing decline logic ...
@@ -181,7 +189,9 @@ try {
              
              $pdo->prepare("UPDATE transactions SET status = 'cancelled' WHERE id = ?")->execute([$transactionId]);
              createNotification($transaction['borrower_id'], 'request_declined', 'Your request was declined.');
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Request declined']);
+             exit;
 
         } elseif ($action === 'request_extension') {
              $newDate = $_POST['new_date'] ?? null;
@@ -195,7 +205,9 @@ try {
              if (requestExtension($transactionId, $newDate)) {
                  $msg = "Borrower requested extension until " . date('M d, Y', strtotime($newDate));
                  createNotification($tx['lender_id'], 'extension_request', $msg, $transactionId);
+                 ob_clean();
                  echo json_encode(['success' => true, 'message' => 'Extension request sent.']);
+                 exit;
              } else {
                  throw new Exception("Failed to update extension.");
              }
@@ -209,7 +221,9 @@ try {
              if (approveExtension($transactionId)) {
                  $msg = "Extension APPROVED! New due date: " . date('M d, Y', strtotime($tx['pending_due_date']));
                  createNotification($tx['borrower_id'], 'extension_approved', $msg, $transactionId);
+                 ob_clean();
                  echo json_encode(['success' => true, 'message' => 'Extension approved']);
+                 exit;
              } else { throw new Exception("Failed to approve."); }
 
         } elseif ($action === 'decline_extension') {
@@ -221,7 +235,9 @@ try {
              
              $pdo->prepare("UPDATE transactions SET pending_due_date = NULL WHERE id = ?")->execute([$transactionId]);
              createNotification($tx['borrower_id'], 'extension_declined', "Extension request declined.", $transactionId);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Extension declined']);
+             exit;
 
         } elseif ($action === 'mark_returned') {
              // ... mark returned logic ...
@@ -249,39 +265,51 @@ try {
                  $pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$transaction['lender_id']]);
              }
              // Notify... (Simplified for brevity but logic stands)
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Book marked returned.']);
+             exit;
 
         } elseif ($action === 'update_delivery_status') {
              $status = $_POST['status'] ?? '';
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
              $dm->updateStatus($userId, $transactionId, $status);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Delivery status updated!']);
+             exit;
 
         } elseif ($action === 'confirm_handover') {
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
              $dm->confirmHandover($userId, $transactionId);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Handover confirmed!']);
+             exit;
 
         } elseif ($action === 'confirm_receipt') {
              $restock = isset($_POST['restock']) && $_POST['restock'] == '1';
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
              $dm->confirmReceipt($userId, $transactionId, $restock);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Receipt confirmed!']);
+             exit;
 
         } elseif ($action === 'claim_job') {
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
              $dm->claimJob($userId, $transactionId);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Job Claimed']);
+             exit;
         
         } elseif ($action === 'cancel_job') {
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
              $dm->cancelJob($userId, $transactionId);
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Job Cancelled']);
+             exit;
 
         } elseif ($action === 'request_return_delivery') {
              // ... Request Return Delivery Logic ...
@@ -300,7 +328,9 @@ try {
              $stmt->execute([$transactionId]);
              
              // Notify Lender...
+             ob_clean();
              echo json_encode(['success' => true, 'message' => 'Return delivery requested!']);
+             exit;
         }
     
     // --- Admin Actions ---
@@ -413,10 +443,14 @@ try {
         echo json_encode(['success' => true, 'message' => 'Availability updated']);
 
     } else {
+        ob_clean();
         echo json_encode(['success' => false, 'message' => 'Invalid Action or parameter missing.']);
+        exit;
     }
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    ob_clean();
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    exit;
 }
 ?>

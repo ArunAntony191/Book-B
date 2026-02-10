@@ -129,4 +129,3 @@ function checkRequiredFields($data, $fields) {
     }
     return $missing;
 }
-?>

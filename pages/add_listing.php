@@ -398,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label">Category (Select multiple)</label>
                                 <div class="category-grid">
                                     <?php 
-                                    $categories = ['Authentication', 'Education', 'Fiction', 'Non-Fiction', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History', 'Other'];
+                                    $categories = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History', 'Technology', 'Science', 'Art', 'Cooking', 'Comics', 'Other'];
                                     $selectedCats = explode(', ', $editData['category'] ?? '');
                                     foreach ($categories as $cat): 
                                         $selected = in_array($cat, $selectedCats) ? 'selected' : '';
@@ -554,9 +554,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <option value="">-- Choose a Community --</option>
                                         <?php 
                                         $selectedComm = $editData['community_id'] ?? 0;
+                                        $myCommunities = getUserCommunities($userId);
+                                        foreach ($myCommunities as $comm) {
+                                            $sel = ($selectedComm == $comm['id']) ? 'selected' : '';
+                                            echo "<option value='{$comm['id']}' $sel>" . htmlspecialchars($comm['name']) . "</option>";
+                                        }
                                         ?>
-                                        <option value="1" <?php echo $selectedComm == 1 ? 'selected' : ''; ?>>Book Lovers Club</option>
-                                        <option value="2" <?php echo $selectedComm == 2 ? 'selected' : ''; ?>>Sci-Fi Geeks</option>
                                     </select>
                                 </div>
                             </div>
@@ -714,14 +717,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         let msg = "Unable to retrieve your location.";
                         if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
                         else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
-                        alert(msg);
+                        showToast(msg, 'error');
                     }, {
                         enableHighAccuracy: true,
                         timeout: 10000,
                         maximumAge: 0
                     });
                 } else {
-                    alert('Geolocation is not supported by your browser');
+                    showToast('Geolocation is not supported by your browser', 'error');
                 }
             };
             
@@ -750,7 +753,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (dbPincode) document.getElementById('pincode').value = dbPincode;
                     }, 800); // Small delay to overwrite reverse geocoding results
                 } else {
-                    alert('Your profile does not have a saved location. Please update your profile first.');
+                    showToast('Your profile does not have a saved location. Please update your profile first.', 'info');
                 }
             };
     
@@ -816,11 +819,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 searchSuggestionsMap.style.display = 'none';
                                 mapSearchInput.value = item.display_name;
                             } else {
-                                alert("Location not found. Please try a different query.");
+                                showToast("Location not found. Please try a different query.", 'warning');
                             }
                         } catch (e) {
                             console.error("Enter search failed", e);
-                            alert("Something went wrong while searching. Please try again.");
+                            showToast("Something went wrong while searching. Please try again.", 'error');
                         }
                     }
                 });

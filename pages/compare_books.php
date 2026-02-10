@@ -33,7 +33,8 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Sort books to match input order if needed, or just display as is.
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,9 +67,11 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .compare-table th:last-child, .compare-table td:last-child { border-right: none; }
         
         .compare-table th {
-            background-color: var(--bg-light);
+            background-color: var(--bg-body);
+
             font-weight: 600;
-            color: var(--text-color);
+            color: var(--text-main);
+
             width: 150px;
             position: sticky;
             left: 0;
@@ -116,7 +119,16 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <th class="attr-label">Book Details</th>
                             <?php foreach ($books as $book): ?>
                                 <td>
-                                    <img src="<?php echo htmlspecialchars($book['cover_image'] ?: '../assets/images/book-placeholder.jpg'); ?>" class="book-preview-img">
+                                    <?php 
+                                        $cover = $book['cover_image'];
+                                        // If it's a relative path (doesn't start with http), it's likely already relative to the pages/ directory
+                                        // We avoid prepending ../ because images/books/ is inside the pages/ folder.
+                                        $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
+                                        $cover = $cover ?: $fallback;
+                                    ?>
+                                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                                         class="book-preview-img" 
+                                         onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                     <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($book['title']); ?></h3>
                                     <p style="color: var(--text-muted);"><?php echo htmlspecialchars($book['author']); ?></p>
                                 </td>
@@ -130,9 +142,10 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <td>
                                     <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);">
                                         <?php if ($book['listing_type'] == 'sell'): ?>
-                                            $<?php echo number_format($book['price'], 2); ?>
+                                            ₹<?php echo number_format($book['price'], 2); ?>
                                         <?php else: ?>
-                                            <i class='bx bxs-coin-stack'></i> <?php echo $book['credit_cost']; ?> Credits
+                                            <i class='bx bxs-coin-stack'></i> <?php echo $book['credit_cost'] ?? 0; ?> Credits
+
                                         <?php endif; ?>
                                     </div>
                                     <span class="badge badge-<?php echo $book['listing_type']; ?>" style="margin-top: 0.5rem; display: inline-block;">
@@ -148,7 +161,8 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <?php foreach ($books as $book): ?>
                                 <td>
                                     <?php 
-                                        $condColor = 'var(--text-color)';
+                                        $condColor = 'var(--text-main)';
+
                                         if($book['condition_status'] === 'new') $condColor = '#10b981';
                                         elseif($book['condition_status'] === 'like_new') $condColor = '#3b82f6';
                                     ?>

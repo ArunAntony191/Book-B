@@ -344,9 +344,15 @@ if ($userId) {
             <div class="details-grid">
                 <!-- Left: Image -->
                 <div class="column-left">
-                    <img src="<?php echo $book['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                    <?php 
+                        $cover = $book['cover_image'];
+                        // Local images are stored relative to pages/ directory
+                        $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
+                        $cover = $cover ?: $fallback;
+                    ?>
+                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
                          class="book-img-large" alt="Book Cover"
-                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                         onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                 </div>
                 
                 <!-- Center: Info -->
@@ -964,8 +970,8 @@ if ($userId) {
                 }
             })
             .catch(err => {
-                console.error(err);
-                alert('An error occurred. Please try again.');
+                console.error('Request error:', err);
+                alert('Request failed. This might be due to a server error or connection issue.');
                 btn.disabled = false;
                 btn.innerText = 'Send Request';
             });

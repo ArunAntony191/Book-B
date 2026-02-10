@@ -13,8 +13,7 @@ $hasMinTokens = hasMinimumTokens($userId);
 // Fetch latest reviews for the modal
 $userReviews = getUserReviews($userId, 5); 
 
-// Fetch Recommended Books
-$recommendedBooks = getRecommendedBooks($userId, 4);
+
 ?>
 
 <div class="dashboard-wrapper">
@@ -132,54 +131,13 @@ $recommendedBooks = getRecommendedBooks($userId, 4);
             </div>
         </div>
 
-        <?php if (!empty($recommendedBooks)): ?>
-        <!-- Recommended Books Section -->
+
+
+        <!-- Your Interests Books Section -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                <i class='bx bxs-magic-wand' style="color: #818cf8;"></i>
-                Recommended for You
-            </h2>
-            <span style="font-size: 0.85rem; color: var(--text-muted); background: #818cf815; padding: 4px 12px; border-radius: 20px; font-weight: 600; color: #818cf8;">
-                Based on your interest in <?php echo htmlspecialchars($user['favorite_category']); ?>
-            </span>
-        </div>
-
-        <div class="book-grid" style="margin-bottom: 3rem;">
-            <?php foreach ($recommendedBooks as $item): ?>
-            <div class="book-card" style="transition: all 0.3s; cursor: pointer; border: 2px solid transparent; hover: border-color: #818cf8;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                <div class="book-cover">
-                    <span style="position: absolute; top: 10px; right: 10px; background: #818cf8; color: white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Tailored</span>
-                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
-                         alt="<?php echo htmlspecialchars($item['title']); ?>"
-                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
-                </div>
-                <div class="book-info">
-                    <div class="book-title"><?php echo htmlspecialchars($item['title']); ?></div>
-                    <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-                        <div style="display: flex; flex-direction: column;">
-                            <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem;">
-                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
-                            </span>
-                            <div style="display: flex; align-items: center; gap: 4px; color: #f59e0b; font-size: 0.75rem; font-weight: 700;">
-                                <i class='bx bxs-star'></i> <?php echo number_format($item['average_rating'], 1); ?>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem; background: #818cf8; border-color: #818cf8;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                            Details
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Community Books Section -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                <i class='bx bx-globe' style="color: var(--primary);"></i>
-                Explore Community Books
+                <i class='bx bx-heart' style="color: #ef4444;"></i>
+                Your Interests Books
             </h2>
             <a href="explore.php" class="btn btn-outline" style="font-weight: 600;">
                 View All <i class='bx bx-right-arrow-alt'></i>
@@ -187,21 +145,44 @@ $recommendedBooks = getRecommendedBooks($userId, 4);
         </div>
 
         <?php 
-        $listings = searchListingsAdvanced([], 4); 
+        $favoriteCategory = $user['favorite_category'] ?? '';
+        $categoryList = !empty($favoriteCategory) ? array_map('trim', explode(',', $favoriteCategory)) : [];
+        $categoryFilter = !empty($categoryList) ? [
+            'category' => $categoryList,
+            'exclude_user_id' => $userId
+        ] : [];
+        $listings = !empty($categoryFilter) ? searchListingsAdvanced($categoryFilter, 4) : []; 
         ?>
         <div class="book-grid">
-            <?php if (empty($listings)): ?>
-                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
-                    <p style="color: var(--text-muted);">No books available in the community right now.</p>
+            <?php if (empty($favoriteCategory)): ?>
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                    <i class='bx bx-heart' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">Set your interests to see personalized recommendations!</p>
+                    <a href="profile.php" class="btn btn-primary btn-sm">Set Interests</a>
+                </div>
+            <?php elseif (empty($listings)): ?>
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                    <i class='bx bx-search' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="color: var(--text-muted);">No books matching your specific interests right now.</p>
                 </div>
             <?php endif; ?>
-            <?php foreach ($listings as $item): ?>
-            <div class="book-card" style="transition: all 0.3s; cursor: pointer;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+            <?php foreach ($listings as $item): 
+                $isRare = $item['is_rare'] ?? 0;
+            ?>
+            <div class="book-card <?php echo $isRare ? 'rare-card' : ''; ?>" style="transition: all 0.3s; cursor: pointer;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                 <div class="book-cover">
+                    <?php if ($isRare): ?>
+                        <span class="rare-badge">RARE</span>
+                    <?php endif; ?>
                     <span style="position: absolute; top: 10px; right: 10px; background:white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Available</span>
-                    <img src="<?php echo $item['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800'; ?>" 
+                    <?php 
+                        $cover = $item['cover_image'];
+                        $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
+                        $cover = $cover ?: $fallback;
+                    ?>
+                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
                          alt="<?php echo htmlspecialchars($item['title']); ?>"
-                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';">
+                         onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                 </div>
                 <div class="book-info">
                     <div class="book-title"><?php echo htmlspecialchars($item['title']); ?></div>
@@ -212,6 +193,62 @@ $recommendedBooks = getRecommendedBooks($userId, 4);
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
                             Borrow
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Community Books Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 3rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                <i class='bx bx-group' style="color: var(--primary);"></i>
+                Community Books
+            </h2>
+            <a href="community.php" class="btn btn-outline" style="font-weight: 600;">
+                View Communities <i class='bx bx-right-arrow-alt'></i>
+            </a>
+        </div>
+
+        <?php 
+        $communityBooks = getUserCommunityBooks($userId, 4);
+        ?>
+        <div class="book-grid">
+            <?php if (empty($communityBooks)): ?>
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                    <i class='bx bx-group' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">No books from your communities yet.</p>
+                    <a href="community.php" class="btn btn-primary btn-sm">Join Communities</a>
+                </div>
+            <?php endif; ?>
+            <?php foreach ($communityBooks as $item): 
+                $isRare = $item['is_rare'] ?? 0;
+            ?>
+            <div class="book-card <?php echo $isRare ? 'rare-card' : ''; ?>" style="transition: all 0.3s; cursor: pointer;" onclick="window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                <div class="book-cover">
+                    <?php if ($isRare): ?>
+                        <span class="rare-badge">RARE</span>
+                    <?php endif; ?>
+                    <span style="position: absolute; top: 10px; right: 10px; background: var(--primary); color: white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><?php echo htmlspecialchars($item['community_name']); ?></span>
+                    <?php 
+                        $cover = $item['cover_image'];
+                        $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
+                        $cover = $cover ?: $fallback;
+                    ?>
+                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                         alt="<?php echo htmlspecialchars($item['title']); ?>"
+                         onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
+                </div>
+                <div class="book-info">
+                    <div class="book-title"><?php echo htmlspecialchars($item['title']); ?></div>
+                    <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                        </span>
+                        <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
+                            View
                         </button>
                     </div>
                 </div>
@@ -308,9 +345,33 @@ $recommendedBooks = getRecommendedBooks($userId, 4);
     transform: translateY(-5px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
+.book-card {
+    border: 2px solid transparent;
+}
 .book-card:hover {
     transform: translateY(-8px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary);
+}
+.book-card.rare-card {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+.book-card.rare-card:hover {
+    border-color: #d97706;
+}
+.rare-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #f59e0b;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 10;
 }
 
 /* Modal Styles */

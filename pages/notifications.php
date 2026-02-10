@@ -141,8 +141,10 @@ $status = $_GET['status'] ?? 'all';
                         FROM notifications n
                         JOIN transactions t ON n.reference_id = t.id
                         WHERE n.user_id = ? 
-                        AND n.type LIKE '%_request' 
-                        AND t.status = 'requested'
+                        AND (
+                            (n.type IN ('borrow_request', 'sell_request', 'exchange_request') AND t.status = 'requested')
+                            OR (n.type = 'extension_request' AND t.pending_due_date IS NOT NULL)
+                        )
                     ");
                     $stmt->execute([$userId]);
                     $unreadCounts['action'] = (int)$stmt->fetchColumn();
@@ -182,7 +184,10 @@ $status = $_GET['status'] ?? 'all';
                     if ($status === 'unread') {
                         $conditions[] = "n.is_read = 0";
                     } elseif ($status === 'action') {
-                        $conditions[] = "n.type LIKE '%_request' AND t.status = 'requested'";
+                        $conditions[] = "(
+                            (n.type IN ('borrow_request', 'sell_request', 'exchange_request') AND t.status = 'requested')
+                            OR (n.type = 'extension_request' AND t.pending_due_date IS NOT NULL)
+                        )";
                     }
 
                     if ($filter === 'requests') {
@@ -196,7 +201,7 @@ $status = $_GET['status'] ?? 'all';
                     $whereClause = implode(" AND ", $conditions);
 
                     $stmt = $pdo->prepare("
-                        SELECT n.*, t.status as transaction_status 
+                        SELECT n.*, t.status as transaction_status, t.pending_due_date 
                         FROM notifications n 
                         LEFT JOIN transactions t ON n.reference_id = t.id 
                         WHERE $whereClause 
@@ -208,8 +213,12 @@ $status = $_GET['status'] ?? 'all';
                     if (count($notifs) > 0) {
                         foreach ($notifs as $n) {
                             $highlight = $n['is_read'] ? '' : 'background: #f0f9ff;';
+                            $isExtension = $n['type'] === 'extension_request';
                             $isRequest = strpos($n['type'], '_request') !== false;
-                            $canAction = ($isRequest && $n['reference_id'] && $n['transaction_status'] === 'requested');
+                            $canAction = ($n['reference_id'] && (
+                                ($isRequest && !$isExtension && $n['transaction_status'] === 'requested') ||
+                                ($isExtension && $n['pending_due_date'])
+                            ));
                             
                             // Map icons and colors
                             $icon = 'bx-bell';
@@ -279,11 +288,19 @@ $status = $_GET['status'] ?? 'all';
                                 </div>";
                             
                             if ($canAction) {
-                                echo "
-                                <div style='display: flex; gap: 0.75rem; margin-top: 1rem;'>
-                                    <button class='btn btn-primary btn-sm' onclick='handleRequest({$n['reference_id']}, \"accept\", {$n['id']})'>Accept</button>
-                                    <button class='btn btn-outline btn-sm' onclick='handleRequest({$n['reference_id']}, \"decline\", {$n['id']})'>Decline</button>
-                                </div>";
+                                if ($isExtension) {
+                                    echo "
+                                    <div style='display: flex; gap: 0.75rem; margin-top: 1rem;'>
+                                        <button class='btn btn-primary btn-sm' onclick='handleRequest({$n['reference_id']}, \"approve_extension\", {$n['id']})'>Approve</button>
+                                        <button class='btn btn-outline btn-sm' onclick='handleRequest({$n['reference_id']}, \"decline_extension\", {$n['id']})'>Decline</button>
+                                    </div>";
+                                } else {
+                                    echo "
+                                    <div style='display: flex; gap: 0.75rem; margin-top: 1rem;'>
+                                        <button class='btn btn-primary btn-sm' onclick='handleRequest({$n['reference_id']}, \"accept\", {$n['id']})'>Accept</button>
+                                        <button class='btn btn-outline btn-sm' onclick='handleRequest({$n['reference_id']}, \"decline\", {$n['id']})'>Decline</button>
+                                    </div>";
+                                }
                             }
                             
                             echo "</a>";
@@ -305,22 +322,23 @@ $status = $_GET['status'] ?? 'all';
     <script>
         async function handleRequest(transactionId, action, notifId) {
             try {
+                const bodyAction = action.includes('extension') ? action : `${action}_request`;
                 const response = await fetch('../actions/request_action.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `action=${action}_request&transaction_id=${transactionId}`
+                    body: `action=${bodyAction}&transaction_id=${transactionId}`
                 });
                 
                 const data = await response.json();
                 if (data.success) {
-                    alert(data.message);
+                    showToast(data.message, 'success');
                     document.getElementById('notif-' + notifId).remove();
                     location.reload();
                 } else {
-                    alert('Error: ' + data.message);
+                    showToast('Error: ' + data.message, 'error');
                 }
             } catch (err) {
-                alert('Failed to process request');
+                showToast('Failed to process request', 'error');
                 console.error(err);
             }
         }

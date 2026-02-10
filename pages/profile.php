@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'service_end_lat' => !empty($_POST['service_end_lat']) ? $_POST['service_end_lat'] : null,
         'service_end_lng' => !empty($_POST['service_end_lng']) ? $_POST['service_end_lng'] : null,
         'is_accepting_deliveries' => isset($_POST['is_accepting_deliveries']) ? 1 : 0,
-        'favorite_category' => trim($_POST['favorite_category'] ?? '')
+        'favorite_category' => isset($_POST['favorite_category']) ? implode(', ', $_POST['favorite_category']) : ''
     ];
 
     if (updateUser($userId, $data)) {
@@ -190,6 +190,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
             outline: none;
         }
+
+        /* Category Pills Optimization */
+        .category-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 0.75rem; 
+            margin-top: 0.75rem; 
+        }
+        .cat-pill {
+            padding: 0.6rem 1.25rem;
+            border-radius: 14px;
+            background: white;
+            color: #64748b;
+            cursor: pointer;
+            border: 1.5px solid #e2e8f0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            user-select: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .cat-pill:hover { 
+            border-color: var(--primary); 
+            color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+            transform: translateY(-1px);
+        }
+        .cat-pill.selected { 
+            background: var(--primary); 
+            color: white; 
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .cat-checkbox { display: none; }
 
         /* Map Styles */
         #address-map {
@@ -421,19 +457,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                            pattern="[\d\s\-\+\(\)]{10,20}" title="Phone number must contain only digits, spaces, and symbols (+, -, parenthesis). Letters are not allowed.">
                                 </div>
                                 <div class="form-group" style="margin-top: 1.25rem;">
-                                    <label class="form-label">Favorite Category / Interest</label>
-                                    <select name="favorite_category" class="form-input">
-                                        <option value="">None Selected</option>
+                                    <label class="form-label">Favorite Category / Interest (Select multiple)</label>
+                                    <div class="category-grid">
                                         <?php 
                                         $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History', 'Technology', 'Science', 'Art', 'Cooking', 'Comics'];
+                                        $selectedCats = isset($user['favorite_category']) ? explode(', ', $user['favorite_category']) : [];
                                         foreach($cats as $c) {
-                                            $sel = (isset($user['favorite_category']) && $user['favorite_category'] == $c) ? 'selected' : '';
-                                            echo "<option value='$c' $sel>$c</option>";
+                                            $isSelected = in_array($c, $selectedCats);
+                                            $selectedClass = $isSelected ? 'selected' : '';
+                                            $checked = $isSelected ? 'checked' : '';
+                                            echo "
+                                            <label class='cat-pill $selectedClass' onclick='toggleInterest(this)'>
+                                                <input type='checkbox' name='favorite_category[]' value='$c' class='cat-checkbox' $checked>
+                                                $c
+                                            </label>";
                                         }
                                         ?>
-                                    </select>
-                                    <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">
-                                        Setting this helps us recommend books you'll love on your dashboard!
+                                    </div>
+                                    <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.75rem; font-weight: 500;">
+                                        <i class='bx bx-info-circle'></i> Selecting your interests helps us personalize your dashboard with books you'll love!
                                     </p>
                                 </div>
                             </div>
@@ -739,14 +781,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     let errorMsg = "GPS access denied.";
                     if (error.code === error.TIMEOUT) errorMsg = "Location request timed out. Please try again.";
                     else if (error.code === error.POSITION_UNAVAILABLE) errorMsg = "Location information is unavailable.";
-                    alert(errorMsg);
+                    showToast(errorMsg, 'error');
                 }, { 
                     enableHighAccuracy: true,
                     timeout: 10000,
                     maximumAge: 0
                 });
             } else {
-                alert("Geolocation is not supported by your browser.");
+                showToast("Geolocation is not supported by your browser.", 'error');
             }
         }
 
@@ -845,6 +887,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
+        // Toggle Interest Selection
+        function toggleInterest(pill) {
+            const checkbox = pill.querySelector('input');
+            checkbox.checked = !checkbox.checked;
+            pill.classList.toggle('selected', checkbox.checked);
+        }
+
         // Profile Picture Upload
         document.getElementById('profile-picture-input').addEventListener('change', async function(e) {
             const file = e.target.files[0];
@@ -878,13 +927,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     const avatarDisplay = document.getElementById('profile-avatar-display');
                     avatarDisplay.innerHTML = `<img src="<?php echo APP_URL; ?>/${result.profile_picture}?t=${Date.now()}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">`;
                     
-                    alert('Profile picture updated successfully!');
+                    showToast('Profile picture updated successfully!', 'success');
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (err) {
                 console.error('Upload error:', err);
-                alert('Failed to upload profile picture');
+                showToast('Failed to upload profile picture', 'error');
             }
         });
     </script>

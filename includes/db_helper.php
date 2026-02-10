@@ -594,7 +594,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         $pdo = getDBConnection();
         $params = [];
         
-        $select = "l.*, b.title, b.author, b.cover_image, b.category, 
+        $select = "l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, 
                    u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating";
         
         // Dynamic Distance Calculation if center provided
@@ -627,9 +627,22 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             $params[] = $filters['role'];
         }
 
+        if (!empty($filters['exclude_user_id'])) {
+            $sql .= " AND l.user_id != ?";
+            $params[] = $filters['exclude_user_id'];
+        }
+
         if (!empty($filters['category'])) {
-            $sql .= " AND b.category LIKE ?";
-            $params[] = "%" . $filters['category'] . "%";
+            if (is_array($filters['category'])) {
+                $placeholders = array_fill(0, count($filters['category']), "b.category LIKE ?");
+                $sql .= " AND (" . implode(" OR ", $placeholders) . ")";
+                foreach ($filters['category'] as $cat) {
+                    $params[] = "%" . trim($cat) . "%";
+                }
+            } else {
+                $sql .= " AND b.category LIKE ?";
+                $params[] = "%" . $filters['category'] . "%";
+            }
         }
 
         if (!empty($filters['type'])) {
@@ -706,9 +719,28 @@ function getRecommendedBooks($userId, $limit = 4) {
             return [];
         }
         
-        // 2. Fetch books matching the category, excluding user's own listings
+        // 2. Fetch books matching any of the user's favorite categories, excluding user's own listings
+        $interests = explode(', ', $favoriteCategory);
+        $clauseParts = [];
+        $params = [];
+        
+        foreach ($interests as $interest) {
+            if (!empty($interest)) {
+                $clauseParts[] = "b.category LIKE ?";
+                $params[] = "%$interest%";
+            }
+        }
+        
+        if (empty($clauseParts)) {
+            return [];
+        }
+        
+        $categoryClause = "(" . implode(' OR ', $clauseParts) . ")";
+        $params[] = $userId;
+        $params[] = (int)$limit;
+        
         $stmt = $pdo->prepare("
-            SELECT l.*, b.title, b.author, b.cover_image, b.category, 
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, 
                    u.firstname, u.lastname, u.trust_score, u.average_rating
             FROM listings l
             JOIN books b ON l.book_id = b.id
@@ -716,13 +748,13 @@ function getRecommendedBooks($userId, $limit = 4) {
             WHERE l.availability_status = 'available' 
             AND l.visibility = 'public'
             AND l.quantity > 0
-            AND b.category LIKE ?
+            AND $categoryClause
             AND l.user_id != ?
             ORDER BY l.created_at DESC
             LIMIT ?
         ");
         
-        $stmt->execute(["%$favoriteCategory%", $userId, $limit]);
+        $stmt->execute($params);
         return $stmt->fetchAll();
         
     } catch (PDOException $e) {
@@ -2294,6 +2326,89 @@ function getRareBooks($limit = 10) {
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log("Get rare books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get communities for a user
+ */
+function getUserCommunities($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT c.id, c.name 
+            FROM communities c
+            JOIN community_members cm ON c.id = cm.community_id
+            WHERE cm.user_id = ?
+            ORDER BY c.name ASC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get user communities error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get listings for a specific community
+ */
+function getCommunityListings($communityId, $limit = 20, $offset = 0) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.category,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.visibility = 'community' 
+            AND l.community_id = ?
+            AND l.quantity > 0
+            ORDER BY l.created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->bindValue(1, $communityId, PDO::PARAM_INT);
+        $stmt->bindValue(2, (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(3, (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get community listings error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get listings from all communities a user has joined
+ */
+function getUserCommunityBooks($userId, $limit = 8) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating,
+                   c.name as community_name
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            JOIN communities c ON l.community_id = c.id
+            JOIN community_members cm ON c.id = cm.community_id
+            WHERE l.visibility = 'community' 
+            AND cm.user_id = ?
+            AND l.user_id != ?
+            AND l.quantity > 0
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->bindValue(1, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(3, (int)$limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get user community books error: " . $e->getMessage());
         return [];
     }
 }

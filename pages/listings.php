@@ -310,7 +310,14 @@ $myListings = $stmt->fetchAll();
                                 <span class="type-badge" style="background: var(--text-muted); left: auto; right: 15px;">Out of Stock</span>
                             <?php endif; ?>
                             <div class="listing-img-wrapper">
-                                <img src="<?php echo $listing['cover_image'] ?: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600'; ?>" class="listing-img" alt="Book">
+                                <?php 
+                                    $cover = $listing['cover_image'];
+                                    $fallback = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600';
+                                    $cover = $cover ?: $fallback;
+                                ?>
+                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                                     class="listing-img" alt="Book" 
+                                     onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                             </div>
                             <div class="listing-content">
                                 <div class="listing-title"><?php echo htmlspecialchars($listing['title']); ?></div>
@@ -350,14 +357,14 @@ $myListings = $stmt->fetchAll();
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(result.message);
-                    location.reload();
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert('Error: ' + result.message);
+                    showToast('Error: ' + result.message, 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('An error occurred. Check console.');
+                showToast('An error occurred. Check console.', 'error');
             }
         }
     </script>

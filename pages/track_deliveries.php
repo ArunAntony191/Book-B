@@ -19,10 +19,14 @@ $incoming = [];
 $outgoing = [];
 $returns = [];
 $exchanges = [];
+$all_deliveries = []; // New All category
 
 foreach ($deliveries as $d) {
     // Skip cancelled deliveries from tracking
     if ($d['status'] === 'cancelled') continue;
+
+    // Add to All
+    $all_deliveries[] = $d;
 
     // If it's an exchange transaction, it goes to Exchanges tab
     if ($d['transaction_type'] === 'exchange') {
@@ -35,10 +39,11 @@ foreach ($deliveries as $d) {
     $isActuallyReturning = (in_array($d['status'], ['return_requested', 'return_approved', 'returning', 'returned', 'return_delivery_assigned', 'return_pending_confirmation']));
     if ($isActuallyReturning) {
         $returns[] = $d;
-        continue; // Don't show in "Incoming" once the return process starts
+        // CRITICAL FIX: Do NOT continue here. We want it in returns AND in its original incoming/outgoing tab
     }
 
     // Forward phase categorization (or historically forward)
+    // This now runs even for returning items, keeping them in their original tabs
     if ($d['borrower_id'] == $userId) {
         $incoming[] = $d;
     } else {
@@ -259,7 +264,10 @@ function getStatusLabel($status, $agentId) {
                 </div>
 
                 <div class="tabs-header">
-                    <button class="tab-btn active" onclick="switchTab('incoming', this)">
+                    <button class="tab-btn active" onclick="switchTab('all', this)">
+                        All <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($all_deliveries); ?>)</span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('incoming', this)">
                         Incoming <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($incoming); ?>)</span>
                     </button>
                     <button class="tab-btn" onclick="switchTab('outgoing', this)">
@@ -271,6 +279,24 @@ function getStatusLabel($status, $agentId) {
                     <button class="tab-btn" onclick="switchTab('exchanges', this)">
                         Exchange <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 600;">(<?php echo count($exchanges); ?>)</span>
                     </button>
+                </div>
+
+                <div id="all-list">
+                    <?php if (empty($all_deliveries)): ?>
+                        <div class="empty-state">
+                            <i class='bx bx-search-alt'></i>
+                            <h3>No deliveries found</h3>
+                            <p>All your delivery history will appear here.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($all_deliveries as $d): ?>
+                        <?php 
+                            // Determine if we should show return leg or forward leg based on status
+                            $isReturnPhase = in_array($d['status'], ['returning', 'returned']);
+                            $forceLeg = $isReturnPhase ? 'return' : 'forward';
+                            renderEnhancedDeliveryCard($d, $forceLeg); 
+                        ?>
+                    <?php endforeach; ?>
                 </div>
 
                 <div id="incoming-list">
@@ -439,12 +465,12 @@ function getStatusLabel($status, $agentId) {
             <?php if ($isBorrower): ?>
                 <div class="credit-info-tag">
                     <i class='bx bxs-coin-stack' style="color: #f59e0b;"></i>
-                    10 Credits Delivery Fee Paid
+                    ₹10 Delivery Fee Paid
                 </div>
             <?php elseif ($d['transaction_type'] === 'purchase'): ?>
                 <div class="credit-info-tag">
                     <i class='bx bxs-coin-stack' style="color: #10b981;"></i>
-                    Reward: <?php echo $d['credit_cost'] ?? 10; ?> Credits upon delivery
+                    Reward: ₹<?php echo $d['credit_cost'] ?? 10; ?> upon delivery
                 </div>
             <?php endif; ?>
 
@@ -454,7 +480,9 @@ function getStatusLabel($status, $agentId) {
 
             <div class="delivery-main">
                 <div class="book-aside">
-                    <img src="<?php echo htmlspecialchars($d['cover_image'] ?: '../assets/images/book-placeholder.jpg'); ?>" class="book-img">
+                    <img src="<?php echo htmlspecialchars($d['cover_image'], ENT_QUOTES, 'UTF-8', false); ?>" 
+                         onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';" 
+                         class="book-img">
                 </div>
                 
                 <div class="delivery-body">
@@ -582,7 +610,7 @@ function getStatusLabel($status, $agentId) {
                     <?php elseif ($isBorrower && $d['status'] === 'delivered' && $d['transaction_type'] === 'borrow'): ?>
                         <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
                             <button onclick="confirmAction(<?php echo $d['id']; ?>, 'request_return_delivery')" class="btn-confirm primary" style="background: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);">
-                                <i class='bx bx-undo'></i> Return Book via Agent (10 Credits)
+                                <i class='bx bx-undo'></i> Return Book via Agent (₹10)
                             </button>
                             
                             <?php if ($d['transaction_type'] === 'borrow'): ?>
@@ -747,6 +775,7 @@ function getStatusLabel($status, $agentId) {
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
             
+            document.getElementById('all-list').style.display = tab === 'all' ? 'block' : 'none';
             document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
             document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
             document.getElementById('returns-list').style.display = tab === 'returns' ? 'block' : 'none';
@@ -757,13 +786,6 @@ function getStatusLabel($status, $agentId) {
             }, 100);
         }
 
-        function showMsg(text, type) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `status-msg ${type}`;
-            messageDiv.innerHTML = `<i class='bx ${type === 'success' ? 'bx-check-circle' : 'bx-error-circle'}'></i> ${text}`;
-            document.body.appendChild(messageDiv);
-            setTimeout(() => messageDiv.remove(), 3000);
-        }
 
         /* Feedback Functions */
         let currentFeedbackTx = 0;
@@ -816,7 +838,7 @@ function getStatusLabel($status, $agentId) {
 
         async function submitFeedback() {
             if (currentRatingValue === 0) {
-                alert('Please select a rating');
+                showToast('Please select a rating', 'warning');
                 return;
             }
 
@@ -835,14 +857,14 @@ function getStatusLabel($status, $agentId) {
                 const result = await response.json();
 
                 if (result.success) {
-                    showMsg(result.message, 'success');
+                    showToast(result.message, 'success');
                     closeFeedbackModal();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showMsg(result.message, 'error');
+                    showToast(result.message, 'error');
                 }
             } catch (err) {
-                showMsg('Network error. Please try again.', 'error');
+                showToast('Network error. Please try again.', 'error');
             }
         }
 
@@ -906,7 +928,7 @@ function getStatusLabel($status, $agentId) {
         async function submitExtension() {
             const newDate = document.getElementById('new-due-date').value;
             if (!newDate) {
-                alert('Please select a new date');
+                showToast('Please select a new due date', 'warning');
                 return;
             }
 
@@ -919,14 +941,14 @@ function getStatusLabel($status, $agentId) {
                 const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    showMsg(result.message, 'success');
+                    showToast(result.message, 'success');
                     closeExtendModal();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showMsg(result.message, 'error');
+                    showToast(result.message || 'Action failed', 'error');
                 }
-            } catch (err) {
-                showMsg('Network error. Please try again.', 'error');
+            } catch (error) {
+                showToast('Network error. Please try again.', 'error');
             }
         }
 
@@ -936,7 +958,7 @@ function getStatusLabel($status, $agentId) {
                 'confirm_receipt': 'Confirming receipt will verify the delivery and build trust. Proceed?',
                 'confirm_handover': 'Confirm you have handed over the book to the agent?',
                 'accept_request': 'Accept this delivery request?',
-                'request_return_delivery': 'Request a return delivery for this book? This will cost 10 credits.'
+                'request_return_delivery': 'Request a return delivery for this book? This will cost ₹10.'
             };
             
             if (!confirm(msgs[action] || 'Confirm this action?')) return;

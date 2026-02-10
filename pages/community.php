@@ -108,6 +108,23 @@ include '../includes/dashboard_header.php';
             border-radius: var(--radius-md);
             width: 100%; width: 500px;
         }
+        /* Tabs */
+        .chat-tabs { display: flex; gap: 1rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border-color); margin-top: 1rem; }
+        .chat-tab { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; color: var(--text-muted); font-size: 0.9rem; }
+        .chat-tab:hover { color: var(--primary); background: #f8fafc; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+        .chat-tab.active { border-color: var(--primary); color: var(--primary); }
+        
+        .tab-content { display: none; flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8fafc; }
+        .tab-content.active { display: flex; flex-direction: column; }
+
+        /* Book Grid */
+        .comm-book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
+        .comm-book-card { background: white; border-radius: 12px; padding: 0.8rem; border: 1px solid var(--border-color); transition: all 0.2s; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .comm-book-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+        .comm-book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; margin-bottom: 0.75rem; background: #f1f5f9; }
+        .comm-book-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.3; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .comm-book-author { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .comm-book-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #e2e8f0; color: #475569; font-weight: 600; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -149,14 +166,36 @@ include '../includes/dashboard_header.php';
                                 <!-- Buttons will be added dynamically -->
                             </div>
                         </div>
-                        <div class="chat-messages" id="messages-box"></div>
-                        <div class="chat-input-area">
-                            <button class="btn" style="padding: 0.8rem; border-radius: 50%;" onclick="document.getElementById('file-upload').click()">
-                                <i class='bx bx-image'></i>
-                            </button>
-                            <input type="file" id="file-upload" style="display: none;" accept="image/*">
-                            <input type="text" id="msg-input" class="form-input" placeholder="Type a message..." style="border-radius: 20px;">
-                            <button class="btn btn-primary" onclick="sendMessage()"><i class='bx bx-send'></i></button>
+                        
+                        <!-- Tabs -->
+                        <div class="chat-tabs">
+                            <div class="chat-tab active" onclick="switchView('chat', this)">Chat</div>
+                            <div class="chat-tab" onclick="switchView('books', this)">Books</div>
+                        </div>
+
+                        <!-- Chat View -->
+                        <div id="chat-content" class="tab-content active" style="padding: 0; background: transparent; overflow: hidden;">
+                            <div class="chat-messages" id="messages-box"></div>
+                            <div class="chat-input-area">
+                                <button class="btn" style="padding: 0.8rem; border-radius: 50%;" onclick="document.getElementById('file-upload').click()">
+                                    <i class='bx bx-image'></i>
+                                </button>
+                                <input type="file" id="file-upload" style="display: none;" accept="image/*">
+                                <input type="text" id="msg-input" class="form-input" placeholder="Type a message..." style="border-radius: 20px;">
+                                <button class="btn btn-primary" onclick="sendMessage()"><i class='bx bx-send'></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Books View -->
+                        <div id="books-content" class="tab-content">
+                            <div id="books-grid" class="comm-book-grid">
+                                <!-- Books will be loaded here -->
+                            </div>
+                            <div id="no-books-msg" style="display: none; text-align: center; color: var(--text-muted); margin-top: 2rem;">
+                                <i class='bx bx-book' style="font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+                                <p>No books shared in this community yet.</p>
+                                <a href="../pages/add_listing.php" class="btn btn-sm btn-primary" style="margin-top: 1rem;">Share a Book</a>
+                            </div>
                         </div>
                     </div>
                     <div id="empty-choice" class="empty-state">
@@ -253,6 +292,13 @@ include '../includes/dashboard_header.php';
         let currentCommCreator = null;
         let userId = <?php echo $_SESSION['user_id']; ?>;
 
+        // Helper to fix image paths
+        function getImgPath(path) {
+            if (!path) return '../assets/images/book-placeholder.jpg';
+            if (path.startsWith('http') || path.startsWith('../')) return path;
+            return '../' + path;
+        }
+
         // 1. Load my communities & Discover
         function loadCommunities() {
             // My Communities
@@ -267,7 +313,7 @@ include '../includes/dashboard_header.php';
                         list.innerHTML += `
                             <div class="comm-item ${c.id == currentCommId ? 'active' : ''}" onclick="selectCommunity(${c.id}, '${c.name.replace(/'/g, "\\'")
 }', '${(c.description || '').replace(/'/g, "\\'")}', '${c.cover_image || ''}', ${c.created_by})">
-                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                                <img src="${getImgPath(c.cover_image)}" class="comm-img">
                                 <div>
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -288,7 +334,7 @@ include '../includes/dashboard_header.php';
                     data.forEach(c => {
                         list.innerHTML += `
                             <div class="comm-item">
-                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                                <img src="${getImgPath(c.cover_image)}" class="comm-img">
                                 <div style="flex:1;">
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -309,7 +355,7 @@ include '../includes/dashboard_header.php';
             
             document.getElementById('active-name').textContent = name;
             document.getElementById('active-desc').textContent = desc;
-            document.getElementById('active-img').src = img ? '../' + img : '../assets/images/book-placeholder.jpg';
+            document.getElementById('active-img').src = getImgPath(img);
             
             // Update action buttons
             updateActionButtons();
@@ -350,7 +396,7 @@ include '../includes/dashboard_header.php';
         
         // 3. Load Messages
         function loadMessages() {
-            if (!currentCommId) return;
+            if (!currentCommId || currentView !== 'chat') return;
             fetch(`../community/api.php?action=messages&community_id=${currentCommId}`)
                 .then(res => res.json())
                 .then(msgs => {
@@ -360,7 +406,7 @@ include '../includes/dashboard_header.php';
                         const isMine = m.user_id == userId;
                         let content = `<span class="msg-sender">${m.firstname} ${m.lastname}</span>`;
                         if (m.message) content += `<div>${m.message}</div>`;
-                        if (m.attachment_url) content += `<img src="../${m.attachment_url}" style="max-width:200px; border-radius:8px; margin-top:0.5rem;">`;
+                        if (m.attachment_url) content += `<img src="${getImgPath(m.attachment_url)}" style="max-width:200px; border-radius:8px; margin-top:0.5rem; display: block; border: 1px solid rgba(0,0,0,0.1);">`;
                         
                         box.innerHTML += `
                             <div class="message ${isMine ? 'mine' : 'theirs'}">
@@ -374,6 +420,65 @@ include '../includes/dashboard_header.php';
         
         // Poll for messages
         setInterval(loadMessages, 3000);
+        
+        // --- Tabs & Books ---
+        let currentView = 'chat';
+        
+        function switchView(view, tabEl) {
+            currentView = view;
+            
+            // Update tabs
+            document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+            tabEl.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${view}-content`).classList.add('active');
+            
+            if (view === 'chat') {
+                loadMessages();
+            } else if (view === 'books') {
+                loadBooks();
+            }
+        }
+        
+        function loadBooks() {
+            if (!currentCommId) return;
+            
+            const grid = document.getElementById('books-grid');
+            const noMsg = document.getElementById('no-books-msg');
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem;"><i class="bx bx-loader-alt bx-spin" style="font-size: 2rem; color: var(--primary);"></i></div>';
+            noMsg.style.display = 'none';
+            
+            fetch(`../community/api.php?action=books&community_id=${currentCommId}`)
+                .then(res => res.json())
+                .then(books => {
+                    grid.innerHTML = '';
+                    if (!books || books.length === 0) {
+                        noMsg.style.display = 'block';
+                        return;
+                    }
+                    
+                    books.forEach(book => {
+                        const cover = book.cover_image || '../assets/images/book-placeholder.jpg';
+                        grid.innerHTML += `
+                            <div class="comm-book-card" onclick="window.location.href='book_details.php?id=${book.id}'">
+                                <img src="${cover}" class="comm-book-img">
+                                <div class="comm-book-title" title="${book.title}">${book.title}</div>
+                                <div class="comm-book-author">by ${book.author}</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="comm-book-badge">${book.listing_type}</span>
+                                    <span style="font-size:0.8rem; font-weight:700; color:var(--primary);">${book.listing_type === 'sell' ? '₹'+book.price : book.price}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    grid.innerHTML = '<div style="color:red; text-align:center;">Failed to load books.</div>';
+                });
+        }
 
         // 4. Send Message
         function sendMessage() {
@@ -387,10 +492,19 @@ include '../includes/dashboard_header.php';
             if (fileInput.files[0]) formData.append('image', fileInput.files[0]);
             
             fetch('../community/api.php?action=send_message', { method: 'POST', body: formData })
-                .then(() => {
-                    input.value = '';
-                    fileInput.value = '';
-                    loadMessages();
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        input.value = '';
+                        fileInput.value = '';
+                        loadMessages();
+                    } else {
+                        alert('Error sending message: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    console.error('Send error:', err);
+                    alert('Failed to send message. Please check your connection.');
                 });
         }
 
@@ -407,7 +521,7 @@ include '../includes/dashboard_header.php';
                         
                         list.innerHTML += `
                             <div class="comm-item">
-                                <img src="${c.cover_image ? '../' + c.cover_image : '../assets/images/book-placeholder.jpg'}" class="comm-img">
+                                <img src="${getImgPath(c.cover_image)}" class="comm-img">
                                 <div style="flex:1;">
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
@@ -491,7 +605,7 @@ include '../includes/dashboard_header.php';
                         document.getElementById('edit-cover-modal').style.display = 'none';
                         // Update image in UI
                         if (data.cover_image) {
-                            document.getElementById('active-img').src = '../' + data.cover_image;
+                            document.getElementById('active-img').src = getImgPath(data.cover_image);
                         }
                         loadCommunities(); // Refresh list
                         e.target.reset();
@@ -504,7 +618,7 @@ include '../includes/dashboard_header.php';
                     console.error('Update error:', err);
                 });
         }
-        
+
         // 9. Delete Community
         function showDeleteModal() {
             document.getElementById('delete-modal').style.display = 'flex';

@@ -108,7 +108,7 @@ function buildLocation($addr, $city, $dist) {
                     </button>
                     <div style="background: white; padding: 0.8rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Lifetime Earnings</div>
-                        <div style="font-size: 1.4rem; font-weight: 800; color: #059669;"><?php echo (count($history) * 10); ?> CR</div>
+                        <div style="font-size: 1.4rem; font-weight: 800; color: #059669;">₹<?php echo (count($history) * 10); ?></div>
                     </div>
                 </div>
             </div>
@@ -156,7 +156,9 @@ function buildLocation($addr, $city, $dist) {
                              data-date="<?php echo date('Y-m-d H:i:s', strtotime($h['completion_time'])); ?>"
                              data-earnings="10">
                             
-                            <img src="<?php echo htmlspecialchars($h['cover_image'] ?: '../assets/images/book-placeholder.jpg'); ?>" class="book-img">
+                            <img src="<?php echo htmlspecialchars($h['cover_image'], ENT_QUOTES, 'UTF-8', false); ?>" 
+                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';" 
+                                 class="book-img">
                             <div class="history-details">
                                 <span class="mission-tag <?php echo $h['job_type_label'] === 'Delivery Mission' ? 'tag-forward' : 'tag-return'; ?>">
                                     <?php echo $h['job_type_label']; ?>
@@ -181,7 +183,7 @@ function buildLocation($addr, $city, $dist) {
                             </div>
                             <div class="history-status">
                                 <div class="earned-badge">
-                                    <i class='bx bx-plus-circle'></i> 10 Credits
+                                    <i class='bx bx-plus-circle'></i> ₹10 Earned
                                 </div>
                                 <div style="margin-top: 0.5rem; color: #2563eb; font-weight: 600; font-size: 0.8rem; opacity: 0.8;">
                                     <i class='bx bxs-check-shield'></i> Verified
