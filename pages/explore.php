@@ -61,7 +61,7 @@ $rareResults = getRareBooks(10);
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --sidebar-width: 420px;
+            --sidebar-width: 580px;
             --glass-bg: rgba(255, 255, 255, 0.85);
             --glass-border: rgba(255, 255, 255, 0.5);
             --accent-gold: #f59e0b;
@@ -432,7 +432,35 @@ $rareResults = getRareBooks(10);
                             </div>
                         </div>
 
-                        <form action="explore.php" method="GET" class="filter-grid" style="margin-top: 2rem;">
+                        <!-- Listing Type Pills -->
+                        <div style="margin-top: 1.5rem;">
+                            <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Listing Type</h4>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                <?php
+                                $currentType = $filters['type'];
+                                $typeOptions = [
+                                    '' => ['label' => 'All', 'icon' => 'bx-list-ul'],
+                                    'borrow' => ['label' => 'Borrow', 'icon' => 'bx-book-reader'],
+                                    'exchange' => ['label' => 'Exchange', 'icon' => 'bx-transfer'],
+                                    'sell' => ['label' => 'Buy', 'icon' => 'bx-shopping-bag']
+                                ];
+                                foreach($typeOptions as $value => $option):
+                                    $isActive = ($currentType === $value);
+                                    $activeClass = $isActive ? 'active' : '';
+                                ?>
+                                    <a href="?type=<?php echo $value; ?>&category=<?php echo urlencode($filters['category']); ?>&query=<?php echo urlencode($filters['query']); ?>" 
+                                       class="type-pill <?php echo $activeClass; ?>" 
+                                       style="flex: 1; min-width: 100px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700; transition: all 0.2s; <?php echo $isActive ? 'background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);' : 'background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color);'; ?>">
+                                        <i class='bx <?php echo $option['icon']; ?>' style="font-size: 1.1rem;"></i>
+                                        <?php echo $option['label']; ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- Genre Filter -->
+                        <form action="explore.php" method="GET" style="margin-top: 1.5rem;">
+                            <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Genre</h4>
                             <select name="category" class="premium-select" onchange="this.form.submit()">
                                 <option value="">All Genres</option>
                                 <?php 
@@ -443,13 +471,7 @@ $rareResults = getRareBooks(10);
                                 }
                                 ?>
                             </select>
-                            
-                            <select name="type" class="premium-select" onchange="this.form.submit()">
-                                <option value="">Any Intent</option>
-                                <option value="borrow" <?php echo $filters['type'] == 'borrow' ? 'selected' : ''; ?>>Borrow</option>
-                                <option value="sell" <?php echo $filters['type'] == 'sell' ? 'selected' : ''; ?>>Buy</option>
-                                <option value="exchange" <?php echo $filters['type'] == 'exchange' ? 'selected' : ''; ?>>Trade</option>
-                            </select>
+                            <input type="hidden" name="type" value="<?php echo htmlspecialchars($filters['type']); ?>">
                             <input type="hidden" name="query" value="<?php echo htmlspecialchars($filters['query']); ?>">
                         </form>
                     </div>
@@ -537,7 +559,11 @@ $rareResults = getRareBooks(10);
                                                 </div>
                                                 <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;"><?php echo number_format($item['average_rating'], 1); ?></span>
                                             </div>
-                                            <div class="price-display">₹<?php echo number_format($item['price'], 0); ?></div>
+                                            <?php if ($item['listing_type'] === 'sell'): ?>
+                                                <div class="price-display">₹<?php echo number_format($item['price'], 0); ?></div>
+                                            <?php else: ?>
+                                                <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: #d1fae5; padding: 0.4rem 1rem; border-radius: 10px;">FREE</div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
 
@@ -632,6 +658,10 @@ $rareResults = getRareBooks(10);
                                     <span class="premium-pill badge-${m.listing_type}" style="font-size: 0.65rem;">${m.listing_type}</span>
                                     <span style="color: #f59e0b; font-size: 0.9rem; font-weight: 800;"><i class='bx bxs-star'></i> ${m.average_rating}</span>
                                 </div>
+                                ${m.listing_type === 'sell' ? 
+                                    `<div style="font-size: 1.1rem; font-weight: 900; color: var(--primary); margin-bottom: 15px;">\u20b9${new Intl.NumberFormat().format(m.price)}</div>` : 
+                                    `<div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: #d1fae5; padding: 0.5rem 1rem; border-radius: 10px; text-align: center; margin-bottom: 15px;">FREE</div>`
+                                }
                                 <div style="display: grid; gap: 0.75rem;">
                                     <a href="book_details.php?id=${m.id}" class="icon-btn" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">View Details</a>
                                     <a href="chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>
@@ -681,7 +711,10 @@ $rareResults = getRareBooks(10);
                                 </div>
                                 <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${parseFloat(m.average_rating).toFixed(1)}</span>
                             </div>
-                            <div class="price-display">₹${new Intl.NumberFormat().format(m.price)}</div>
+                            ${m.listing_type === 'sell' ? 
+                                `<div class="price-display">₹${new Intl.NumberFormat().format(m.price)}</div>` : 
+                                `<div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: #d1fae5; padding: 0.4rem 1rem; border-radius: 10px;">FREE</div>`
+                            }
                         </div>
                     </div>
                     ${quantityOverlay}

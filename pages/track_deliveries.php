@@ -39,7 +39,7 @@ foreach ($deliveries as $d) {
     $isActuallyReturning = (in_array($d['status'], ['return_requested', 'return_approved', 'returning', 'returned', 'return_delivery_assigned', 'return_pending_confirmation']));
     if ($isActuallyReturning) {
         $returns[] = $d;
-        // CRITICAL FIX: Do NOT continue here. We want it in returns AND in its original incoming/outgoing tab
+        continue; // MOVED TO RETURNS TAB ONLY
     }
 
     // Forward phase categorization (or historically forward)
@@ -299,7 +299,7 @@ function getStatusLabel($status, $agentId) {
                     <?php endforeach; ?>
                 </div>
 
-                <div id="incoming-list">
+                <div id="incoming-list" style="display: none;">
                     <?php if (empty($incoming)): ?>
                         <div class="empty-state">
                             <i class='bx bx-package'></i>
@@ -423,7 +423,7 @@ function getStatusLabel($status, $agentId) {
             </div>
             <div class="modal-footer">
                 <button onclick="closeExtendModal()" class="btn btn-outline">Cancel</button>
-                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+                <button id="btn-submit-extension" onclick="submitExtension()" class="btn btn-primary">Send Request</button>
             </div>
         </div>
     </div>
@@ -441,6 +441,7 @@ function getStatusLabel($status, $agentId) {
             $steps = ['requested', 'approved', 'active', 'delivered'];
             // If the actual status is returning/returned but we are forcing forward leg, show as Delivered
             $displayStatus = in_array($d['status'], ['returning', 'returned']) ? 'delivered' : $d['status'];
+            if ($displayStatus === 'assigned') $displayStatus = 'approved';
             $currentIndex = array_search($displayStatus, $steps);
             if ($currentIndex === false) $currentIndex = 0;
         } else {
@@ -682,11 +683,15 @@ function getStatusLabel($status, $agentId) {
                                 </div>
                             </div>
                         </div>
-                        <?php if (($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])) || ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at']))): ?>
-                        </div>
-                        <?php endif; ?>
                     <?php endif; ?>
 
+                    <?php if (($d['status'] === 'returned' && !empty($d['return_lender_confirm_at'])) || ($d['status'] === 'delivered' && !empty($d['borrower_confirm_at']))): ?>
+                        </div>
+                    <?php endif; ?>
+
+                </div> <!-- Close actions -->
+
+                <div class="feedback-section">
                     <?php 
                     // Feedback Button Logic
                     $showRateBtn = false;
@@ -772,14 +777,19 @@ function getStatusLabel($status, $agentId) {
         document.addEventListener('DOMContentLoaded', initMaps);
 
         function switchTab(tab, el) {
+            console.log('Switching to tab:', tab);
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
             
-            document.getElementById('all-list').style.display = tab === 'all' ? 'block' : 'none';
-            document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
-            document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
-            document.getElementById('returns-list').style.display = tab === 'returns' ? 'block' : 'none';
-            document.getElementById('exchanges-list').style.display = tab === 'exchanges' ? 'block' : 'none';
+            const tabs = ['all', 'incoming', 'outgoing', 'returns', 'exchanges'];
+            tabs.forEach(t => {
+                const element = document.getElementById(t + '-list');
+                if (element) {
+                   element.style.display = (tab === t) ? 'block' : 'none';
+                } else {
+                   console.error('Missing element:', t + '-list');
+                }
+            });
             
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize')); 
@@ -923,6 +933,11 @@ function getStatusLabel($status, $agentId) {
         function closeExtendModal() {
             document.getElementById('extend-modal').style.display = 'none';
             currentExtendTxId = 0;
+            
+            // Reset button state in case it was disabled
+            const submitBtn = document.getElementById('btn-submit-extension');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Request';
         }
 
         async function submitExtension() {
@@ -931,6 +946,10 @@ function getStatusLabel($status, $agentId) {
                 showToast('Please select a new due date', 'warning');
                 return;
             }
+
+            // Disable button to prevent multiple clicks
+            const submitBtn = document.getElementById('btn-submit-extension');
+            submitBtn.disabled = true;
 
             const formData = new FormData();
             formData.append('action', 'request_extension');
@@ -941,14 +960,17 @@ function getStatusLabel($status, $agentId) {
                 const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    showToast(result.message, 'success');
+                    alert('✅ Extension request sent successfully! Waiting for owner approval.');
                     closeExtendModal();
-                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    showToast(result.message || 'Action failed', 'error');
+                    alert('Error: ' + (result.message || 'Action failed'));
+                    // Re-enable button on error
+                    submitBtn.disabled = false;
                 }
             } catch (error) {
-                showToast('Network error. Please try again.', 'error');
+                alert('Network error. Please try again.');
+                // Re-enable button on error
+                submitBtn.disabled = false;
             }
         }
 

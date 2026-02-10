@@ -62,6 +62,7 @@ if ($userId) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($book['title']); ?> | BOOK-B</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/toast.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -855,7 +856,7 @@ if ($userId) {
             const profileLandmark = <?php echo json_encode($currentUser['landmark'] ?? ''); ?>;
 
             if (!profileLat || !profileLng) {
-                alert("No home location saved in your profile!");
+                showToast('No home location saved in your profile!', 'warning');
                 return;
             }
 
@@ -939,19 +940,18 @@ if ($userId) {
             const lng = document.getElementById('order-lng').value;
             
             if (currentType === 'borrow' && !dueDate) {
-                alert('Please select a return date!');
+                showToast('Please select a return date!', 'warning');
                 return;
             }
 
             if (wantDelivery && !lat) {
-                alert('Please click on the map to set your delivery location!');
+                showToast('Please click on the map to set your delivery location!', 'warning');
                 return;
             }
 
             
             const btn = document.getElementById('btn-submit-request');
             btn.disabled = true;
-            btn.innerText = 'Processing...';
 
             fetch('../actions/request_action.php', {
                 method: 'POST',
@@ -961,17 +961,17 @@ if ($userId) {
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    alert(data.message);
-                    location.reload(); 
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert('Error: ' + data.message);
+                    showToast('Error: ' + data.message, 'error');
                     btn.disabled = false;
                     btn.innerText = 'Send Request';
                 }
             })
             .catch(err => {
                 console.error('Request error:', err);
-                alert('Request failed. This might be due to a server error or connection issue.');
+                showToast('Request failed. This might be due to a server error or connection issue.', 'error');
                 btn.disabled = false;
                 btn.innerText = 'Send Request';
             });
@@ -984,5 +984,6 @@ if ($userId) {
             L.marker([<?php echo $book['latitude']; ?>, <?php echo $book['longitude']; ?>]).addTo(map);
         <?php endif; ?>
     </script>
+    <script src="../assets/js/toast.js"></script>
 </body>
 </html>

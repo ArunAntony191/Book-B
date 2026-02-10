@@ -210,14 +210,37 @@ $status = $_GET['status'] ?? 'all';
                     $stmt->execute($params);
                     $notifs = $stmt->fetchAll();
                     
+                    // Get latest extension request notification ID for each transaction
+                    $latestExtensionNotifs = [];
+                    if (count($notifs) > 0) {
+                        $stmt2 = $pdo->prepare("
+                            SELECT reference_id, MAX(id) as latest_notif_id
+                            FROM notifications
+                            WHERE user_id = ? AND type = 'extension_request'
+                            GROUP BY reference_id
+                        ");
+                        $stmt2->execute([$userId]);
+                        while ($row = $stmt2->fetch()) {
+                            $latestExtensionNotifs[$row['reference_id']] = $row['latest_notif_id'];
+                        }
+                    }
+                    
                     if (count($notifs) > 0) {
                         foreach ($notifs as $n) {
                             $highlight = $n['is_read'] ? '' : 'background: #f0f9ff;';
                             $isExtension = $n['type'] === 'extension_request';
                             $isRequest = strpos($n['type'], '_request') !== false;
+                            
+                            // For extension requests, only allow action if this is the LATEST notification for this transaction
+                            $isLatestExtension = true;
+                            if ($isExtension && $n['reference_id']) {
+                                $isLatestExtension = isset($latestExtensionNotifs[$n['reference_id']]) && 
+                                                     $latestExtensionNotifs[$n['reference_id']] == $n['id'];
+                            }
+                            
                             $canAction = ($n['reference_id'] && (
                                 ($isRequest && !$isExtension && $n['transaction_status'] === 'requested') ||
-                                ($isExtension && $n['pending_due_date'])
+                                ($isExtension && $n['pending_due_date'] && $isLatestExtension)
                             ));
                             
                             // Map icons and colors
@@ -245,6 +268,10 @@ $status = $_GET['status'] ?? 'all';
                                 $icon = 'bx-support';
                                 $iconColor = 'var(--primary)';
                                 $bgType = 'var(--primary-light)15';
+                            } elseif ($n['type'] === 'new_listing') {
+                                $icon = 'bx-book-add';
+                                $iconColor = '#8b5cf6';
+                                $bgType = '#f5f3ff';
                             } elseif ($n['type'] === 'message') {
                                 $icon = 'bx-message-square-dots';
                                 $iconColor = '#6366f1';
@@ -263,6 +290,10 @@ $status = $_GET['status'] ?? 'all';
                                 if ($n['reference_id'] != $userId) {
                                     $link = APP_URL . "/chat/index.php?user=" . $n['reference_id'];
                                 }
+                            } elseif (strpos($n['type'], 'exchange') !== false && $n['reference_id']) {
+                                $link = "book_details.php?id=" . $n['reference_id'];
+                            } elseif ($n['type'] === 'new_listing' && $n['reference_id']) {
+                                $link = "book_details.php?id=" . $n['reference_id'];
                             } elseif (preg_match('/request|delivery|receipt|borrower_confirmed/', $n['type'])) {
                                 $link = "delivery_details.php?id=" . $n['reference_id'];
                             }
@@ -278,6 +309,9 @@ $status = $_GET['status'] ?? 'all';
                                             <div style='font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem; line-height: 1.5; font-weight: 500;'>{$n['message']}</div>
                                             " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' && (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) ? "
                                                 <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
+                                            " : "") . "
+                                            " . ($isExtension && !$isLatestExtension && $n['pending_due_date'] ? "
+                                                <span class='badge' style='font-size: 0.7rem; text-transform: uppercase; background: #94a3b8; color: white;'>SUPERSEDED</span>
                                             " : "") . "
                                         </div>
                                         <div style='display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);'>

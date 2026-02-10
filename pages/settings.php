@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (isset($_POST['update_preferences'])) {
         $settings = [
             'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
+            'notify_new_listings' => isset($_POST['notify_new_listings']) ? 1 : 0,
             'theme_mode' => $_POST['theme_mode'] ?? 'light'
         ];
         
@@ -312,6 +313,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                                 <label class="switch">
                                     <input type="checkbox" name="email_notifications" <?php echo ($user['email_notifications'] ?? 1) ? 'checked' : ''; ?> onchange="this.form.submit()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <h3>New Listing Alerts</h3>
+                                    <p>Get notified when new books are listed on the platform</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" name="notify_new_listings" <?php echo ($user['notify_new_listings'] ?? 0) ? 'checked' : ''; ?> onchange="this.form.submit()">
                                     <span class="slider"></span>
                                 </label>
                             </div>

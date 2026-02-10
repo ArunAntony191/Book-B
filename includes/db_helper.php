@@ -112,7 +112,7 @@ function getUserById($userId) {
             SELECT id, email, firstname, lastname, phone, role, reputation_score, trust_score, 
                    total_lends, total_borrows, average_rating, total_ratings, created_at,
                    address, landmark, district, city, pincode, state, 
-                   theme_mode, email_notifications,
+                   theme_mode, email_notifications, notify_new_listings,
                    service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
                    profile_picture, favorite_category
             FROM users 
@@ -412,7 +412,7 @@ function getUserDeliveries($userId) {
             LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
             LEFT JOIN users u_ret_agent ON t.return_agent_id = u_ret_agent.id
             WHERE (t.borrower_id = ? OR t.lender_id = ?) 
-            AND (t.delivery_method = 'delivery' OR t.return_delivery_method = 'delivery')
+            AND (t.delivery_method = 'delivery' OR t.return_delivery_method = 'delivery' OR t.transaction_type = 'exchange')
             ORDER BY t.created_at DESC
         ");
         $stmt->execute([$userId, $userId]);
@@ -541,7 +541,15 @@ function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat
         ");
         $stmt->execute([$userId, $bookId, $type, $price, $location, $landmark, $district, $city, $pincode, $lat, $lng, $visibility, $communityId, $quantity, $creditCost]);
         
+        $listingId = $pdo->lastInsertId();
+        
         $pdo->commit();
+        
+        // Notify users who have opted in for new listing alerts
+        if ($listingId && $visibility === 'public') {
+            notifyNewListing($listingId, $userId, $bookTitle);
+        }
+        
         return true;
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -1546,18 +1554,39 @@ function checkDeliveryAvailability($pickupLat, $pickupLng, $dropoffLat, $dropoff
         $stmt->execute();
         $agents = $stmt->fetchAll();
 
+        $maxRadius = 20; // Maximum service radius in km (increased from 10km)
+
         foreach ($agents as $agent) {
-            // Check if both pickup and dropoff are within 10km of either endpoint of agent's route
-            $distP1 = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
-            $distP2 = getDistanceKM($pickupLat, $pickupLng, $agent['service_end_lat'], $agent['service_end_lng']);
-            
-            $distD1 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
-            $distD2 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_end_lat'], $agent['service_end_lng']);
+            // Skip agents with no service coordinates at all
+            if (!$agent['service_start_lat'] || !$agent['service_start_lng']) {
+                continue;
+            }
 
-            $canPickup = ($distP1 < 10 || $distP2 < 10);
-            $canDropoff = ($distD1 < 10 || $distD2 < 10);
+            // Case 1: Agent has both start and end points (route-based service)
+            if ($agent['service_end_lat'] && $agent['service_end_lng']) {
+                // Check if both pickup and dropoff are within range of either endpoint
+                $distP1 = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distP2 = getDistanceKM($pickupLat, $pickupLng, $agent['service_end_lat'], $agent['service_end_lng']);
+                
+                $distD1 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distD2 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_end_lat'], $agent['service_end_lng']);
 
-            if ($canPickup && $canDropoff) return true;
+                $canPickup = ($distP1 < $maxRadius || $distP2 < $maxRadius);
+                $canDropoff = ($distD1 < $maxRadius || $distD2 < $maxRadius);
+
+                if ($canPickup && $canDropoff) return true;
+            }
+            // Case 2: Agent has only start point (area-based service)
+            else {
+                // Check if both pickup and dropoff are within radius of the service area center
+                $distPickup = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distDropoff = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
+
+                // Both locations must be within the service radius
+                if ($distPickup < $maxRadius && $distDropoff < $maxRadius) {
+                    return true;
+                }
+            }
         }
         return false;
     } catch (PDOException $e) {
@@ -1822,6 +1851,11 @@ function updateUserSettings($userId, $settings) {
             $params[] = $settings['email_notifications'];
         }
         
+        if (isset($settings['notify_new_listings'])) {
+            $fields[] = "notify_new_listings = ?";
+            $params[] = $settings['notify_new_listings'];
+        }
+        
         if (isset($settings['theme_mode'])) {
             $fields[] = "theme_mode = ?";
             $params[] = $settings['theme_mode'];
@@ -2063,6 +2097,43 @@ function createNotification($userId, $type, $message, $referenceId = null) {
         return false;
     }
 }
+
+/**
+ * Notify users who opted in for new listing alerts
+ */
+function notifyNewListing($listingId, $ownerId, $bookTitle) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get all users who want new listing notifications (excluding the owner and banned users)
+        $stmt = $pdo->prepare("
+            SELECT id FROM users 
+            WHERE notify_new_listings = 1 
+            AND id != ? 
+            AND is_banned = 0
+        ");
+        $stmt->execute([$ownerId]);
+        $interestedUsers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Create notification for each interested user
+        $message = "New book available: '$bookTitle'";
+        foreach ($interestedUsers as $userId) {
+            createNotification(
+                $userId, 
+                'new_listing', 
+                $message, 
+                $listingId
+            );
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        // Log error but don't fail the listing creation
+        error_log("Failed to send new listing notifications: " . $e->getMessage());
+        return false;
+    }
+}
+
 /**
  * Create a new role change request
  */
