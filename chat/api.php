@@ -57,6 +57,27 @@ if ($method === 'GET') {
         exit();
     }
 
+    if ($action === 'all_counts') {
+        $userId = $_GET['user_id'] ?? 0;
+        if ($userId) {
+            // Message Count
+            $stmtMsg = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0 AND receiver_deleted = 0 AND sender_id != receiver_id");
+            $stmtMsg->execute([$userId]);
+            $msgCount = (int)$stmtMsg->fetchColumn();
+
+            // Notification Count
+            $notifCount = getUnreadNotificationsCount($userId);
+
+            echo json_encode([
+                'messages' => $msgCount,
+                'notifications' => $notifCount
+            ]);
+        } else {
+            echo json_encode(['messages' => 0, 'notifications' => 0]);
+        }
+        exit();
+    }
+
     if ($action === 'get_user_info') {
         $id = $_GET['id'] ?? 0;
         if($id) {

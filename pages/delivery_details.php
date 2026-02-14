@@ -55,10 +55,12 @@ markSpecificNotificationAsRead($userId, $id, ['borrow_request', 'sell_request', 
 $isLender = ($d['lender_id'] == $userId);
 $isBorrower = ($d['borrower_id'] == $userId);
 
-function getStatusLabel($status, $agentId) {
+function getStatusLabel($status, $agentId, $method) {
+    if ($status === 'approved' && $method === 'pickup') return 'Ready for Collection';
+    if ($status === 'approved' && $method === 'delivery') return $agentId ? 'Agent Assigned' : 'Finding Agent';
+    
     switch ($status) {
         case 'requested': return 'Waiting for Owner';
-        case 'approved': return $agentId ? 'Agent Assigned' : 'Finding Agent';
         case 'active': return 'In Transit';
         case 'delivered': return 'Delivered & Verified';
         case 'returning': return 'Return in Progress';
@@ -105,6 +107,43 @@ function getStatusLabel($status, $agentId) {
         .v-badge { display: flex; align-items: center; gap: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem; }
         .v-badge.verified { color: #10b981; }
         .actions-bar { display: flex; gap: 1rem; margin-top: 2rem; }
+        /* Extension Modal */
+        .modal-overlay {
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999;
+        }
+        .modal-card {
+            background: white; 
+            border-radius: var(--radius-lg); 
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer { padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; }
+        
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main); font-size: 0.9rem; }
+        .form-control {
+            width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            padding: 0.75rem; font-family: inherit; outline: none; transition: border-color 0.3s;
+        }
+        .form-control:focus { border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -117,7 +156,7 @@ function getStatusLabel($status, $agentId) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                         <div>
                             <span class="status-badge <?php echo $d['status']; ?>">
-                                <?php echo getStatusLabel($d['status'], $d['delivery_agent_id']); ?>
+                                <?php echo getStatusLabel($d['status'], $d['delivery_agent_id'], $d['delivery_method']); ?>
                             </span>
                             <h1 style="font-size: 1.8rem; font-weight: 900; margin-top: 1rem;">Transaction Details #<?php echo $d['id']; ?></h1>
                         </div>
@@ -200,16 +239,58 @@ function getStatusLabel($status, $agentId) {
 
                         <div id="map"></div>
                     </div>
+                    <?php else: ?>
+                    <div class="info-section">
+                        <h3 class="section-title"><i class='bx bx-shopping-bag'></i> Collection Information</h3>
+                        <div class="verification-card" style="background: #fffbeb; border-color: #fef3c7;">
+                            <div style="font-weight: 800; color: #92400e; margin-bottom: 0.5rem;">SELF-COLLECTION ORDER</div>
+                            <p style="font-size: 0.9rem; color: #b45309; line-height: 1.5; margin: 0;">
+                                You have chosen to pick up this item directly from the owner. 
+                                Please use the chat button below to coordinate the pickup time and exact location.
+                            </p>
+                        </div>
+                        
+                        <?php if ($d['payment_method'] === 'cod'): ?>
+                        <div class="verification-card" style="margin-top: 1rem; border-left: 4px solid #10b981;">
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Cash Payment at Collection</div>
+                            <div style="font-size: 1.2rem; font-weight: 900; color: var(--text-main); margin-top: 0.5rem;">CASH TO PAY: ₹<?php echo number_format($d['book_price'], 2); ?></div>
+                        </div>
+                        <?php elseif ($d['payment_method'] === 'online'): ?>
+                        <div class="verification-card" style="margin-top: 1rem; border-left: 4px solid #3b82f6;">
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Payment Status</div>
+                            <div style="font-size: 1.2rem; font-weight: 900; color: #0284c7; margin-top: 0.5rem;">PAID ONLINE</div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
                     <?php endif; ?>
 
                     <div class="actions-bar">
                         <?php if ($d['status'] === 'requested' && $isLender): ?>
                             <button onclick="handleAction('accept_request')" class="btn btn-primary">Accept Request</button>
                             <button onclick="handleAction('decline_request')" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Decline</button>
-                        <?php elseif ($isBorrower && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['borrower_confirm_at'])): ?>
-                            <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
-                        <?php elseif ($isLender && ($d['status'] === 'active' || $d['status'] === 'delivered') && empty($d['lender_confirm_at'])): ?>
-                            <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover to Agent</button>
+                        <?php endif; ?>
+
+                        <?php if (!$isReturnPhase): ?>
+                            <?php if ($isBorrower && empty($d['borrower_confirm_at'])): ?>
+                                <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
+                            <?php elseif ($isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
+                                <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
+                                    <i class='bx bx-undo'></i> Return Book
+                                </button>
+                                <button onclick="openExtendModal()" class="btn btn-outline">
+                                    <i class='bx bx-calendar-plus'></i> Extend Date
+                                </button>
+                            <?php endif; ?>
+                            <?php if ($isLender && empty($d['lender_confirm_at'])): ?>
+                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover to Agent</button>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <?php if ($isBorrower && empty($d['return_borrower_confirm_at'])): ?>
+                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover (Return)</button>
+                            <?php endif; ?>
+                            <?php if ($isLender && empty($d['return_lender_confirm_at'])): ?>
+                                <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt (Return)</button>
+                            <?php endif; ?>
                         <?php endif; ?>
                         <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $isLender ? $d['borrower_id'] : $d['lender_id']; ?>" class="btn btn-outline">
                             <i class='bx bx-message-square-dots'></i> Chat with <?php echo $isLender ? 'Borrower' : 'Owner'; ?>
@@ -218,6 +299,36 @@ function getStatusLabel($status, $agentId) {
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Extension Modal -->
+    <div id="extension-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Extend Return Date</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Request a later return date from the owner.</p>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">New Due Date</label>
+                    <input type="date" id="ext-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason for Extension</label>
+                    <textarea id="ext-reason" class="form-control" rows="3" placeholder="Explain why you need more time..."></textarea>
+                </div>
+                <div style="background: #fffbeb; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class='bx bx-info-circle'></i> This extension will cost 5 credits upon approval.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $d['lender_id']; ?>" class="btn btn-outline" style="margin-right: auto; border: none; background: #f1f5f9; color: var(--text-main);">
+                    <i class='bx bx-message-square-dots'></i> Chat
+                </a>
+                <button onclick="closeExtendModal()" class="btn btn-outline" style="border: none;">Cancel</button>
+                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -251,6 +362,45 @@ function getStatusLabel($status, $agentId) {
                 }
             } catch (err) {
                 alert('Connection failed');
+            }
+        }
+
+        function openExtendModal() {
+            document.getElementById('ext-date').value = d.due_date;
+            document.getElementById('ext-reason').value = '';
+            document.getElementById('extension-modal').style.display = 'flex';
+        }
+
+        function closeExtendModal() {
+            document.getElementById('extension-modal').style.display = 'none';
+        }
+
+        async function submitExtension() {
+            const newDate = document.getElementById('ext-date').value;
+            const reason = document.getElementById('ext-reason').value;
+
+            if (!newDate) {
+                alert('Please select a new due date');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'request_extension');
+            formData.append('transaction_id', d.id);
+            formData.append('new_date', newDate);
+            formData.append('reason', reason);
+
+            try {
+                const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Extension request sent to owner!');
+                    closeExtendModal();
+                } else {
+                    alert(result.message || 'Failed to send request');
+                }
+            } catch (e) {
+                alert('Error sending request');
             }
         }
     </script>

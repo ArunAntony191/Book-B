@@ -402,6 +402,7 @@ function getUserDeliveries($userId) {
                    u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
                    l.listing_type, l.location as pickup_location, l.landmark as pickup_landmark,
                    l.latitude as pickup_lat, l.longitude as pickup_lng,
+                   l.price, l.credit_cost,
                    u_agent.firstname as agent_name, u_agent.phone as agent_phone,
                    u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone
             FROM transactions t
@@ -412,7 +413,7 @@ function getUserDeliveries($userId) {
             LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
             LEFT JOIN users u_ret_agent ON t.return_agent_id = u_ret_agent.id
             WHERE (t.borrower_id = ? OR t.lender_id = ?) 
-            AND (t.delivery_method = 'delivery' OR t.return_delivery_method = 'delivery' OR t.transaction_type = 'exchange')
+            AND t.status != 'cancelled'
             ORDER BY t.created_at DESC
         ");
         $stmt->execute([$userId, $userId]);
@@ -481,11 +482,11 @@ function checkAndNotifyDueSoon($userId) {
 /**
  * Request an extension for a borrow
  */
-function requestExtension($transactionId, $newDate) {
+function requestExtension($transactionId, $newDate, $reason = null) {
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("UPDATE transactions SET pending_due_date = ? WHERE id = ?");
-        return $stmt->execute([$newDate, $transactionId]);
+        $stmt = $pdo->prepare("UPDATE transactions SET pending_due_date = ?, pending_extension_reason = ? WHERE id = ?");
+        return $stmt->execute([$newDate, $reason, $transactionId]);
     } catch (PDOException $e) {
         error_log("Request extension error: " . $e->getMessage());
         return false;
@@ -519,8 +520,6 @@ function approveExtension($transactionId) {
         return false;
     }
 }
-
-
 /**
  * Add a new book listing
  */
@@ -1053,9 +1052,15 @@ function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment =
         // Update trust score
         updateTrustScore($revieweeId, $trustImpact, 'rating_received');
         
-        // Bonus credits for 5-star ratings
+        // Behavioral Credit System: Rewards & Penalties
         if ($rating == 5) {
             addCredits($revieweeId, 5, 'rating_bonus', 'Earned 5-star rating bonus', $transactionId);
+        } elseif ($rating == 4) {
+            addCredits($revieweeId, 2, 'rating_bonus', 'Earned 4-star rating bonus', $transactionId);
+        } elseif ($rating == 2) {
+            deductCredits($revieweeId, 5, 'bad_review_penalty', 'Penalty for 2-star rating', $transactionId);
+        } elseif ($rating == 1) {
+            deductCredits($revieweeId, 10, 'bad_review_penalty', 'Penalty for 1-star rating', $transactionId);
         }
         
         $pdo->commit();
@@ -1554,7 +1559,7 @@ function checkDeliveryAvailability($pickupLat, $pickupLng, $dropoffLat, $dropoff
         $stmt->execute();
         $agents = $stmt->fetchAll();
 
-        $maxRadius = 20; // Maximum service radius in km (increased from 10km)
+        $maxRadius = 50; // Maximum service radius in km (increased from 20km)
 
         foreach ($agents as $agent) {
             // Skip agents with no service coordinates at all
@@ -1603,7 +1608,7 @@ function assignDeliveryAgent($transactionId) {
         
         // 1. Get transaction info
         $stmt = $pdo->prepare("
-            SELECT t.*, l.lat as pickup_lat, l.lng as pickup_lng 
+            SELECT t.*, l.latitude as pickup_lat, l.longitude as pickup_lng 
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             WHERE t.id = ?

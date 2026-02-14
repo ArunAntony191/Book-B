@@ -24,7 +24,7 @@ $aPincode = $agent['pincode'] ?? null;
 
 // Fetch ALL pending deliveries (Standard & Returns)
 $stmt = $pdo->prepare("
-    SELECT t.*, b.title, b.cover_image,
+    SELECT t.*, b.title, b.cover_image, l.price,
            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
            u_borrower.service_start_lat as borrower_lat, u_borrower.service_start_lng as borrower_lng,
            u_borrower.address as borrower_addr, u_borrower.city as borrower_city, u_borrower.district as borrower_dist,
@@ -392,6 +392,15 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
                                     </div>
                                 </div>
                             </div>
+                            <?php if ($job['payment_method'] === 'cod' && $job['job_type'] === 'forward'): ?>
+                                <div style="margin: 0.5rem 0; background: #fff7ed; border: 1px solid #fef3c7; padding: 0.8rem; border-radius: 12px; display: flex; align-items: flex-start; gap: 0.6rem; box-shadow: 0 2px 4px rgba(217, 119, 6, 0.05);">
+                                    <i class='bx bx-money' style="color: #d97706; font-size: 1.3rem; margin-top: 1px;"></i>
+                                    <div style="font-size: 0.85rem; color: #92400e; line-height: 1.4;">
+                                        <strong>CASH TO COLLECT: ₹<?php echo number_format($job['price'] ?? 0, 2); ?></strong><br>
+                                        <span style="font-size: 0.75rem; opacity: 0.9;">Collect this from borrower during delivery.</span>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <div class="route-info">
                                 <div class="route-point">

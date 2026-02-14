@@ -98,7 +98,7 @@ $userReviews = getUserReviews($userId, 5);
             </div>
 
             <!-- My Listings -->
-            <div class="widget-card" style="text-align: center; cursor: pointer; transition: all 0.3s;" onclick="window.location.href='listings.php'">
+            <div class="widget-card" style="text-align: center; cursor: pointer; transition: all 0.3s;" onclick="window.location.href='deals.php?tab=listings'">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-book-bookmark'></i> My Listings</span>
                 </div>

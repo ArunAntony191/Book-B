@@ -255,6 +255,44 @@ try {
             padding: 1rem; font-family: inherit; resize: none; outline: none;
         }
         .review-textarea:focus { border-color: var(--primary); }
+
+        /* Extension Modal */
+        .modal-overlay {
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999;
+        }
+        .modal-card {
+            background: white; 
+            border-radius: var(--radius-lg); 
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer { padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; }
+        
+        .form-group { margin-bottom: 1.25rem; }
+        .form-label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main); font-size: 0.9rem; }
+        .form-control {
+            width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            padding: 0.75rem; font-family: inherit; outline: none; transition: border-color 0.3s;
+        }
+        .form-control:focus { border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -467,8 +505,16 @@ try {
                                          <i class='bx bx-message-square-dots'></i> Chat
                                      </a>
                                     <?php endif; ?>
+                                    <?php if ($deal['status'] === 'delivered' && $deal['transaction_type'] === 'borrow'): ?>
+                                        <button onclick="handleDeal(<?= $deal['id']; ?>, 'request_return_delivery')" class="btn btn-primary btn-sm">
+                                            <i class='bx bx-undo'></i> Return
+                                        </button>
+                                        <button onclick="openExtendModal(<?= $deal['id']; ?>, '<?= $deal['due_date']; ?>', <?= $deal['lender_id']; ?>)" class="btn btn-outline btn-sm">
+                        <i class='bx bx-calendar-plus'></i> Extend
+                    </button>
+                                    <?php endif; ?>
                                     <?php if ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
-                                        <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-primary btn-sm">
+                                        <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-outline btn-sm">
                                             <i class='bx bx-star'></i> Rate
                                         </button>
                                     <?php endif; ?>
@@ -524,6 +570,37 @@ try {
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Extension Modal -->
+    <div id="extension-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.4rem;">Extend Return Date</h2>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Request a later return date from the owner.</p>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ext-tx-id">
+                <div class="form-group">
+                    <label class="form-label">New Due Date</label>
+                    <input type="date" id="ext-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason for Extension</label>
+                    <textarea id="ext-reason" class="form-control" rows="3" placeholder="Explain why you need more time..."></textarea>
+                </div>
+                <div style="background: #fffbeb; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class='bx bx-info-circle'></i> This extension will cost 5 credits upon approval.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a id="ext-chat-btn" href="#" class="btn btn-outline" style="margin-right: auto; border: none; background: #f1f5f9; color: var(--text-main);">
+                    <i class='bx bx-message-square-dots'></i> Chat
+                </a>
+                <button onclick="closeExtendModal()" class="btn btn-outline" style="border: none;">Cancel</button>
+                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+            </div>
+        </div>
     </div>
 
     <!-- Feedback Modal -->
@@ -612,6 +689,49 @@ try {
                 }
             } catch (error) {
                 showToast('Network error. Please try again.', 'error');
+            }
+        }
+
+        function openExtendModal(txId, currentDueDate, ownerId) {
+            document.getElementById('ext-tx-id').value = txId;
+            document.getElementById('ext-date').value = currentDueDate;
+            document.getElementById('ext-reason').value = '';
+            document.getElementById('ext-chat-btn').href = '../chat/index.php?user=' + ownerId;
+            document.getElementById('extension-modal').style.display = 'flex';
+        }
+
+        function closeExtendModal() {
+            document.getElementById('extension-modal').style.display = 'none';
+        }
+
+        async function submitExtension() {
+            const txId = document.getElementById('ext-tx-id').value;
+            const newDate = document.getElementById('ext-date').value;
+            const reason = document.getElementById('ext-reason').value;
+
+            if (!newDate) {
+                showToast('Please select a new due date', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'request_extension');
+            formData.append('transaction_id', txId);
+            formData.append('new_date', newDate);
+            formData.append('reason', reason);
+
+            try {
+                const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Extension request sent to owner!', 'success');
+                    closeExtendModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.message || 'Failed to send request', 'error');
+                }
+            } catch (e) {
+                showToast('Error sending request', 'error');
             }
         }
 
@@ -773,6 +893,18 @@ try {
                 showToast('Network error. Please try again.', 'error');
             }
         }
+
+        // Handle deep linking to tabs
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab) {
+                const tabBtn = document.querySelector(`button[onclick*="'${tab}'"]`);
+                if (tabBtn) {
+                    tabBtn.click();
+                }
+            }
+        });
     </script>
 </body>
 </html>

@@ -12,6 +12,7 @@ if ($user['role'] !== 'bookstore' && $user['role'] !== 'admin') {
 $userId = $_SESSION['user_id'] ?? 0;
 $stats = getUserStatsEnhanced($userId);
 $storeStats = getStoreStats($userId);
+$userReviews = getUserReviews($userId, 5);
 ?>
 
 <div class="dashboard-wrapper">
@@ -31,7 +32,7 @@ $storeStats = getStoreStats($userId);
         <!-- Enhanced Bookstore Stats -->
         <div class="widgets-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
             <!-- Total Inventory -->
-            <div class="widget-card" style="background: linear-gradient(135deg, #8b5cf615 0%, #8b5cf605 100%); border: 2px solid #8b5cf6;">
+            <div class="widget-card" onclick="window.location.href='listings.php'" style="background: linear-gradient(135deg, #8b5cf615 0%, #8b5cf605 100%); border: 2px solid #8b5cf6; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-package'></i> Total Inventory</span>
                 </div>
@@ -55,7 +56,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Revenue (Credits Earned) -->
-            <div class="widget-card gradient-card" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: none;">
+            <div class="widget-card gradient-card" onclick="window.location.href='credit_history.php'" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: none; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center; color: rgba(255,255,255,0.9);">
                     <span><i class='bx bx-dollar-circle'></i> Credits Earned</span>
                 </div>
@@ -66,7 +67,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Available Stock -->
-            <div class="widget-card" style="background: linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%); border: 2px solid #3b82f6;">
+            <div class="widget-card" onclick="window.location.href='listings.php'" style="background: linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%); border: 2px solid #3b82f6; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-check-circle'></i> Available</span>
                 </div>
@@ -77,7 +78,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Low Stock Alert -->
-            <div class="widget-card" style="background: linear-gradient(135deg, #f59e0b15 0%, #f59e0b05 100%); border: 2px solid #f59e0b;">
+            <div class="widget-card" onclick="window.location.href='listings.php?stock=low'" style="background: linear-gradient(135deg, #f59e0b15 0%, #f59e0b05 100%); border: 2px solid #f59e0b; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-error-circle'></i> Low Stock</span>
                 </div>
@@ -99,7 +100,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Trust Score -->
-            <div class="widget-card" style="background: linear-gradient(135deg, <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>15 0%, <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>05 100%); border: 2px solid <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>;">
+            <div class="widget-card" onclick="window.location.href='profile.php'" style="background: linear-gradient(135deg, <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>15 0%, <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>05 100%); border: 2px solid <?php echo getTrustScoreRating($stats['trust_score'] ?? 50)['color']; ?>; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-shield-alt-2'></i> Trust Score</span>
                 </div>
@@ -114,7 +115,7 @@ $storeStats = getStoreStats($userId);
             </div>
 
             <!-- Customer Rating -->
-            <div class="widget-card" style="text-align: center; background: linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%); border: 2px solid #fbbf24;">
+            <div class="widget-card" onclick="openReviewsModal()" style="text-align: center; background: linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%); border: 2px solid #fbbf24; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bxs-star'></i> Rating</span>
                 </div>
@@ -198,7 +199,7 @@ $storeStats = getStoreStats($userId);
                         ];
                         $statusInfo = $statusColors[$deal['status']] ?? ['bg' => '#f3f4f6', 'text' => '#6b7280', 'label' => ucfirst($deal['status'])];
                     ?>
-                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <tr onclick="window.location.href='track_deliveries.php'" style="border-bottom: 1px solid var(--border-color); transition: background 0.2s; cursor: pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                         <td style="padding: 1.25rem;">
                             <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($deal['title']); ?></div>
                             <div style="font-size: 0.8rem; color: var(--text-muted);"><?php echo htmlspecialchars($deal['author']); ?></div>
@@ -228,7 +229,152 @@ $storeStats = getStoreStats($userId);
     </main>
 </div>
 
+<!-- Reviews Modal -->
+<div id="reviewsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                <i class='bx bxs-star' style="color: #fbbf24;"></i> Bookstore Reviews
+            </h2>
+            <button class="modal-close" onclick="closeReviewsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <?php if (empty($userReviews)): ?>
+                <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class='bx bx-message-rounded-dots' style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p>No customer reviews yet.</p>
+                </div>
+            <?php else: ?>
+                <div class="reviews-list">
+                    <?php foreach ($userReviews as $r): ?>
+                        <div class="review-item">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                <span style="font-weight: 700; color: var(--text-main);">
+                                    <?php echo htmlspecialchars($r['firstname'] . ' ' . $r['lastname']); ?>
+                                </span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">
+                                    <?php echo date('M d, Y', strtotime($r['created_at'])); ?>
+                                </span>
+                            </div>
+                            <div style="color: #fbbf24; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                                <?php for($i=1; $i<=5; $i++): ?>
+                                    <i class='bx <?php echo $i <= $r['rating'] ? "bxs-star" : "bx-star"; ?>'></i>
+                                <?php endfor; ?>
+                            </div>
+                            <?php if ($r['comment']): ?>
+                                <p style="font-size: 0.9rem; color: var(--text-body); line-height: 1.5;">
+                                    <?php echo nl2br(htmlspecialchars($r['comment'])); ?>
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="user_profile.php?id=<?php echo $userId; ?>#reviews" class="btn btn-outline btn-sm">View All Reviews on Profile</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openReviewsModal() {
+        document.getElementById('reviewsModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeReviewsModal() {
+        document.getElementById('reviewsModal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // Close on overlay click
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('reviewsModal');
+        if (e.target === modal) closeReviewsModal();
+    });
+</script>
+
 <style>
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    width: 90%;
+    max-width: 500px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-overlay.active .modal-content {
+    transform: translateY(0);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.review-item {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.review-item:last-child {
+    border-bottom: none;
+}
+
+
 .gradient-card {
     position: relative;
     overflow: hidden;

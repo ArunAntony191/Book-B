@@ -1,5 +1,11 @@
 <?php
 ob_start();
+
+// Debug Logging
+function logDebug($msg) {
+    file_put_contents('../debug_log.txt', date('[Y-m-d H:i:s] ') . $msg . PHP_EOL, FILE_APPEND);
+}
+logDebug("Request Action Hit: " . print_r($_POST, true));
 require_once '../includes/db_helper.php';
 require_once '../includes/validation_helper.php';
 session_start();
@@ -57,19 +63,44 @@ try {
 
     // --- Create Request ---
     } elseif ($action === 'create_request') {
-        if (!$listingId) throw new Exception("Invalid listing specified.");
+        logDebug("Create Request Action Triggered");
+        if (!$listingId) {
+             logDebug("Error: Invalid listing listingId");
+             throw new Exception("Invalid listing specified.");
+        }
+        logDebug("Listing ID Valid: $listingId");
         
         $type = $_POST['type'] ?? 'borrow'; 
-        $ownerId = validateId($_POST['owner_id'] ?? 0);
+        logDebug("Type: $type");
+        
+        $owner_raw = $_POST['owner_id'] ?? 0;
+        logDebug("Owner Raw: $owner_raw");
+        
+        $ownerId = validateId($owner_raw);
+        logDebug("Owner ID: $ownerId");
+        
         $dueDate = $_POST['due_date'] ?? null;
+        logDebug("Due Date: $dueDate");
+        
         $bookTitle = $_POST['book_title'] ?? 'a book';
+        logDebug("Book Title: $bookTitle");
 
         // Duplicate Check
-        $stmt = $pdo->prepare("SELECT id FROM transactions WHERE listing_id = ? AND borrower_id = ? AND status IN ('requested', 'approved', 'assigned', 'active', 'returning', 'delivered')");
+        logDebug("Preparing Duplicate Check Statement...");
+        $duplicateStatuses = "('requested', 'approved', 'assigned', 'active', 'returning')";
+        if ($type !== 'sell') {
+            $duplicateStatuses = "('requested', 'approved', 'assigned', 'active', 'returning', 'delivered')";
+        }
+        
+        $stmt = $pdo->prepare("SELECT id FROM transactions WHERE listing_id = ? AND borrower_id = ? AND status IN $duplicateStatuses");
+        logDebug("Executing Duplicate Check...");
         $stmt->execute([$listingId, $userId]);
+        logDebug("Duplicate Check Executed.");
         if ($stmt->fetch()) {
+            logDebug("Duplicate Check Failed");
             throw new Exception("You have already requested or are currently processing an order for this book.");
         }
+        logDebug("Duplicate Check Passed");
 
         if (!$ownerId) throw new Exception("Invalid Owner ID.");
         if ($type === 'borrow') {
@@ -80,6 +111,7 @@ try {
 
         // Check availability
         $quantity = checkAvailableQuantity($listingId);
+        logDebug("Quantity: " . $quantity);
         if ($quantity <= 0) {
             throw new Exception("This book is currently out of stock.");
         }
@@ -106,6 +138,7 @@ try {
 
         // Prepare Transaction
         $transactionType = ($type === 'sell') ? 'purchase' : $type;
+        $initialStatus = ($type === 'sell') ? 'approved' : 'requested';
         $orderAddress = $_POST['address'] ?? null;
         $orderLandmark = $_POST['landmark'] ?? null;
         $orderLat = $_POST['lat'] ?? null;
@@ -118,35 +151,52 @@ try {
         $stmt = $pdo->prepare("
             INSERT INTO transactions (
                 listing_id, borrower_id, lender_id, transaction_type, status, 
-                due_date, borrow_date, delivery_method, order_address, order_landmark, order_lat, order_lng
+                due_date, borrow_date, delivery_method, order_address, order_landmark, order_lat, order_lng,
+                payment_method
             ) 
-            VALUES (?, ?, ?, ?, 'requested', ?, CURDATE(), ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $listingId, $userId, $ownerId, $transactionType, 
+            $listingId, $userId, $ownerId, $transactionType, $initialStatus, 
             $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
-            $orderAddress, $orderLandmark, $orderLat, $orderLng
+            $orderAddress, $orderLandmark, $orderLat, $orderLng,
+            ($type === 'sell' ? 'cod' : 'online')
         ]);
         $transactionId = $pdo->lastInsertId();
 
+        // If it's a purchase, decrease quantity immediately
+        if ($type === 'sell') {
+            updateListingQuantity($listingId, -1);
+            // We skip auto-assignment to keep it in the 'Available' pool for agents
+            // assignDeliveryAgent($transactionId);
+        }
+
         // Notifications & Messages
-        $msg = "User " . $_SESSION['firstname'] . " wants to ";
-        if ($type === 'borrow') $msg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate));
-        elseif ($type === 'sell') $msg .= "buy '{$bookTitle}'";
-        else $msg .= "swap for '{$bookTitle}'";
+        if ($type === 'sell') {
+            $msg = "User " . $_SESSION['firstname'] . " bought '{$bookTitle}'";
+        } else {
+            $msg = "User " . $_SESSION['firstname'] . " wants to ";
+            if ($type === 'borrow') $msg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate));
+            else $msg .= "swap for '{$bookTitle}'";
+        }
 
-        createNotification($ownerId, $type . '_request', $msg, $transactionId);
+        $notifyType = ($type === 'sell') ? 'book_purchased' : ($type . '_request');
+        createNotification($ownerId, $notifyType, $msg, $transactionId);
+        logDebug("Notification Created");
 
-        $chatMsg = "Hi, I would like to ";
-        if ($type === 'borrow') $chatMsg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate)) . ". Is this date okay?";
-        elseif ($type === 'sell') $chatMsg .= "buy '{$bookTitle}'.";
-        else $chatMsg .= "exchange '{$bookTitle}'.";
+        if ($type === 'sell') {
+            $chatMsg = "Hi, I just bought '{$bookTitle}' from your listing.";
+        } else {
+            $chatMsg = "Hi, I would like to ";
+            if ($type === 'borrow') $chatMsg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate)) . ". Is this date okay?";
+            else $chatMsg .= "exchange '{$bookTitle}'.";
+        }
         
         $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)")
             ->execute([$userId, $ownerId, $chatMsg]);
 
         ob_clean();
-        echo json_encode(['success' => true, 'message' => 'Request sent successfully!']);
+        echo json_encode(['success' => true, 'message' => 'Order placed successfully!', 'transaction_id' => $transactionId]);
         exit;
 
     // --- Interactions (Accept/Decline/Return etc) ---
@@ -195,6 +245,7 @@ try {
 
         } elseif ($action === 'request_extension') {
              $newDate = $_POST['new_date'] ?? null;
+             $reason = $_POST['reason'] ?? '';
              if (!$newDate || !validateDate($newDate)) throw new Exception("Invalid extension date.");
 
              $stmt = $pdo->prepare("SELECT borrower_id, lender_id FROM transactions WHERE id = ?");
@@ -202,7 +253,7 @@ try {
              $tx = $stmt->fetch();
              if (!$tx || $tx['borrower_id'] != $userId) throw new Exception("Unauthorized.");
 
-             if (requestExtension($transactionId, $newDate)) {
+             if (requestExtension($transactionId, $newDate, $reason)) {
                  $msg = "Borrower requested extension until " . date('M d, Y', strtotime($newDate));
                  createNotification($tx['lender_id'], 'extension_request', $msg, $transactionId);
                  ob_clean();
@@ -218,8 +269,13 @@ try {
              $tx = $stmt->fetch();
              if (!$tx || $tx['lender_id'] != $userId) throw new Exception("Unauthorized.");
              
+             if (!checkSufficientCredits($tx['borrower_id'], 5)) {
+                 throw new Exception("Borrower has insufficient credits (5 needed) for this extension.");
+             }
+             
              if (approveExtension($transactionId)) {
-                 $msg = "Extension APPROVED! New due date: " . date('M d, Y', strtotime($tx['pending_due_date']));
+                 deductCredits($tx['borrower_id'], 5, 'spend', "Borrow Extension: #{$transactionId}", $transactionId);
+                 $msg = "Extension APPROVED! New due date: " . date('M d, Y', strtotime($tx['pending_due_date'])) . ". 5 credits deducted.";
                  createNotification($tx['borrower_id'], 'extension_approved', $msg, $transactionId);
                  ob_clean();
                  echo json_encode(['success' => true, 'message' => 'Extension approved']);
@@ -262,6 +318,7 @@ try {
                  $creditEarned = $transaction['credit_cost'] ?? 10;
                  addCredits($transaction['lender_id'], $creditEarned, 'earn', "Book returned: {$transaction['title']}", $transactionId);
                  updateTrustScore($transaction['borrower_id'], 5, 'on_time_return');
+                   addCredits($transaction['borrower_id'], 2, 'bonus', "On-time return bonus: {$transaction['title']}", $transactionId);
                  $pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$transaction['lender_id']]);
              }
              // Notify... (Simplified for brevity but logic stands)
@@ -353,6 +410,17 @@ try {
             $reportId = validateId($_POST['report_id'] ?? 0);
             $status = $_POST['status'] ?? 'resolved';
             if (!$reportId) throw new Exception("Invalid Report ID.");
+             // Behavioral Credit System: Penalty for valid reports
+             if ($status === 'resolved' || $status === 'punished') {
+                 $stmt = $pdo->prepare("SELECT reporter_id, reported_id FROM reports WHERE id = ?");
+                 $stmt->execute([$reportId]);
+                 $report = $stmt->fetch();
+                 if ($report) {
+                     deductCredits($report['reported_id'], 20, 'report_penalty', 'Penalty for confirmed report', $reportId);
+                     updateTrustScore($report['reported_id'], -10, 'report_confirmed');
+                 }
+             }
+
             if (resolveReport($reportId, $status)) echo json_encode(['success' => true, 'message' => 'Report resolved.']);
             else throw new Exception("Failed to update report.");
 
@@ -448,9 +516,10 @@ try {
         exit;
     }
 
-} catch (Throwable $e) {
+} catch (Exception $e) {
+    logDebug("Exception: " . $e->getMessage());
     ob_clean();
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    exit;
 }
+    exit;
 ?>

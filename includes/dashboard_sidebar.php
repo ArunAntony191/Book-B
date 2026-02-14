@@ -128,27 +128,44 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 </aside>
 
 <script>
-    // Global function to update sidebar unread badge
+    // Global function to update sidebar unread badges
     async function refreshSidebarUnread() {
         try {
-            const response = await fetch('<?php echo APP_URL; ?>/chat/api.php?action=unread_counts&user_id=<?php echo $_SESSION['user_id'] ?? 0; ?>');
-            const counts = await response.json();
-            const total = counts.reduce((sum, item) => sum + parseInt(item.count), 0);
+            const response = await fetch('<?php echo APP_URL; ?>/chat/api.php?action=all_counts&user_id=<?php echo $_SESSION['user_id'] ?? 0; ?>');
+            const data = await response.json();
             
-            const badge = document.querySelector('.msg-badge');
+            // 1. Update Message Badge
+            const msgBadge = document.querySelector('.msg-badge');
             const msgLink = document.querySelector('a[href*="chat/index.php"]');
             
-            if (total > 0) {
-                if (badge) {
-                    badge.textContent = total;
+            if (data.messages > 0) {
+                if (msgBadge) {
+                    msgBadge.textContent = data.messages;
                 } else if (msgLink) {
                     const newBadge = document.createElement('span');
                     newBadge.className = 'nav-badge msg-badge';
-                    newBadge.textContent = total;
+                    newBadge.textContent = data.messages;
                     msgLink.appendChild(newBadge);
                 }
-            } else if (badge) {
-                badge.remove();
+            } else if (msgBadge) {
+                msgBadge.remove();
+            }
+
+            // 2. Update Notification Badge
+            const notifBadge = document.querySelector('.notif-badge');
+            const notifLink = document.querySelector('a[href*="notifications.php"]');
+            
+            if (data.notifications > 0) {
+                if (notifBadge) {
+                    notifBadge.textContent = data.notifications;
+                } else if (notifLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge notif-badge';
+                    newBadge.textContent = data.notifications;
+                    notifLink.appendChild(newBadge);
+                }
+            } else if (notifBadge) {
+                notifBadge.remove();
             }
         } catch (err) {
             console.error("Sidebar unread refresh failed", err);

@@ -6,13 +6,7 @@ session_start();
 $userId = $_SESSION['user_id'] ?? 0;
 if (!$userId) { header("Location: login.php"); exit(); }
 
-// Handle Mark All as Read
-if (isset($_POST['mark_read'])) {
-    markAllNotificationsAsRead($userId);
-    header("Location: notifications.php");
-    exit();
-}
-
+// Notification filter logic
 $filter = $_GET['filter'] ?? 'all';
 $status = $_GET['status'] ?? 'all';
 ?>
@@ -23,6 +17,7 @@ $status = $_GET['status'] ?? 'all';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notifications | BOOK-B</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/toast.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .filter-bar {
@@ -83,6 +78,27 @@ $status = $_GET['status'] ?? 'all';
             gap: 0.4rem;
         }
         .mark-read-btn:hover { text-decoration: underline; }
+        
+        .delete-notif-btn {
+            padding: 0.4rem;
+            border-radius: 8px;
+            color: #ef4444;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        [id^="notif-container-"]:hover .delete-notif-btn {
+            opacity: 1;
+        }
+        .delete-notif-btn:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
     </style>
 </head>
 <body>
@@ -92,11 +108,9 @@ $status = $_GET['status'] ?? 'all';
         <main class="main-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                 <h1 style="font-size: 1.8rem; font-weight: 800; margin: 0;">Notifications</h1>
-                <form method="POST">
-                    <button type="submit" name="mark_read" class="mark-read-btn">
-                        <i class='bx bx-check-double'></i> Mark all as Read
-                    </button>
-                </form>
+                <button type="button" onclick="markAllAsRead()" class="mark-read-btn" id="mark-all-read-btn">
+                    <i class='bx bx-check-double'></i> Mark all as Read
+                </button>
             </div>
 
             <div class="filter-bar">
@@ -107,7 +121,11 @@ $status = $_GET['status'] ?? 'all';
                     'requests' => 0,
                     'delivery' => 0,
                     'system' => 0,
-                    'action' => 0
+                    'action' => 0,
+                    'messages' => 0,
+                    'credits' => 0,
+                    'listings' => 0,
+                    'support' => 0
                 ];
                 
                 try {
@@ -122,14 +140,26 @@ $status = $_GET['status'] ?? 'all';
                     $stmt->execute([$userId]);
                     $countsByType = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
                     
-                    $requestTypes = ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined'];
+                    $requestTypes = ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined', 'extension_request'];
                     $deliveryTypes = ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'];
+                    $messageTypes = ['message'];
+                    $creditTypes = ['credit_earned', 'credit_spent', 'credit_refund'];
+                    $listingTypes = ['new_listing'];
+                    $supportTypes = ['support', 'support_reply'];
                     
                     foreach ($countsByType as $type => $count) {
                         if (in_array($type, $requestTypes)) {
                             $unreadCounts['requests'] += $count;
                         } elseif (in_array($type, $deliveryTypes)) {
                             $unreadCounts['delivery'] += $count;
+                        } elseif (in_array($type, $messageTypes)) {
+                            $unreadCounts['messages'] += $count;
+                        } elseif (in_array($type, $creditTypes)) {
+                            $unreadCounts['credits'] += $count;
+                        } elseif (in_array($type, $listingTypes)) {
+                            $unreadCounts['listings'] += $count;
+                        } elseif (in_array($type, $supportTypes)) {
+                            $unreadCounts['support'] += $count;
                         } else {
                             $unreadCounts['system'] += $count;
                         }
@@ -152,17 +182,29 @@ $status = $_GET['status'] ?? 'all';
                 } catch (Exception $e) {}
                 ?>
 
-                <a href="?filter=all&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'all' ? 'active' : ''; ?>">
+                <a href="?filter=all&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'all' ? 'active' : ''; ?>" id="filter-pill-all">
                     All <?php echo $unreadCounts['all'] > 0 ? "<span class='filter-badge'>{$unreadCounts['all']}</span>" : ''; ?>
                 </a>
-                <a href="?filter=requests&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'requests' ? 'active' : ''; ?>">
+                <a href="?filter=requests&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'requests' ? 'active' : ''; ?>" id="filter-pill-requests">
                     Requests <?php echo $unreadCounts['requests'] > 0 ? "<span class='filter-badge'>{$unreadCounts['requests']}</span>" : ''; ?>
                 </a>
-                <a href="?filter=delivery&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'delivery' ? 'active' : ''; ?>">
+                <a href="?filter=delivery&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'delivery' ? 'active' : ''; ?>" id="filter-pill-delivery">
                     Delivery <?php echo $unreadCounts['delivery'] > 0 ? "<span class='filter-badge'>{$unreadCounts['delivery']}</span>" : ''; ?>
                 </a>
-                <a href="?filter=system&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'system' ? 'active' : ''; ?>">
+                <a href="?filter=system&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'system' ? 'active' : ''; ?>" id="filter-pill-system">
                     System <?php echo $unreadCounts['system'] > 0 ? "<span class='filter-badge'>{$unreadCounts['system']}</span>" : ''; ?>
+                </a>
+                <a href="?filter=messages&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'messages' ? 'active' : ''; ?>" id="filter-pill-messages">
+                    Messages <?php echo $unreadCounts['messages'] > 0 ? "<span class='filter-badge'>{$unreadCounts['messages']}</span>" : ''; ?>
+                </a>
+                <a href="?filter=credits&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'credits' ? 'active' : ''; ?>" id="filter-pill-credits">
+                    Credits <?php echo $unreadCounts['credits'] > 0 ? "<span class='filter-badge'>{$unreadCounts['credits']}</span>" : ''; ?>
+                </a>
+                <a href="?filter=listings&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'listings' ? 'active' : ''; ?>" id="filter-pill-listings">
+                    Listings <?php echo $unreadCounts['listings'] > 0 ? "<span class='filter-badge'>{$unreadCounts['listings']}</span>" : ''; ?>
+                </a>
+                <a href="?filter=support&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'support' ? 'active' : ''; ?>" id="filter-pill-support">
+                    Support <?php echo $unreadCounts['support'] > 0 ? "<span class='filter-badge'>{$unreadCounts['support']}</span>" : ''; ?>
                 </a>
                 
                 <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.5rem;"></div>
@@ -173,7 +215,7 @@ $status = $_GET['status'] ?? 'all';
                 <a href="?filter=<?php echo $filter; ?>&status=unread" class="filter-pill <?php echo $status == 'unread' ? 'active' : ''; ?>">Unread Only</a>
             </div>
             
-            <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden;">
+            <div id="notif-list-container" style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; min-height: 200px;">
                 <?php
                 try {
                     $pdo = getDBConnection();
@@ -191,11 +233,19 @@ $status = $_GET['status'] ?? 'all';
                     }
 
                     if ($filter === 'requests') {
-                        $conditions[] = "n.type IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined')";
+                        $conditions[] = "n.type IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request')";
                     } elseif ($filter === 'delivery') {
                         $conditions[] = "n.type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')";
+                    } elseif ($filter === 'messages') {
+                        $conditions[] = "n.type IN ('message')";
+                    } elseif ($filter === 'credits') {
+                        $conditions[] = "n.type IN ('credit_earned', 'credit_spent', 'credit_refund')";
+                    } elseif ($filter === 'listings') {
+                        $conditions[] = "n.type IN ('new_listing')";
+                    } elseif ($filter === 'support') {
+                        $conditions[] = "n.type IN ('support', 'support_reply')";
                     } elseif ($filter === 'system') {
-                        $conditions[] = "n.type NOT IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')";
+                        $conditions[] = "n.type NOT IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'support', 'support_reply', 'extension_request')";
                     }
 
                     $whereClause = implode(" AND ", $conditions);
@@ -298,28 +348,43 @@ $status = $_GET['status'] ?? 'all';
                                 $link = "delivery_details.php?id=" . $n['reference_id'];
                             }
 
-                            echo "
-                            <a href='{$link}' style='text-decoration: none; display: block; padding: 1.5rem; border-bottom: 1px solid var(--border-color); $highlight transition: all 0.2s;' id='notif-{$n['id']}'>
-                                <div style='display: flex; gap: 1rem; align-items: start;'>
-                                    <div style='width: 45px; height: 45px; background: {$bgType}; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.05);'>
-                                        <i class='bx {$icon}' style='font-size: 1.4rem; color: {$iconColor};'></i>
-                                    </div>
-                                    <div style='flex: 1;'>
-                                        <div style='display: flex; justify-content: space-between; align-items: start; gap: 1rem;'>
-                                            <div style='font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem; line-height: 1.5; font-weight: 500;'>{$n['message']}</div>
-                                            " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' && (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) ? "
-                                                <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
-                                            " : "") . "
-                                            " . ($isExtension && !$isLatestExtension && $n['pending_due_date'] ? "
-                                                <span class='badge' style='font-size: 0.7rem; text-transform: uppercase; background: #94a3b8; color: white;'>SUPERSEDED</span>
-                                            " : "") . "
+                             // Determine Category for filter pill updates
+                             $category = 'system';
+                             if (in_array($n['type'], $requestTypes)) $category = 'requests';
+                             elseif (in_array($n['type'], $deliveryTypes)) $category = 'delivery';
+                             elseif (in_array($n['type'], $messageTypes)) $category = 'messages';
+                             elseif (in_array($n['type'], $creditTypes)) $category = 'credits';
+                             elseif (in_array($n['type'], $listingTypes)) $category = 'listings';
+                             elseif (in_array($n['type'], $supportTypes)) $category = 'support';
+
+                             echo "
+                             <div style='position: relative;' id='notif-container-{$n['id']}' data-unread='" . ($n['is_read'] ? '0' : '1') . "' data-category='{$category}'>
+                                 <a href='{$link}' style='text-decoration: none; display: block; padding: 1.5rem; border-bottom: 1px solid var(--border-color); $highlight transition: all 0.2s;' id='notif-{$n['id']}'>
+                                    <div style='display: flex; gap: 1rem; align-items: start;'>
+                                        <div style='width: 45px; height: 45px; background: {$bgType}; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.05);'>
+                                            <i class='bx {$icon}' style='font-size: 1.4rem; color: {$iconColor};'></i>
                                         </div>
-                                        <div style='display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);'>
-                                            <i class='bx bx-time-five'></i>
-                                            " . date('M d, h:i A', strtotime($n['created_at'])) . "
+                                        <div style='flex: 1;'>
+                                            <div style='display: flex; justify-content: space-between; align-items: start; gap: 1rem;'>
+                                                <div style='font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem; line-height: 1.5; font-weight: 500;'>{$n['message']}</div>
+                                                <div style='display: flex; align-items: center; gap: 0.5rem;'>
+                                                    " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' && (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) ? "
+                                                        <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
+                                                    " : "") . "
+                                                    " . ($isExtension && !$isLatestExtension && $n['pending_due_date'] ? "
+                                                        <span class='badge' style='font-size: 0.7rem; text-transform: uppercase; background: #94a3b8; color: white;'>SUPERSEDED</span>
+                                                    " : "") . "
+                                                    <button class='delete-notif-btn' onclick='deleteNotification(event, {$n['id']})' title='Delete Notification'>
+                                                        <i class='bx bx-trash' style='font-size: 1.1rem;'></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div style='display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);'>
+                                                <i class='bx bx-time-five'></i>
+                                                " . date('M d, h:i A', strtotime($n['created_at'])) . "
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>";
+                                    </div>";
                             
                             if ($canAction) {
                                 if ($isExtension) {
@@ -337,7 +402,7 @@ $status = $_GET['status'] ?? 'all';
                                 }
                             }
                             
-                            echo "</a>";
+                            echo "</a></div>";
                         }
                     } else {
                         echo "<div style='padding: 4rem; text-align: center; color: var(--text-muted);'>
@@ -365,17 +430,163 @@ $status = $_GET['status'] ?? 'all';
                 
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message, 'success');
-                    document.getElementById('notif-' + notifId).remove();
-                    location.reload();
+                    if (typeof showToast === 'function') showToast(data.message, 'success');
+                    const element = document.getElementById('notif-container-' + notifId);
+                    if (element) {
+                        const isUnread = element.getAttribute('data-unread') === '1';
+                        const category = element.getAttribute('data-category');
+                        
+                        element.style.opacity = '0';
+                        element.style.transform = 'translateY(-20px)';
+                        
+                        setTimeout(() => {
+                            element.remove();
+                            if (isUnread) {
+                                updateFilterCount('all');
+                                updateFilterCount(category);
+                                if (typeof refreshSidebarUnread === 'function') {
+                                    refreshSidebarUnread();
+                                }
+                            }
+                            checkIfEmpty();
+                        }, 300);
+                    }
                 } else {
-                    showToast('Error: ' + data.message, 'error');
+                    if (typeof showToast === 'function') showToast('Error: ' + data.message, 'error');
                 }
             } catch (err) {
-                showToast('Failed to process request', 'error');
+                if (typeof showToast === 'function') showToast('Failed to process request', 'error');
                 console.error(err);
             }
         }
+
+        async function deleteNotification(event, notifId) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!confirm('Are you sure you want to delete this notification?')) return;
+
+            try {
+                const response = await fetch('../actions/delete_notification.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `notification_id=${notifId}`
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast(data.message, 'success');
+                    const element = document.getElementById('notif-container-' + notifId);
+                    if (element) {
+                        const isUnread = element.getAttribute('data-unread') === '1';
+                        const category = element.getAttribute('data-category');
+
+                        element.style.opacity = '0';
+                        element.style.transform = 'translateX(20px)';
+                        
+                        setTimeout(() => {
+                            element.remove();
+                            
+                            // Update UI counts if unread
+                            if (isUnread) {
+                                updateFilterCount('all');
+                                updateFilterCount(category);
+                                // Refresh sidebar badge
+                                if (typeof refreshSidebarUnread === 'function') {
+                                    refreshSidebarUnread();
+                                }
+                            }
+
+                            checkIfEmpty();
+                        }, 300);
+                    }
+                } else {
+                    if (typeof showToast === 'function') showToast('Error: ' + data.message, 'error');
+                }
+            } catch (err) {
+                if (typeof showToast === 'function') showToast('Failed to delete notification', 'error');
+                console.error(err);
+            }
+        }
+
+        async function markAllAsRead() {
+            try {
+                const response = await fetch('../actions/mark_all_read.php', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast(data.message, 'success');
+                    
+                    // Reset all badges to zero/remove them
+                    document.querySelectorAll('.filter-badge').forEach(badge => badge.remove());
+                    
+                    // Update all notification styles (remove highlights)
+                    const statusFilter = new URLSearchParams(window.location.search).get('status') || 'all';
+                    
+                    document.querySelectorAll('[id^="notif-container-"]').forEach(container => {
+                        const el = container.querySelector('[id^="notif-"]');
+                        if (el) el.style.background = 'white';
+                        container.setAttribute('data-unread', '0');
+                        
+                        // If we are in "Unread Only" view, remove them all with animation
+                        if (statusFilter === 'unread') {
+                            container.style.opacity = '0';
+                            container.style.transform = 'scale(0.95)';
+                            setTimeout(() => {
+                                container.remove();
+                                checkIfEmpty();
+                            }, 300);
+                        }
+                    });
+
+                    // Refresh sidebar badge
+                    if (typeof refreshSidebarUnread === 'function') {
+                        refreshSidebarUnread();
+                    }
+                } else {
+                    if (typeof showToast === 'function') showToast('Error: ' + data.message, 'error');
+                }
+            } catch (err) {
+                if (typeof showToast === 'function') showToast('Failed to mark as read', 'error');
+                console.error(err);
+            }
+        }
+
+        function checkIfEmpty() {
+            const containers = document.querySelectorAll('[id^="notif-container-"]');
+            if (containers.length === 0) {
+                const list = document.getElementById('notif-list-container');
+                list.innerHTML = `
+                    <div style='padding: 4rem; text-align: center; color: var(--text-muted); opacity: 0; transform: scale(0.9); transition: all 0.5s ease; width: 100%;' id='empty-state'>
+                        <i class='bx bx-notification-off' style='font-size: 3rem; opacity: 0.2; margin-bottom: 1rem; display: block;'></i>
+                        No notifications found for this filter.
+                    </div>
+                `;
+                setTimeout(() => {
+                    const emptyState = document.getElementById('empty-state');
+                    if (emptyState) {
+                        emptyState.style.opacity = '1';
+                        emptyState.style.transform = 'scale(1)';
+                    }
+                }, 10);
+            }
+        }
+
+        function updateFilterCount(category) {
+            const pill = document.getElementById('filter-pill-' + category);
+            if (!pill) return;
+            
+            const badge = pill.querySelector('.filter-badge');
+            if (badge) {
+                let currentCount = parseInt(badge.textContent);
+                if (currentCount > 1) {
+                    badge.textContent = currentCount - 1;
+                } else {
+                    badge.remove();
+                }
+            }
+        }
     </script>
+    <script src="../assets/js/toast.js"></script>
 </body>
 </html>

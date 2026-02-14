@@ -8,13 +8,13 @@ function showToast(message, type = 'success', duration = 3000) {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
+
     // Add icon based on type
     let icon = 'bx-check-circle';
     if (type === 'error') icon = 'bx-error-circle';
     if (type === 'warning') icon = 'bx-error';
     if (type === 'info') icon = 'bx-info-circle';
-    
+
     toast.innerHTML = `
         <i class='bx ${icon}'></i>
         <span>${message}</span>
@@ -30,7 +30,7 @@ function showToast(message, type = 'success', duration = 3000) {
             if (container.childNodes.length === 0) {
                 container.remove();
             }
-        }, 300;
+        }, 300);
     }, duration);
 }
 

@@ -207,10 +207,22 @@ class DeliveryManager {
                 $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = IFNULL(delivered_at, NOW()) WHERE id = ?")->execute([$transactionId]);
             }
 
-            // Pay seller only once
-            if (!$alreadyConfirmed && $tx['transaction_type'] === 'purchase') {
+            // Stats update for both parties
+            if (!$alreadyConfirmed) {
+                $this->pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$userId]);
+                $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$tx['lender_id']]);
+                
+                // Set delivery time if not already set (important for direct pickup)
+                if (empty($tx['delivered_at'])) {
+                    $this->pdo->prepare("UPDATE transactions SET delivered_at = NOW() WHERE id = ?")->execute([$transactionId]);
+                }
+            }
+
+            // Pay seller only if it's a borrow/exchange (token-based)
+            // Purchases are handled via Cash (COD) or Online Payment
+            if (!$alreadyConfirmed && $tx['transaction_type'] !== 'purchase') {
                  $credits = $tx['credit_cost'] ?? 10;
-                 addCredits($tx['lender_id'], $credits, 'earn', "Book Sold: {$tx['title']}", $transactionId);
+                 addCredits($tx['lender_id'], $credits, 'earn', "Book Handover: {$tx['title']}", $transactionId);
             }
             return true;
         }
