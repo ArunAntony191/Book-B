@@ -282,7 +282,7 @@ function getStatusLabel($status, $agentId, $method) {
                                 </button>
                             <?php endif; ?>
                             <?php if ($isLender && empty($d['lender_confirm_at'])): ?>
-                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover to Agent</button>
+                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover<?= $d['delivery_method'] === 'pickup' ? '' : ' to Agent' ?></button>
                             <?php endif; ?>
                         <?php else: ?>
                             <?php if ($isBorrower && empty($d['return_borrower_confirm_at'])): ?>

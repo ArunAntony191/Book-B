@@ -533,6 +533,22 @@ if ($userId) {
                 <input type="date" id="due-date" class="form-input" min="<?php echo date('Y-m-d'); ?>">
             </div>
 
+            <div id="qty-group" style="margin-bottom: 1.5rem; display: none;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Quantity</label>
+                <input type="number" id="req-qty" class="form-input" value="1" min="1" max="<?php echo $book['quantity']; ?>" onchange="checkBulkQty()" onkeyup="checkBulkQty()">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Max available: <?php echo $book['quantity']; ?>
+                </div>
+            </div>
+
+            <div id="reason-group" style="margin-bottom: 1.5rem; display: none;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Reason for Bulk Purchase</label>
+                <textarea id="req-reason" class="form-input" rows="3" placeholder="Please explain why you need this many copies..."></textarea>
+                <div style="background: #eff6ff; color: #1e40af; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-top: 0.5rem; border: 1px solid #dbeafe;">
+                    <i class='bx bx-info-circle'></i> Bulk orders (>10) require approval from the owner. You will not be charged now.
+                </div>
+            </div>
+
             <div id="payment-method-section" style="margin-bottom: 1.5rem; display: none;">
                 <label style="display: block; font-weight: 600; margin-bottom: 0.8rem;">Select Payment Method</label>
                 <div style="display: flex; gap: 1rem;">
@@ -786,6 +802,8 @@ if ($userId) {
                 title.innerText = 'Request to Borrow';
                 desc.innerText = 'Please select a return date for this item.';
                 document.getElementById('date-group').style.display = 'block';
+                document.getElementById('qty-group').style.display = 'none'; // No qty for borrow usually
+                document.getElementById('reason-group').style.display = 'none';
                 document.getElementById('btn-submit-request').innerText = 'Send Request';
                 paySec.style.display = 'none';
                 
@@ -793,23 +811,65 @@ if ($userId) {
                 tokenRow.innerHTML = `<span>Total to Spend</span> <span id="base-cost" style="display:none;"><?php echo $book['credit_cost'] ?? 10; ?></span> <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>`;
 
             } else if (type === 'sell') {
-                title.innerText = 'Pay via UPI / Card';
+                title.innerText = 'Buy Book';
                 desc.innerHTML = '';
+                document.getElementById('date-group').style.display = 'none';
+                document.getElementById('qty-group').style.display = 'block';
+                
+                // Default state
                 document.getElementById('btn-submit-request').innerText = 'Buy Now';
                 paySec.style.display = 'block';
+                document.getElementById('reason-group').style.display = 'none';
                 
-                // Show Price
-                 tokenRow.innerHTML = `<span>Total to Pay</span> <span id="base-cost" style="display:none;">${bookPrice}</span> <span>₹<span id="total-cost">${bookPrice}</span></span>`;
-
+                updateTotalCost();
             } else {
                 title.innerText = 'Request Swap';
-                desc.innerText = 'Notify the owner that you are interested in a swap?';
+                desc.innerText = 'Propose a swap for this book.';
+                document.getElementById('date-group').style.display = 'none';
+                document.getElementById('qty-group').style.display = 'none';
+                document.getElementById('reason-group').style.display = 'none';
                 document.getElementById('btn-submit-request').innerText = 'Send Request';
                 paySec.style.display = 'none';
-                 // Swap might be free or token based? Assuming standard token display or hide
-                tokenRow.innerHTML = `<span>Total to Spend</span> <span><span>1</span> Token</span>`; // Minimal cost for swap? Or keep standard
             }
             updatePaymentMethodUI();
+        }
+
+        function checkBulkQty() {
+            const qty = parseInt(document.getElementById('req-qty').value) || 1;
+            const maxQty = <?php echo $book['quantity']; ?>;
+            
+            if (qty > maxQty) {
+                showToast('Quantity exceeds available stock (' + maxQty + ')', 'error');
+                document.getElementById('req-qty').value = maxQty;
+                return;
+            }
+
+            if (qty > 10) {
+                document.getElementById('reason-group').style.display = 'block';
+                document.getElementById('payment-method-section').style.display = 'none';
+                document.getElementById('btn-submit-request').innerText = 'Send Request';
+                document.getElementById('modal-title').innerText = 'Bulk Purchase Request';
+                document.getElementById('modal-desc').innerText = 'Orders > 10 require owner approval.';
+            } else {
+                document.getElementById('reason-group').style.display = 'none';
+                document.getElementById('payment-method-section').style.display = 'block';
+                document.getElementById('btn-submit-request').innerText = 'Buy Now';
+                document.getElementById('modal-title').innerText = 'Buy Book';
+                document.getElementById('modal-desc').innerText = '';
+            }
+            updateTotalCost();
+        }
+
+        function updateTotalCost() {
+            if (currentType !== 'sell') return;
+            
+            const qty = parseInt(document.getElementById('req-qty').value) || 1;
+            const price = bookPrice;
+            const total = qty * price;
+            
+            // Note: Displaying price in INR, not tokens
+            const tokenRow = document.querySelector('.credit-total');
+            tokenRow.innerHTML = `<span>Total Price</span> <span>₹${total}</span>`;
         }
 
         function closeModal() {
@@ -1146,7 +1206,8 @@ if ($userId) {
             }
 
             // --- RAZORPAY FLOW FOR "SELL" (BUY NOW) ---
-            if (currentType === 'sell') {
+            const qty = parseInt(document.getElementById('req-qty').value) || 1;
+            if (currentType === 'sell' && qty <= 10 && paymentMethod === 'online') {
                // alert('Starting Payment Flow for Sell...'); // Debug
                 fetch('../actions/payment_action.php', {
                     method: 'POST',
@@ -1213,11 +1274,29 @@ if ($userId) {
                 return; 
             }
 
-            // --- STANDARD FLOW FOR BORROW / EXCHANGE ---
+            // --- STANDARD FLOW FOR BORROW / EXCHANGE / BULK PURCHASE ---
+            const quantity = document.getElementById('req-qty').value;
+            const reasons = document.getElementById('req-reason').value;
+
+            const params = new URLSearchParams();
+            params.append('action', 'create_request');
+            params.append('listing_id', listingId);
+            params.append('owner_id', ownerId);
+            params.append('type', currentType);
+            params.append('due_date', dueDate);
+            params.append('book_title', bookTitle);
+            params.append('delivery', wantDelivery ? 1 : 0);
+            params.append('address', address);
+            params.append('landmark', landmark);
+            params.append('lat', lat);
+            params.append('lng', lng);
+            params.append('quantity', quantity);
+            params.append('request_message', reasons);
+
             fetch('../actions/request_action.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `action=create_request&listing_id=${listingId}&owner_id=${ownerId}&type=${currentType}&due_date=${dueDate}&book_title=${encodeURIComponent(bookTitle)}&delivery=${wantDelivery?1:0}&address=${encodeURIComponent(address)}&landmark=${encodeURIComponent(landmark)}&lat=${lat}&lng=${lng}`
+                body: params.toString()
             })
             .then(res => res.json())
             .then(data => {

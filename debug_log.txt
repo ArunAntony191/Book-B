@@ -990,3 +990,346 @@
     [transaction_id] => 99
 )
 
+[2026-02-15 11:27:58] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+)
+
+[2026-02-15 15:57:58] Create Request Action Triggered
+[2026-02-15 15:57:58] Notification Created
+[2026-02-15 11:40:44] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => fghjkuiguyy6tfg6t
+)
+
+[2026-02-15 16:10:44] Create Request Action Triggered
+[2026-02-15 16:10:44] Exception: You have already requested or are currently processing an order for this book.
+[2026-02-15 11:40:48] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => fghjkuiguyy6tfg6t
+)
+
+[2026-02-15 16:10:48] Create Request Action Triggered
+[2026-02-15 16:10:48] Exception: You have already requested or are currently processing an order for this book.
+[2026-02-15 11:42:46] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => r4edcx5tdct5rdf
+)
+
+[2026-02-15 16:12:46] Create Request Action Triggered
+[2026-02-15 16:12:46] Notification Created
+[2026-02-15 11:43:46] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 101
+)
+
+[2026-02-15 11:56:18] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => utjnhiujnyijkyim
+)
+
+[2026-02-15 16:26:18] Create Request Action Triggered
+[2026-02-15 16:26:18] Notification Created
+[2026-02-15 11:56:48] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 100
+)
+
+[2026-02-15 11:56:51] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 101
+)
+
+[2026-02-15 11:56:53] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 102
+)
+
+[2026-02-15 12:09:05] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 86
+)
+
+[2026-02-15 12:13:31] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 102
+)
+
+[2026-02-15 12:13:32] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 102
+)
+
+[2026-02-15 12:13:38] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 102
+)
+
+[2026-02-15 12:28:09] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 102
+)
+
+[2026-02-15 12:38:27] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => tjutujtj
+)
+
+[2026-02-15 17:08:27] Create Request Action Triggered
+[2026-02-15 17:08:27] Notification Created
+[2026-02-15 12:38:45] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 103
+)
+
+[2026-02-15 12:39:16] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 103
+)
+
+[2026-02-15 13:01:54] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 101
+)
+
+[2026-02-15 13:01:58] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 100
+)
+
+[2026-02-15 13:02:08] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 101
+)
+
+[2026-02-15 13:02:10] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 100
+)
+
+[2026-02-15 13:05:16] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 11
+    [request_message] => yjchgcffhgfcgfc
+)
+
+[2026-02-15 17:35:16] Create Request Action Triggered
+[2026-02-15 17:35:16] Notification Created
+[2026-02-15 13:05:36] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 104
+)
+
+[2026-02-15 13:31:41] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 13
+    [request_message] => dfghrthbbg
+)
+
+[2026-02-15 18:01:41] Create Request Action Triggered
+[2026-02-15 18:01:41] Notification Created
+[2026-02-15 15:10:13] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 15
+    [request_message] => hbgjhgbujhg
+)
+
+[2026-02-15 19:40:13] Create Request Action Triggered
+[2026-02-15 19:40:13] Exception: You already have a pending request for this book. Please wait for approval.
+[2026-02-15 15:10:17] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 15
+    [request_message] => hbgjhgbujhg
+)
+
+[2026-02-15 19:40:17] Create Request Action Triggered
+[2026-02-15 19:40:17] Exception: You already have a pending request for this book. Please wait for approval.
+[2026-02-15 15:11:05] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 105
+)
+
+[2026-02-15 15:30:51] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 105
+    [listing_id] => 28
+    [quantity] => 13
+)
+
+[2026-02-15 15:38:53] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 105
+)
+
+[2026-02-15 15:39:01] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 105
+)
+
+[2026-02-15 15:39:31] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 13
+    [request_message] => iujhn9iuh9iuh
+)
+
+[2026-02-15 20:09:31] Create Request Action Triggered
+[2026-02-15 20:09:31] Notification Created
+[2026-02-15 15:39:41] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 106
+)
+
+[2026-02-15 16:17:32] Request Action Hit: Array
+(
+    [action] => adjust_tokens
+    [user_id] => 42
+    [amount] => 300
+    [reason] => Admin adjustment
+)
+

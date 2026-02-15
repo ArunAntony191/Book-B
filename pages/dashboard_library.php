@@ -19,9 +19,11 @@ $userReviews = getUserReviews($userId, 5);
     <?php include '../includes/dashboard_sidebar.php'; ?>
 
     <main class="main-content">
+        <?php include '../includes/announcements_component.php'; ?>
+
         <div class="section-header">
             <div>
-                <h1>Library Management 🏛️</h1>
+                <h1>Library Management 🏛️<br><small style="font-size: 1rem; color: var(--text-muted);">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
                 <p>Manage your collection, track borrowings, and serve your community.</p>
             </div>
             <a href="add_listing.php" class="btn btn-primary">
@@ -291,11 +293,11 @@ $userReviews = getUserReviews($userId, 5);
     }
 
     // Close on overlay click
-    window.addEventListener('click', function(e) {
-        const modal = document.getElementById('reviewsModal');
-        if (e.target === modal) closeReviewsModal();
-    });
-</script>
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('reviewsModal');
+            if (e.target === modal) closeReviewsModal();
+        });
+    </script>
 
 <style>
 /* Modal Styles */
@@ -376,28 +378,6 @@ $userReviews = getUserReviews($userId, 5);
     border-bottom: none;
 }
 
-<style>
-.gradient-card {
-    position: relative;
-    overflow: hidden;
-}
-.gradient-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    pointer-events: none;
-}
-.widget-card {
-    transition: all 0.3s ease;
-}
-.widget-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
 </style>
 
 </body>

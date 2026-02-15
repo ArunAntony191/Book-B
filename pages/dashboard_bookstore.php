@@ -19,9 +19,11 @@ $userReviews = getUserReviews($userId, 5);
     <?php include '../includes/dashboard_sidebar.php'; ?>
 
     <main class="main-content">
+        <?php include '../includes/announcements_component.php'; ?>
+
         <div class="section-header">
             <div>
-                <h1>Bookstore Management 📚</h1>
+                <h1>Bookstore Management 📚<br><small style="font-size: 1rem; color: var(--text-muted);">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
                 <p>Manage inventory, track sales, and grow your book business.</p>
             </div>
             <a href="add_listing.php" class="btn btn-primary">
@@ -295,107 +297,6 @@ $userReviews = getUserReviews($userId, 5);
     });
 </script>
 
-<style>
-/* Modal Styles */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-}
-
-.modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.modal-content {
-    background: var(--bg-card);
-    width: 90%;
-    max-width: 500px;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-color);
-    transform: translateY(20px);
-    transition: all 0.3s ease;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.modal-overlay.active .modal-content {
-    transform: translateY(0);
-}
-
-.modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    line-height: 1;
-}
-
-.modal-body {
-    padding: 1.5rem;
-    overflow-y: auto;
-}
-
-.reviews-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.review-item {
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.review-item:last-child {
-    border-bottom: none;
-}
-
-
-.gradient-card {
-    position: relative;
-    overflow: hidden;
-}
-.gradient-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    pointer-events: none;
-}
-.widget-card {
-    transition: all 0.3s ease;
-}
-.widget-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
 </style>
 
 </body>

@@ -20,9 +20,11 @@ $userReviews = getUserReviews($userId, 5);
     <?php include '../includes/dashboard_sidebar.php'; ?>
 
     <main class="main-content">
+        <?php include '../includes/announcements_component.php'; ?>
+
         <div class="section-header">
             <div>
-                <h1>Welcome back, <?php echo $user['firstname']; ?>! 👋</h1>
+                <h1>Welcome back, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong>! 👋</h1>
                 <p>Here's your reading journey and community impact today.</p>
             </div>
             <div style="display: flex; gap: 1rem; align-items: center;">

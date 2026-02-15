@@ -374,7 +374,7 @@ function getUserDeals($userId) {
         $stmt = $pdo->prepare("
             SELECT t.*, b.title, b.author, b.cover_image, 
                    u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
-                   l.listing_type
+                   l.listing_type, l.price as listing_price
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             JOIN books b ON l.book_id = b.id
@@ -2486,5 +2486,74 @@ function getUserCommunityBooks($userId, $limit = 8) {
     } catch (PDOException $e) {
         error_log("Get user community books error: " . $e->getMessage());
         return [];
+    }
+}
+
+/**
+ * Get active announcements from bookstores
+ */
+function getActiveAnnouncements() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT a.*, u.firstname, u.lastname
+            FROM announcements a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.status = 'active'
+            AND (a.start_date IS NULL OR a.start_date <= CURDATE())
+            AND (a.end_date IS NULL OR a.end_date >= CURDATE())
+            ORDER BY a.created_at DESC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get active announcements error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get announcements by user (for management)
+ */
+function getAnnouncementsByUser($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT * FROM announcements WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get announcements by user error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a new announcement
+ */
+function addAnnouncement($userId, $title, $message, $link = null, $startDate = null, $endDate = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO announcements (user_id, title, message, target_link, start_date, end_date) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        return $stmt->execute([$userId, $title, $message, $link, $startDate, $endDate]);
+    } catch (PDOException $e) {
+        error_log("Add announcement error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Delete or deactivate announcement
+ */
+function deleteAnnouncement($announcementId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("DELETE FROM announcements WHERE id = ? AND user_id = ?");
+        return $stmt->execute([$announcementId, $userId]);
+    } catch (PDOException $e) {
+        error_log("Delete announcement error: " . $e->getMessage());
+        return false;
     }
 }

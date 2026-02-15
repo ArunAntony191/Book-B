@@ -68,39 +68,38 @@ try {
              logDebug("Error: Invalid listing listingId");
              throw new Exception("Invalid listing specified.");
         }
-        logDebug("Listing ID Valid: $listingId");
         
         $type = $_POST['type'] ?? 'borrow'; 
-        logDebug("Type: $type");
-        
         $owner_raw = $_POST['owner_id'] ?? 0;
-        logDebug("Owner Raw: $owner_raw");
-        
         $ownerId = validateId($owner_raw);
-        logDebug("Owner ID: $ownerId");
-        
         $dueDate = $_POST['due_date'] ?? null;
-        logDebug("Due Date: $dueDate");
-        
         $bookTitle = $_POST['book_title'] ?? 'a book';
-        logDebug("Book Title: $bookTitle");
+        
+        // Bulk Purchase Fields
+        $quantity = (int)($_POST['quantity'] ?? 1);
+        $requestMessage = $_POST['request_message'] ?? null;
+        
+        if ($quantity < 1) $quantity = 1;
 
         // Duplicate Check
-        logDebug("Preparing Duplicate Check Statement...");
-        $duplicateStatuses = "('requested', 'approved', 'assigned', 'active', 'returning')";
-        if ($type !== 'sell') {
+        if ($type === 'sell') {
+            // For sales, only block if there's a PENDING request. 
+            // Allow multiple approved/active transactions (users can buy again).
+            $duplicateStatuses = "('requested')";
+        } else {
+            // For borrowing/swapping, strictly one transaction at a time.
             $duplicateStatuses = "('requested', 'approved', 'assigned', 'active', 'returning', 'delivered')";
         }
         
         $stmt = $pdo->prepare("SELECT id FROM transactions WHERE listing_id = ? AND borrower_id = ? AND status IN $duplicateStatuses");
-        logDebug("Executing Duplicate Check...");
         $stmt->execute([$listingId, $userId]);
-        logDebug("Duplicate Check Executed.");
         if ($stmt->fetch()) {
-            logDebug("Duplicate Check Failed");
-            throw new Exception("You have already requested or are currently processing an order for this book.");
+            if ($type === 'sell') {
+                throw new Exception("You already have a pending request for this book. Please wait for approval.");
+            } else {
+                throw new Exception("You have already requested or are currently processing an order for this book.");
+            }
         }
-        logDebug("Duplicate Check Passed");
 
         if (!$ownerId) throw new Exception("Invalid Owner ID.");
         if ($type === 'borrow') {
@@ -110,10 +109,9 @@ try {
         }
 
         // Check availability
-        $quantity = checkAvailableQuantity($listingId);
-        logDebug("Quantity: " . $quantity);
-        if ($quantity <= 0) {
-            throw new Exception("This book is currently out of stock.");
+        $availQty = checkAvailableQuantity($listingId);
+        if ($availQty < $quantity) {
+            throw new Exception("Only $availQty copies available. You requested $quantity.");
         }
 
         // Cost Calculation
@@ -127,22 +125,40 @@ try {
         $creditCost = $listing['credit_cost'] ?? 10;
         
         $wantDelivery = ($_POST['delivery'] ?? 0) == 1;
+        // Total cost calculation might differ for bulk/sell, but keeping token logic for borrow
         $totalCost = $creditCost + ($wantDelivery ? 10 : 0);
 
-        if (!checkSufficientCredits($userId, $totalCost)) {
-            $userCredits = getUserCredits($userId);
-            $msg = "Insufficient credits. You have {$userCredits}, but need {$totalCost}";
-            if ($wantDelivery) $msg .= " ({$creditCost} for book + 10 for delivery)";
-            throw new Exception($msg);
+        // Only check credits if it's NOT a sell (purchase) OR if it's a token-based sell
+        if ($type !== 'sell') {
+            if (!checkSufficientCredits($userId, $totalCost)) {
+                $userCredits = getUserCredits($userId);
+                throw new Exception("Insufficient credits.");
+            }
         }
 
         // Prepare Transaction
         $transactionType = ($type === 'sell') ? 'purchase' : $type;
-        $initialStatus = ($type === 'sell') ? 'approved' : 'requested';
+        
+        // Status Logic
+        // Sell + Qty > 10 => requested (needs approval)
+        // Sell + Qty <= 10 => should have been paid via Razorpay directly? 
+        // If we are here for Sell <= 10, it implies COD or some other flow.
+        // Let's stick to 'approved' for small COD sells if allowed, or 'requested' if we want manual approval.
+        // Existing logic was 'approved'.
+        
+        if ($type === 'sell' && $quantity > 10) {
+            $initialStatus = 'requested';
+        } elseif ($type === 'sell') {
+            $initialStatus = 'approved'; 
+        } else {
+            $initialStatus = 'requested';
+        }
+
         $orderAddress = $_POST['address'] ?? null;
         $orderLandmark = $_POST['landmark'] ?? null;
         $orderLat = $_POST['lat'] ?? null;
         $orderLng = $_POST['lng'] ?? null;
+        $paymentMethod = ($type === 'sell' && $quantity > 10) ? 'online' : ($_POST['payment_method'] ?? 'online'); // Bulk defaults to online payment LATER
 
         if ($wantDelivery && (!$orderLat || !$orderLng)) {
              throw new Exception("Delivery location is required for delivery requests.");
@@ -152,39 +168,43 @@ try {
             INSERT INTO transactions (
                 listing_id, borrower_id, lender_id, transaction_type, status, 
                 due_date, borrow_date, delivery_method, order_address, order_landmark, order_lat, order_lng,
-                payment_method
+                payment_method, quantity, request_message, book_price
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $listingId, $userId, $ownerId, $transactionType, $initialStatus, 
             $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
             $orderAddress, $orderLandmark, $orderLat, $orderLng,
-            ($type === 'sell' ? 'cod' : 'online')
+            $paymentMethod, $quantity, $requestMessage, ($listing['price'] ?? 0)
         ]);
         $transactionId = $pdo->lastInsertId();
 
-        // If it's a purchase, decrease quantity immediately
-        if ($type === 'sell') {
-            updateListingQuantity($listingId, -1);
-            // We skip auto-assignment to keep it in the 'Available' pool for agents
-            // assignDeliveryAgent($transactionId);
+        // If it's a purchase (small qty, instant approved), decrease quantity immediately
+        if ($type === 'sell' && $initialStatus === 'approved') {
+            updateListingQuantity($listingId, -$quantity);
         }
 
         // Notifications & Messages
-        if ($type === 'sell') {
+        if ($type === 'sell' && $quantity > 10) {
+            $msg = "User " . $_SESSION['firstname'] . " requests to buy {$quantity} copies of '{$bookTitle}'. Reason: $requestMessage";
+            $notifyType = 'sell_request';
+        } elseif ($type === 'sell') {
             $msg = "User " . $_SESSION['firstname'] . " bought '{$bookTitle}'";
+            $notifyType = 'book_purchased';
         } else {
             $msg = "User " . $_SESSION['firstname'] . " wants to ";
             if ($type === 'borrow') $msg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate));
             else $msg .= "swap for '{$bookTitle}'";
+            $notifyType = $type . '_request';
         }
 
-        $notifyType = ($type === 'sell') ? 'book_purchased' : ($type . '_request');
         createNotification($ownerId, $notifyType, $msg, $transactionId);
         logDebug("Notification Created");
 
-        if ($type === 'sell') {
+        if ($type === 'sell' && $quantity > 10) {
+            $chatMsg = "Hi, I would like to buy {$quantity} copies of '{$bookTitle}'. Reason: $requestMessage";
+        } elseif ($type === 'sell') {
             $chatMsg = "Hi, I just bought '{$bookTitle}' from your listing.";
         } else {
             $chatMsg = "Hi, I would like to ";
@@ -196,36 +216,54 @@ try {
             ->execute([$userId, $ownerId, $chatMsg]);
 
         ob_clean();
-        echo json_encode(['success' => true, 'message' => 'Order placed successfully!', 'transaction_id' => $transactionId]);
+        echo json_encode(['success' => true, 'message' => 'Request sent successfully!', 'transaction_id' => $transactionId]);
         exit;
 
     // --- Interactions (Accept/Decline/Return etc) ---
-    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receipt', 'claim_job', 'cancel_job', 'request_return_delivery'])) {
+    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receipt', 'claim_job', 'cancel_job', 'request_return_delivery', 'cancel_order', 'confirm_cod_payment'])) {
         
         $transactionId = validateId($_POST['transaction_id'] ?? 0);
         if (!$transactionId) throw new Exception("Invalid Transaction ID.");
 
         if ($action === 'accept_request') {
             // ... (Logic from before, just wrapped with better validation context)
-             $stmt = $pdo->prepare("SELECT t.*, l.book_id, l.credit_cost, l.quantity, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ?");
+             $stmt = $pdo->prepare("SELECT t.*, t.quantity as order_qty, l.book_id, l.credit_cost, l.quantity as listing_qty, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ?");
              $stmt->execute([$transactionId]);
              $transaction = $stmt->fetch();
 
+             // Check Authorization
              if (!$transaction || $transaction['lender_id'] != $userId) throw new Exception("Unauthorized or transaction not found.");
-             if ($transaction['quantity'] <= 0) throw new Exception("Book is out of stock.");
-
-             $transactionCreditCost = $transaction['credit_cost'] ?? 10; // Use local var to avoid overwriting global
-             $totalDeduct = $transactionCreditCost + ($transaction['delivery_method'] === 'delivery' ? 10 : 0);
              
-             if (!deductCredits($transaction['borrower_id'], $totalDeduct, 'spend', "Borrowed: {$transaction['title']}", $transactionId)) {
-                 throw new Exception("Failed to process credits. Borrower might have insufficient funds.");
+             // Branch Logic based on Type
+             if ($transaction['transaction_type'] === 'purchase') {
+                 // Reserve Stock on Approval
+                 $qty = (int)($transaction['order_qty'] ?? 1);
+                 updateListingQuantity($transaction['listing_id'], -$qty);
+                 
+                 $pdo->prepare("UPDATE transactions SET status = 'approved' WHERE id = ?")->execute([$transactionId]);
+                 
+                 $msg = "Your purchase request for '{$transaction['title']}' has been APPROVED! Please proceed to payment.";
+                 createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
+                 
+             } else {
+                 // For Borrow/Exchange: Deduct Credits & Stock immediately (legacy flow)
+                 if ($transaction['quantity'] <= 0) throw new Exception("Book is out of stock.");
+    
+                 $transactionCreditCost = $transaction['credit_cost'] ?? 10; 
+                 $totalDeduct = $transactionCreditCost + ($transaction['delivery_method'] === 'delivery' ? 10 : 0);
+                 
+                 if (!deductCredits($transaction['borrower_id'], $totalDeduct, 'spend', "Borrowed: {$transaction['title']}", $transactionId)) {
+                     throw new Exception("Failed to process credits. Borrower might have insufficient funds.");
+                 }
+                 
+                 updateListingQuantity($transaction['listing_id'], -1);
+                 $pdo->prepare("UPDATE transactions SET status = 'approved' WHERE id = ?")->execute([$transactionId]);
+                 $pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$transaction['borrower_id']]);
+                 
+                 $msg = "Your request for '{$transaction['title']}' has been ACCEPTED! {$totalDeduct} credits deducted.";
+                 createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
              }
-             updateListingQuantity($transaction['listing_id'], -1);
-             $pdo->prepare("UPDATE transactions SET status = 'approved' WHERE id = ?")->execute([$transactionId]);
-             $pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$transaction['borrower_id']]);
-             
-             $msg = "Your request for '{$transaction['title']}' has been ACCEPTED! {$totalDeduct} credits deducted.";
-             createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
+
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Request accepted!']);
              exit;
@@ -262,6 +300,40 @@ try {
              } else {
                  throw new Exception("Failed to update extension.");
              }
+        } elseif ($action === 'confirm_cod_payment') {
+             // Handle Cash Confirmation for approved bulk request
+             $transactionId = validateId($_POST['transaction_id'] ?? 0);
+             $listingId = validateId($_POST['listing_id'] ?? 0);
+             $quantity = (int)($_POST['quantity'] ?? 1);
+             
+             if (!$transactionId || !$listingId) throw new Exception("Invalid Data.");
+
+             // Check if stock available (final check)
+             $avail = checkAvailableQuantity($listingId);
+             if ($avail < $quantity) {
+                 throw new Exception("Stock no longer available. Only $avail left.");
+             }
+             
+             // Update transaction
+             $pdo->prepare("UPDATE transactions SET status = 'active', payment_status = 'unpaid', payment_method = 'cod', delivery_method = 'pickup', request_message = CONCAT(IFNULL(request_message, ''), ' [Confirmed COD]') WHERE id = ?")->execute([$transactionId]);
+             
+             // Stock already deducted on approval or creation. No need to deduct again.
+             
+             // Notify Owner
+             $msg = "Buyer has confirmed COD for {$quantity} copies. Please arrange handover.";
+             // Need owner ID... fetch tx first? assume caller has it or fetch it.
+             $stmt = $pdo->prepare("SELECT lender_id, title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ?");
+             $stmt->execute([$transactionId]);
+             $tx = $stmt->fetch();
+             
+             if ($tx) {
+                 createNotification($tx['lender_id'], 'order_confirmed', $msg, $transactionId);
+             }
+
+             ob_clean();
+             echo json_encode(['success' => true, 'message' => 'Order Confirmed (COD).']);
+             exit;
+
         } elseif ($action === 'approve_extension') {
             // ... approve logic ...
              $stmt = $pdo->prepare("SELECT lender_id, borrower_id, pending_due_date FROM transactions WHERE id = ?");
@@ -387,6 +459,55 @@ try {
              // Notify Lender...
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Return delivery requested!']);
+             exit;
+
+        } elseif ($action === 'cancel_order') {
+             // Cancel Order (Buyer or Seller)
+             $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+             $stmt->execute([$transactionId]);
+             $tx = $stmt->fetch();
+
+             if (!$tx) throw new Exception("Transaction not found.");
+             if ($tx['borrower_id'] != $userId && $tx['lender_id'] != $userId) throw new Exception("Unauthorized.");
+             
+             // Check if cancellable (not delivered yet)
+             if (in_array($tx['status'], ['delivered', 'returned', 'cancelled'])) {
+                 throw new Exception("Cannot cancel order in status: " . $tx['status']);
+             }
+             
+             // RESTORE STOCK if it was deducted
+             // Stock is deducted if:
+             // 1. Status was 'active' (Purchase confirmed/paid)
+             // 2. Status was 'approved' AND it was a borrow (borrow deducltion happens on accept)
+             // 3. Status was 'approved' AND it was a purchase? NO, purchase deducts on 'approve' ONLY IF instant? 
+             //    Let's check `accept_request` logic again.
+             //    If purchase > 10, accept sets 'approved' (NO DEDUCTION). Verify/COD confirms 'active' (DEDUCTION).
+             //    If purchase <= 10, create sets 'approved' (DEDUCTION).
+             
+             $shouldRestock = false;
+             if ($tx['transaction_type'] === 'purchase') {
+                 // If it was already approved (including small ones) or active (paid), it had stock deducted
+                 if (in_array($tx['status'], ['approved', 'assigned', 'active', 'returning'])) {
+                      $shouldRestock = true;
+                 }
+             } elseif ($tx['transaction_type'] === 'borrow') {
+                 if (in_array($tx['status'], ['approved', 'assigned', 'active', 'returning'])) {
+                      $shouldRestock = true;
+                 }
+             }
+             
+             $pdo->prepare("UPDATE transactions SET status = 'cancelled' WHERE id = ?")->execute([$transactionId]);
+             
+             if ($shouldRestock) {
+                 updateListingQuantity($tx['listing_id'], $tx['quantity']);
+             }
+             
+             // Notify other party
+             $notifyUserId = ($userId == $tx['borrower_id']) ? $tx['lender_id'] : $tx['borrower_id'];
+             createNotification($notifyUserId, 'order_cancelled', "Order #{$transactionId} was cancelled by user.", $transactionId);
+             
+             ob_clean();
+             echo json_encode(['success' => true, 'message' => 'Order cancelled successfully. Stock updated if applicable.']);
              exit;
         }
     

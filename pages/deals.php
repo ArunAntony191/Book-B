@@ -32,6 +32,11 @@ try {
 } catch (Exception $e) {
     $myListings = [];
 }
+
+// Filter payments
+$payments = array_filter($all_deals, function($d) {
+    return $d['transaction_type'] === 'purchase' || (!empty($d['payment_status']) && $d['payment_status'] !== 'unpaid');
+});
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,6 +46,7 @@ try {
     <title>My Deals | BOOK-B</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         /* Status Message */
         #statusMessage {
@@ -321,6 +327,9 @@ try {
                     <button class="tab-btn" onclick="switchTab('listings', this)">
                         My Listings <span class="tab-count"><?php echo count($myListings); ?></span>
                     </button>
+                    <button class="tab-btn" onclick="switchTab('payments', this)">
+                        Payments <span class="tab-count"><?php echo count($payments); ?></span>
+                    </button>
                 </div>
 
                 <!-- All Deals Tab -->
@@ -332,6 +341,7 @@ try {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($all_deals as $deal): ?>
+                        <?php $isIncoming = ($deal['lender_id'] == $userId); ?>
                         <div class="deal-card">
                             <div class="deal-visual">
                                 <?php 
@@ -380,6 +390,7 @@ try {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($incoming as $deal): ?>
+                        <?php $isIncoming = true; ?>
                         <div class="deal-card" id="deal-<?php echo $deal['id']; ?>">
                             <div class="deal-visual">
                                 <?php 
@@ -400,7 +411,18 @@ try {
                                         </a>
                                     </div>
                                     <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($deal['created_at'])); ?></div>
+                                    <?php if (!empty($deal['quantity']) && $deal['quantity'] > 1): ?>
+                                    <div class="meta-item">
+                                        <i class='bx bx-layer'></i>
+                                        <span>Qty: <strong><?php echo $deal['quantity']; ?></strong></span>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
+                                <?php if (!empty($deal['request_message'])): ?>
+                                <div class="deal-message" style="background: #f8fafc; padding: 0.5rem; border-radius: 4px; font-size: 0.85rem; margin-top: 0.5rem; color: #475569;">
+                                    <strong>Reason:</strong> "<?php echo htmlspecialchars($deal['request_message']); ?>"
+                                </div>
+                                <?php endif; ?>
                             </div>
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
@@ -409,7 +431,13 @@ try {
                                         <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'accept_request')" class="btn btn-primary btn-sm">Accept</button>
                                         <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'decline_request')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Decline</button>
                                     </div>
+                                <?php elseif (!$isIncoming && in_array($deal['status'], ['requested', 'active'])): ?>
+                                     <!-- Moved Cancel to Outgoing tab logic mostly, but keeping checks distinct -->
+                                <?php elseif ($deal['transaction_type'] == 'purchase' && $deal['status'] == 'approved' && $deal['payment_status'] != 'paid'): ?>
+                                    <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Cancel Order</button>
+
                                 <?php elseif (($deal['status'] === 'approved' || $deal['status'] === 'active' || $deal['status'] === 'delivered') && $deal['listing_type'] === 'borrow'): ?>
+                                    
                                     <?php if (!empty($deal['pending_due_date'])): ?>
                                         <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 1rem; border-radius: 12px; margin-bottom: 0.75rem; width: 100%;">
                                             <p style="font-size: 0.8rem; font-weight: 700; color: #92400e; margin-bottom: 0.5rem;">Extension Requested: <?php echo date('M d, Y', strtotime($deal['pending_due_date'])); ?></p>
@@ -455,6 +483,7 @@ try {
                         </div>
                     <?php endif; ?>
                     <?php foreach ($outgoing as $deal): ?>
+                        <?php $isIncoming = false; ?>
                         <div class="deal-card">
                             <div class="deal-visual">
                                 <?php 
@@ -499,6 +528,14 @@ try {
                             </div>
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                
+                                <!-- Pay Now for Buyers -->
+                                <?php if ($deal['transaction_type'] == 'purchase' && $deal['status'] == 'approved' && $deal['payment_status'] != 'paid'): ?>
+                                    <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Cancel</button>
+                                <?php elseif (in_array($deal['status'], ['requested', 'active']) && $deal['status'] !== 'delivered'): ?>
+                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; margin-bottom: 0.5rem;">Cancel Order</button>
+                                <?php endif; ?>
+
                                 <div class="btn-group">
                                     <?php if ($deal['lender_id'] != $userId): ?>
                                      <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $deal['lender_id']; ?>" class="btn btn-outline btn-sm">
@@ -568,9 +605,147 @@ try {
                         </div>
                     <?php endforeach; ?>
                 </div>
+
+                <!-- Payments Tab -->
+                <div id="payments-list" style="display: none;">
+                    <?php if (empty($payments)): ?>
+                        <div class="empty-deals">
+                            <i class='bx bx-credit-card' style="font-size: 4rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"></i>
+                            <p style="font-size: 1.1rem; font-weight: 500;">No payment history found.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <div style="margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-weight: 800; font-size: 1.2rem;">Purchases (Outgoing)</h3>
+                        <?php 
+                        $purchases = array_filter($payments, fn($p) => $p['borrower_id'] == $userId);
+                        
+                        // Calculate total due
+                        $total_due = 0;
+                        foreach ($purchases as $p) {
+                            if ($p['payment_status'] !== 'paid') {
+                                $amt = (float)$p['price_at_transaction'];
+                                if ($amt <= 0) $amt = (float)$p['book_price'];
+                                if ($amt <= 0) $amt = (float)($p['listing_price'] ?? 0);
+                                $total_due += ($amt * ($p['quantity'] ?: 1));
+                            }
+                        }
+
+                        if ($total_due > 0): ?>
+                            <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <div style="background: #fef3c7; color: #92400e; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class='bx bx-error-circle'></i>
+                                    </div>
+                                    <div>
+                                        <p style="margin: 0; font-weight: 700; color: #92400e; font-size: 1.1rem;">Pending Payments</p>
+                                        <p style="margin: 0.25rem 0 0 0; color: #a16207; font-size: 0.9rem;">You have unpaid purchase requests that need attention.</p>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <p style="margin: 0; font-size: 0.85rem; color: #a16207; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Due</p>
+                                    <p style="margin: 0; font-size: 1.75rem; font-weight: 900; color: #92400e;">₹<?php echo number_format($total_due, 2); ?></p>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (empty($purchases)): ?>
+                            <p style="color: var(--text-muted);">No purchases made yet.</p>
+                        <?php else: ?>
+                            <?php foreach ($purchases as $p): ?>
+                                <div class="deal-card">
+                                    <div class="deal-visual">
+                                        <img src="<?php echo htmlspecialchars($p['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'); ?>" class="deal-img">
+                                        <span class="deal-type-tag"><?php echo $p['transaction_type']; ?></span>
+                                    </div>
+                                    <div class="deal-main">
+                                        <div class="deal-title"><?php echo htmlspecialchars($p['title']); ?></div>
+                                        <div class="deal-meta">
+                                            <div class="meta-item"><i class='bx bx-user'></i> Seller: <?php echo htmlspecialchars($p['lender_name']); ?></div>
+                                            <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($p['created_at'])); ?></div>
+                                        </div>
+                                        <div style="margin-top: 0.75rem; display: flex; gap: 1rem; align-items: center;">
+                                            <?php 
+                                                $unitAmt = (float)$p['price_at_transaction'];
+                                                if ($unitAmt <= 0) $unitAmt = (float)$p['book_price'];
+                                                if ($unitAmt <= 0) $unitAmt = (float)($p['listing_price'] ?? 0);
+                                                $displayAmt = $unitAmt * ($p['quantity'] ?: 1);
+                                            ?>
+                                            <span style="font-weight: 700; color: var(--primary);">₹<?php echo number_format($displayAmt, 2); ?></span>
+                                            <span class="status-pill <?php echo ($p['payment_status'] === 'paid') ? 'pill-approved' : 'pill-requested'; ?>" style="font-size: 0.7rem;">
+                                                <?php echo $p['payment_status'] ?: 'unpaid'; ?>
+                                            </span>
+                                            <?php if (!empty($p['payment_method'])): ?>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);"><i class='bx bx-wallet'></i> <?php echo ucfirst($p['payment_method']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="deal-actions">
+                                        <?php if ($p['payment_status'] !== 'paid'): ?>
+                                             <button onclick="payForBulk(<?php echo $p['id']; ?>, <?php echo $p['listing_id']; ?>, <?php echo $p['quantity'] ?: 1; ?>, <?php echo $unitAmt; ?>)" class="btn btn-primary btn-sm">Pay Now</button>
+                                        <?php else: ?>
+                                            <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">
+                                                ID: <?php echo $p['razorpay_payment_id'] ?: 'N/A'; ?><br>
+                                                TX: #<?php echo $p['id']; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+
+                    <div>
+                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-weight: 800; font-size: 1.2rem;">Sales (Incoming)</h3>
+                        <?php 
+                        $sales = array_filter($payments, fn($p) => $p['lender_id'] == $userId);
+                        if (empty($sales)): ?>
+                            <p style="color: var(--text-muted);">No sales made yet.</p>
+                        <?php else: ?>
+                            <?php foreach ($sales as $s): ?>
+                                <div class="deal-card">
+                                    <div class="deal-visual">
+                                        <img src="<?php echo htmlspecialchars($s['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'); ?>" class="deal-img">
+                                        <span class="deal-type-tag">SALE</span>
+                                    </div>
+                                    <div class="deal-main">
+                                        <div class="deal-title"><?php echo htmlspecialchars($s['title']); ?></div>
+                                        <div class="deal-meta">
+                                            <div class="meta-item"><i class='bx bx-user'></i> Buyer: <?php echo htmlspecialchars($s['borrower_name']); ?></div>
+                                            <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($s['created_at'])); ?></div>
+                                        </div>
+                                        <div style="margin-top: 0.75rem; display: flex; gap: 1rem; align-items: center;">
+                                            <?php 
+                                                $unitAmtS = (float)$s['price_at_transaction'];
+                                                if ($unitAmtS <= 0) $unitAmtS = (float)$s['book_price'];
+                                                if ($unitAmtS <= 0) $unitAmtS = (float)($s['listing_price'] ?? 0);
+                                                $displayAmtS = $unitAmtS * ($s['quantity'] ?: 1);
+                                            ?>
+                                            <span style="font-weight: 700; color: #10b981;">+₹<?php echo number_format($displayAmtS, 2); ?></span>
+                                            <span class="status-pill <?php echo ($s['payment_status'] === 'paid') ? 'pill-approved' : 'pill-requested'; ?>" style="font-size: 0.7rem;">
+                                                <?php echo $s['payment_status'] ?: 'unpaid'; ?>
+                                            </span>
+                                            <?php if (!empty($s['payment_method'])): ?>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);"><i class='bx bx-wallet'></i> <?php echo ucfirst($s['payment_method']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="deal-actions">
+                                        <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">
+                                            ID: <?php echo $s['razorpay_payment_id'] ?: 'N/A'; ?><br>
+                                            TX: #<?php echo $s['id']; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
+
+
 
     <!-- Extension Modal -->
     <div id="extension-modal" class="modal-overlay">
@@ -652,6 +827,48 @@ try {
         </div>
     </div>
 
+    <!-- Payment Selection Modal -->
+    <div id="payment-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Complete Your Purchase</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Choose how you want to pay.</p>
+            </div>
+            <div class="modal-body">
+                <div style="background: #f8fafc; padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-muted);">Quantity</span>
+                        <strong id="pay-qty">1</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-muted);">Price per Unit</span>
+                        <strong id="pay-price">₹0</strong>
+                    </div>
+                    <div style="border-top: 1px dashed var(--border-color); margin: 0.75rem 0;"></div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.1rem;">
+                        <span style="font-weight: 700;">Total Amount</span>
+                        <strong id="pay-total" style="color: var(--primary);">₹0</strong>
+                    </div>
+                </div>
+
+                <p style="font-weight: 700; margin-bottom: 1rem;">Select Payment Method:</p>
+                <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;">
+                    <button id="btn-pay-online" class="btn btn-primary" style="justify-content: center; flex-direction: column; gap: 0.5rem; padding: 1.5rem;">
+                        <i class='bx bx-credit-card' style="font-size: 1.5rem;"></i>
+                        <span>Online Pay</span>
+                    </button>
+                    <button id="btn-pay-cash" class="btn btn-outline" style="justify-content: center; flex-direction: column; gap: 0.5rem; padding: 1.5rem; border-color: var(--border-color);">
+                        <i class='bx bx-money' style="font-size: 1.5rem;"></i>
+                        <span>Cash / COD</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="document.getElementById('payment-modal').style.display='none'" class="btn btn-outline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function switchTab(tab, el) {
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
@@ -661,6 +878,7 @@ try {
             document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
             document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
             document.getElementById('listings-list').style.display = tab === 'listings' ? 'block' : 'none';
+            document.getElementById('payments-list').style.display = tab === 'payments' ? 'block' : 'none';
         }
 
 
@@ -892,6 +1110,136 @@ try {
             } catch (error) {
                 showToast('Network error. Please try again.', 'error');
             }
+        }
+
+        function payForBulk(transactionId, listingId, quantity, pricePerUnit) {
+            // Open Selection Modal
+            document.getElementById('payment-modal').style.display = 'flex';
+            
+            // Calc Total
+            const total = quantity * pricePerUnit;
+            
+            document.getElementById('pay-qty').innerText = quantity;
+            document.getElementById('pay-price').innerText = '₹' + pricePerUnit;
+            document.getElementById('pay-total').innerText = '₹' + total;
+
+            // Bind Actions
+            document.getElementById('btn-pay-online').onclick = function() {
+                initiateOnlinePayment(transactionId, listingId, quantity);
+            };
+
+            document.getElementById('btn-pay-cash').onclick = function() {
+                processCashPayment(transactionId, listingId, quantity);
+            };
+        }
+
+        function initiateOnlinePayment(transactionId, listingId, quantity) {
+            const formData = new FormData();
+            formData.append('action', 'create_order');
+            formData.append('listing_id', listingId);
+            formData.append('quantity', quantity);
+            formData.append('transaction_id', transactionId);
+            formData.append('delivery', '0'); 
+            
+            fetch('../actions/payment_action.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const options = {
+                        "key": data.key_id,
+                        "amount": data.amount,
+                        "currency": "INR",
+                        "name": "BOOK-B",
+                        "description": "Bulk Purchase Payment",
+                        "order_id": data.order_id,
+                        "handler": function (response){
+                            verifyBulkPayment(response, transactionId, listingId, quantity);
+                        },
+                        "prefill": {
+                            "name": data.name,
+                            "email": data.email
+                        },
+                        "theme": { "color": "#4F46E5" }
+                    };
+                    const rzp1 = new Razorpay(options);
+                    rzp1.open();
+                    document.getElementById('payment-modal').style.display = 'none';
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Payment initiation failed', 'error');
+            });
+        }
+
+        function processCashPayment(transactionId, listingId, quantity) {
+             if(!confirm("Confirm paying with Cash? This will mark the order as confirmed and deduct stock.")) return;
+
+             const formData = new FormData();
+             formData.append('action', 'confirm_cod_payment');
+             formData.append('transaction_id', transactionId);
+             formData.append('listing_id', listingId);
+             formData.append('quantity', quantity);
+
+             fetch('../actions/request_action.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Order Confirmed! Please pay cash upon receipt.', 'success');
+                    document.getElementById('payment-modal').style.display = 'none';
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Failed to process cash request', 'error');
+            });
+        }
+
+        function verifyBulkPayment(response, transactionId, listingId, quantity) {
+            const formData = new FormData();
+            formData.append('action', 'verify_payment');
+            formData.append('razorpay_payment_id', response.razorpay_payment_id);
+            formData.append('razorpay_order_id', response.razorpay_order_id);
+            formData.append('razorpay_signature', response.razorpay_signature);
+            formData.append('listing_id', listingId);
+            formData.append('owner_id', 0); // Not needed for update probably, or should fetch
+            formData.append('quantity', quantity);
+            formData.append('transaction_id', transactionId); // Key to update existing
+            
+            // Mock order info for update (existing tx has address)
+            const orderInfo = {
+                delivery: 0, address: '', landmark: '', lat: '', lng: ''
+            };
+            formData.append('order_info', JSON.stringify(orderInfo));
+
+            fetch('../actions/payment_action.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Payment Successful!', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Payment verification failed', 'error');
+            });
         }
 
         // Handle deep linking to tabs

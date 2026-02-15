@@ -21,8 +21,6 @@ $returnStatuses = ['return_requested', 'return_approved', 'returning', 'returned
 $incoming = []; $outgoing = []; $returns = []; $exchanges = []; $pickups = []; $all_deliveries = [];
 
 foreach ($deliveries as $d) {
-    if ($d['status'] === 'cancelled') continue;
-    
     $all_deliveries[] = $d;
     $isActuallyReturning = in_array($d['status'], $returnStatuses);
 
@@ -46,12 +44,17 @@ foreach ($deliveries as $d) {
     }
 }
 
-function getStatusLabel($status, $agentId) {
+function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
     switch ($status) {
         case 'requested': return 'Waiting for Owner';
-        case 'approved': return $agentId ? 'Agent Assigned' : 'Finding Agent';
-        case 'active': return 'In Transit';
+        case 'approved': 
+            if ($deliveryMethod === 'pickup') return 'Awaiting Pickup';
+            return $agentId ? 'Agent Assigned' : 'Finding Agent';
+        case 'active': 
+            if ($deliveryMethod === 'pickup') return 'Ready for Pickup';
+            return 'In Transit';
         case 'delivered': return 'Delivered & Verified';
+        case 'cancelled': return 'Cancelled';
         case 'returning': return 'Return in Progress';
         case 'returned': return 'Returned & Verified';
         default: return ucfirst(str_replace('_', ' ', $status));
@@ -137,6 +140,7 @@ function getStatusLabel($status, $agentId) {
         .status-badge.approved { background: var(--success-soft); color: var(--success-dark); border-color: #dcfce7; }
         .status-badge.active { background: var(--warning-soft); color: var(--warning-dark); border-color: #ffedd5; }
         .status-badge.delivered { background: var(--success-soft); color: var(--success-dark); border-color: #dcfce7; }
+        .status-badge.cancelled { background: #f1f5f9; color: #475569; border-color: #cbd5e1; text-decoration: line-through; }
         .status-badge.returning { background: var(--danger-soft); color: var(--danger-dark); border-color: #ffe4e6; }
         .status-badge.returned { background: var(--slate-soft); color: var(--slate-dark); border-color: #e2e8f0; }
 
@@ -267,7 +271,7 @@ function getStatusLabel($status, $agentId) {
         $badgeClass = $isReturn ? 'returning' : $status;
         if ($status === 'returned') $badgeClass = 'returned';
 
-        $label = getStatusLabel($status, $isReturn ? ($d['return_agent_id'] ?? null) : ($d['delivery_agent_id'] ?? null));
+        $label = getStatusLabel($status, $isReturn ? ($d['return_agent_id'] ?? null) : ($d['delivery_agent_id'] ?? null), $d['delivery_method'] ?? 'delivery');
         
         // Don't show "Verified" unless relevant parties confirmed
         if ($status === 'delivered') {
@@ -379,7 +383,7 @@ function getStatusLabel($status, $agentId) {
 
             <?php if($needHandover): ?>
                 <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
-                    <i class='bx bx-check-circle'></i> Confirm Handover to Agent
+                    <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
                 </button>
             <?php endif; ?>
 

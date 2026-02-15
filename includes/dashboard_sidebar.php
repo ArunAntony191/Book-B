@@ -89,6 +89,9 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
         <a href="<?php echo APP_URL; ?>/pages/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
         <?php if(in_array($user_role, ['library', 'bookstore'])): ?>
             <a href="<?php echo APP_URL; ?>/pages/business_reports.php" class="nav-item <?php echo $current_page == 'business_reports.php' ? 'active' : ''; ?>"><i class='bx bx-line-chart'></i> Business Reports</a>
+            <?php if($user_role == 'bookstore'): ?>
+                <a href="<?php echo APP_URL; ?>/pages/manage_announcements.php" class="nav-item <?php echo $current_page == 'manage_announcements.php' ? 'active' : ''; ?>"><i class='bx bxs-megaphone'></i> Manage Announcements</a>
+            <?php endif; ?>
         <?php endif; ?>
     <?php endif; ?>
 

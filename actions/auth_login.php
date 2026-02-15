@@ -29,6 +29,15 @@ if ($user) {
     $_SESSION['theme_mode'] = $user['theme_mode'] ?? 'light';
     $_SESSION['email_notifications'] = $user['email_notifications'] ?? 1;
 
+    // Clear announcement dismissal cookies so they reappear on each login
+    if (isset($_COOKIE)) {
+        foreach ($_COOKIE as $name => $value) {
+            if (strpos($name, 'ann_') === 0) {
+                setcookie($name, '', time() - 3600, '/');
+            }
+        }
+    }
+
     // Handle "Remember me"
     if (isset($_POST['remember'])) {
         $token = bin2hex(random_bytes(32));
