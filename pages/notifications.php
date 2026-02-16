@@ -152,16 +152,12 @@ $status = $_GET['status'] ?? 'all';
                             $unreadCounts['requests'] += $count;
                         } elseif (in_array($type, $deliveryTypes)) {
                             $unreadCounts['delivery'] += $count;
-                        } elseif (in_array($type, $messageTypes)) {
-                            $unreadCounts['messages'] += $count;
                         } elseif (in_array($type, $creditTypes)) {
                             $unreadCounts['credits'] += $count;
                         } elseif (in_array($type, $listingTypes)) {
                             $unreadCounts['listings'] += $count;
-                        } elseif (in_array($type, $supportTypes)) {
-                            $unreadCounts['support'] += $count;
-                        } else {
-                            $unreadCounts['system'] += $count;
+                        } elseif (in_array($type, $supportTypes) || !in_array($type, array_merge($requestTypes, $deliveryTypes, $messageTypes, $creditTypes, $listingTypes))) {
+                            $unreadCounts['support'] += $count; // Actually 'support_system' now
                         }
                     }
 
@@ -191,20 +187,11 @@ $status = $_GET['status'] ?? 'all';
                 <a href="?filter=delivery&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'delivery' ? 'active' : ''; ?>" id="filter-pill-delivery">
                     Delivery <?php echo $unreadCounts['delivery'] > 0 ? "<span class='filter-badge'>{$unreadCounts['delivery']}</span>" : ''; ?>
                 </a>
-                <a href="?filter=system&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'system' ? 'active' : ''; ?>" id="filter-pill-system">
-                    System <?php echo $unreadCounts['system'] > 0 ? "<span class='filter-badge'>{$unreadCounts['system']}</span>" : ''; ?>
-                </a>
-                <a href="?filter=messages&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'messages' ? 'active' : ''; ?>" id="filter-pill-messages">
-                    Messages <?php echo $unreadCounts['messages'] > 0 ? "<span class='filter-badge'>{$unreadCounts['messages']}</span>" : ''; ?>
-                </a>
-                <a href="?filter=credits&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'credits' ? 'active' : ''; ?>" id="filter-pill-credits">
-                    Credits <?php echo $unreadCounts['credits'] > 0 ? "<span class='filter-badge'>{$unreadCounts['credits']}</span>" : ''; ?>
-                </a>
                 <a href="?filter=listings&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'listings' ? 'active' : ''; ?>" id="filter-pill-listings">
                     Listings <?php echo $unreadCounts['listings'] > 0 ? "<span class='filter-badge'>{$unreadCounts['listings']}</span>" : ''; ?>
                 </a>
                 <a href="?filter=support&status=<?php echo $status; ?>" class="filter-pill <?php echo $filter == 'support' ? 'active' : ''; ?>" id="filter-pill-support">
-                    Support <?php echo $unreadCounts['support'] > 0 ? "<span class='filter-badge'>{$unreadCounts['support']}</span>" : ''; ?>
+                    Support & System <?php echo ($unreadCounts['support'] + $unreadCounts['system']) > 0 ? "<span class='filter-badge'>" . ($unreadCounts['support'] + $unreadCounts['system']) . "</span>" : ''; ?>
                 </a>
                 
                 <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.5rem;"></div>
@@ -236,16 +223,12 @@ $status = $_GET['status'] ?? 'all';
                         $conditions[] = "n.type IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request')";
                     } elseif ($filter === 'delivery') {
                         $conditions[] = "n.type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')";
-                    } elseif ($filter === 'messages') {
-                        $conditions[] = "n.type IN ('message')";
                     } elseif ($filter === 'credits') {
                         $conditions[] = "n.type IN ('credit_earned', 'credit_spent', 'credit_refund')";
                     } elseif ($filter === 'listings') {
                         $conditions[] = "n.type IN ('new_listing')";
                     } elseif ($filter === 'support') {
-                        $conditions[] = "n.type IN ('support', 'support_reply')";
-                    } elseif ($filter === 'system') {
-                        $conditions[] = "n.type NOT IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'support', 'support_reply', 'extension_request')";
+                        $conditions[] = "n.type NOT IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'extension_request')";
                     }
 
                     $whereClause = implode(" AND ", $conditions);

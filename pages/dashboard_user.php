@@ -20,6 +20,7 @@ $userReviews = getUserReviews($userId, 5);
     <?php include '../includes/dashboard_sidebar.php'; ?>
 
     <main class="main-content">
+        <?php include '../includes/due_date_reminder.php'; ?>
         <?php include '../includes/announcements_component.php'; ?>
 
         <div class="section-header">

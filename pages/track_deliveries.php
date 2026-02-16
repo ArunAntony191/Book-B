@@ -18,13 +18,16 @@ $deliveries = getUserDeliveries($userId);
 $returnStatuses = ['return_requested', 'return_approved', 'returning', 'returned', 'return_delivery_assigned', 'return_pending_confirmation'];
 
 // Categorization
-$incoming = []; $outgoing = []; $returns = []; $exchanges = []; $pickups = []; $all_deliveries = [];
+$incoming = []; $outgoing = []; $returns = []; $exchanges = []; $pickups = []; $cancelled = []; $all_deliveries = [];
 
 foreach ($deliveries as $d) {
     $all_deliveries[] = $d;
     $isActuallyReturning = in_array($d['status'], $returnStatuses);
 
-    // Strict Isolation Logic
+    if ($d['status'] === 'cancelled') {
+        $cancelled[] = $d;
+        continue;
+    }
     if ($d['transaction_type'] === 'exchange') {
         $exchanges[] = $d;
         continue;
@@ -108,19 +111,27 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
 
         /* Tabs */
         .tabs-header {
-            display: flex; gap: 0.5rem; margin-bottom: 3rem;
+            display: flex; gap: 0.35rem; margin-bottom: 3rem;
             background: #f1f5f9; padding: 0.5rem; border-radius: 20px;
-            width: 100%; overflow-x: auto; scrollbar-width: none;
+            width: 100%; overflow-x: auto; 
             border: 1px solid #e2e8f0;
+            -ms-overflow-style: auto; /* Show scrollbar on IE/Edge */
         }
-        .tabs-header::-webkit-scrollbar { display: none; }
+        .tabs-header::-webkit-scrollbar { 
+            height: 4px;
+            display: block; 
+        }
+        .tabs-header::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
         .tab-btn {
-            padding: 0.75rem 1rem; font-weight: 700; color: #64748b;
+            padding: 0.6rem 0.85rem; font-weight: 700; color: #64748b;
             cursor: pointer; transition: all 0.2s; border-radius: 16px;
-            background: none; border: none; font-size: 0.8rem;
-            white-space: nowrap; flex: 1; text-align: center;
+            background: none; border: none; font-size: 0.75rem;
+            white-space: nowrap; flex: none; text-align: center;
         }
-        .tab-btn span { opacity: 0.6; font-size: 0.75rem; margin-left: 4px; }
+        .tab-btn span { opacity: 0.6; font-size: 0.7rem; margin-left: 3px; }
         .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
 
         /* Card Layout */
@@ -239,6 +250,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <button class="tab-btn" onclick="switchTab('returns', this)">Returns <span>(<?= count($returns) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('exchanges', this)">Exchanges <span>(<?= count($exchanges) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('pickups', this)">Pickups <span>(<?= count($pickups) ?>)</span></button>
+                    <button class="tab-btn" onclick="switchTab('cancelled', this)">Cancelled <span>(<?= count($cancelled) ?>)</span></button>
                 </div>
 
                 <div id="all-list" class="tab-content"><?php foreach($all_deliveries as $d) renderDeliveryCard($d); ?></div>
@@ -247,6 +259,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <div id="returns-list" class="tab-content" style="display:none"><?php foreach($returns as $d) renderDeliveryCard($d, 'return'); ?></div>
                 <div id="exchanges-list" class="tab-content" style="display:none"><?php foreach($exchanges as $d) renderDeliveryCard($d); ?></div>
                 <div id="pickups-list" class="tab-content" style="display:none"><?php foreach($pickups as $d) renderDeliveryCard($d); ?></div>
+                <div id="cancelled-list" class="tab-content" style="display:none"><?php foreach($cancelled as $d) renderDeliveryCard($d); ?></div>
 
                 <?php if(empty($all_deliveries)): ?>
                     <div class="empty-state"><i class='bx bx-package'></i><h3>No deliveries track yet</h3><p>Your active book movements will appear here.</p></div>
@@ -305,12 +318,29 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         }
         ?>
         <div class="delivery-card">
-            <?php if ($d['transaction_type'] === 'purchase'): ?>
-                <div class="price-tag"><i class='bx bx-check-shield'></i> Paid ₹<?= number_format($d['price'], 2) ?></div>
-            <?php else: ?>
-                <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
-                    <i class='bx bxs-coin-stack'></i> Token: <?= $d['credit_cost'] ?? 10 ?>
+            <?php if ($d['transaction_type'] === 'purchase'): 
+                $itemTotal = $d['price'] * $d['quantity'];
+                $deliveryFee = ($d['delivery_method'] === 'delivery') ? 50 : 0;
+                $discount = (int)($d['credit_discount'] ?? 0);
+                $finalTotal = $itemTotal + $deliveryFee - $discount;
+            ?>
+                <div class="price-tag"><i class='bx bx-check-shield'></i> Total ₹<?= number_format($finalTotal, 2) ?></div>
+                <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
+                    <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
                 </div>
+            <?php else: 
+                $tokenBase = (int)($d['credit_cost'] ?? 10);
+                $deliveryFee = ($d['delivery_method'] === 'delivery') ? 10 : 0;
+                $finalTokens = $tokenBase + $deliveryFee;
+            ?>
+                <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
+                    <i class='bx bxs-coin-stack'></i> Total Tokens: <?= $finalTokens ?>
+                </div>
+                <?php if ($d['quantity'] > 1): ?>
+                <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
+                    <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
 
             <div class="status-badge <?= $badgeClass ?>"><?= $label ?></div>
@@ -381,16 +411,18 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 </div>
             <?php endif; ?>
 
-            <?php if($needHandover): ?>
-                <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
-                    <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
-                </button>
-            <?php endif; ?>
+            <?php if($status !== 'cancelled'): ?>
+                <?php if($needHandover): ?>
+                    <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
+                        <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
+                    </button>
+                <?php endif; ?>
 
-            <?php if($needReceipt): ?>
-                <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
-                    <i class='bx bx-package'></i> Confirm Receipt
-                </button>
+                <?php if($needReceipt): ?>
+                    <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
+                        <i class='bx bx-package'></i> Confirm Receipt
+                    </button>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
         <?php
@@ -500,6 +532,15 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 alert('Error sending request');
             }
         }
+        // Handle URL tab parameter
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab) {
+                const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(tab.toLowerCase()));
+                if (btn) btn.click();
+            }
+        });
     </script>
 </body>
 </html>

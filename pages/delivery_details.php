@@ -144,6 +144,12 @@ function getStatusLabel($status, $agentId, $method) {
             padding: 0.75rem; font-family: inherit; outline: none; transition: border-color 0.3s;
         }
         .form-control:focus { border-color: var(--primary); }
+
+        .price-tag {
+            background: #fffbeb; color: #92400e; border: 1px solid #fef3c7;
+            padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.75rem;
+            font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;
+        }
     </style>
 </head>
 <body>
@@ -153,6 +159,51 @@ function getStatusLabel($status, $agentId, $method) {
         <main class="main-content">
             <div class="details-container">
                 <div class="glass-card">
+                    <?php if ($d['status'] === 'cancelled'): ?>
+                    <div style="background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 700;">
+                        <i class='bx bx-error-circle' style="font-size: 1.5rem;"></i>
+                        This transaction has been cancelled. No further actions can be performed.
+                    </div>
+                    <?php endif; ?>
+                    <div style="margin-bottom: 1.5rem;">
+                        <?php if ($d['transaction_type'] === 'purchase'): 
+                            $itemTotal = $d['book_price'] * $d['quantity'];
+                            $deliveryFee = ($d['delivery_method'] === 'delivery') ? 50 : 0;
+                            $discount = (int)($d['credit_discount'] ?? 0);
+                            $finalTotal = $itemTotal + $deliveryFee - $discount;
+                        ?>
+                            <div style="display: flex; align-items: flex-start; flex-direction: column; gap: 0.25rem;">
+                                <div class="price-tag"><i class='bx bx-check-shield'></i> Total ₹<?= number_format($finalTotal, 2) ?></div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); padding-left: 0.25rem;">
+                                    (Book: ₹<?= number_format($itemTotal, 2) ?> 
+                                    <?php if($deliveryFee > 0): ?>+ Delivery: ₹<?= $deliveryFee ?><?php endif; ?>
+                                    <?php if($discount > 0): ?>- Discount: ₹<?= $discount ?><?php endif; ?>)
+                                </div>
+                            </div>
+                            <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
+                                <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
+                            </div>
+                        <?php else: 
+                            $tokenBase = (int)($d['credit_cost'] ?? 10);
+                            $deliveryFee = ($d['delivery_method'] === 'delivery') ? 10 : 0;
+                            $finalTokens = $tokenBase + $deliveryFee;
+                        ?>
+                            <div style="display: flex; align-items: flex-start; flex-direction: column; gap: 0.25rem;">
+                                <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
+                                    <i class='bx bxs-coin-stack'></i> Total Tokens: <?= $finalTokens ?>
+                                </div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); padding-left: 0.25rem;">
+                                    (Base: <?= $tokenBase ?> 
+                                    <?php if($deliveryFee > 0): ?>+ Delivery: <?= $deliveryFee ?><?php endif; ?>)
+                                </div>
+                            </div>
+                            <?php if ($d['quantity'] > 1): ?>
+                            <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
+                                <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
+                            </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                         <div>
                             <span class="status-badge <?php echo $d['status']; ?>">
@@ -161,9 +212,6 @@ function getStatusLabel($status, $agentId, $method) {
                             <h1 style="font-size: 1.8rem; font-weight: 900; margin-top: 1rem;">Transaction Details #<?php echo $d['id']; ?></h1>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-weight: 800; color: var(--primary); font-size: 1.2rem;">
-                                <i class='bx bxs-coin-stack'></i> <?php echo $d['listing_credits']; ?> Credits
-                            </div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo date('M d, Y', strtotime($d['created_at'])); ?></div>
                         </div>
                     </div>
@@ -265,31 +313,33 @@ function getStatusLabel($status, $agentId, $method) {
                     <?php endif; ?>
 
                     <div class="actions-bar">
-                        <?php if ($d['status'] === 'requested' && $isLender): ?>
-                            <button onclick="handleAction('accept_request')" class="btn btn-primary">Accept Request</button>
-                            <button onclick="handleAction('decline_request')" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Decline</button>
-                        <?php endif; ?>
+                        <?php if ($d['status'] !== 'cancelled'): ?>
+                            <?php if ($d['status'] === 'requested' && $isLender): ?>
+                                <button onclick="handleAction('accept_request')" class="btn btn-primary">Accept Request</button>
+                                <button onclick="handleAction('decline_request')" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Decline</button>
+                            <?php endif; ?>
 
-                        <?php if (!$isReturnPhase): ?>
-                            <?php if ($isBorrower && empty($d['borrower_confirm_at'])): ?>
-                                <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
-                            <?php elseif ($isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
-                                <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
-                                    <i class='bx bx-undo'></i> Return Book
-                                </button>
-                                <button onclick="openExtendModal()" class="btn btn-outline">
-                                    <i class='bx bx-calendar-plus'></i> Extend Date
-                                </button>
-                            <?php endif; ?>
-                            <?php if ($isLender && empty($d['lender_confirm_at'])): ?>
-                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover<?= $d['delivery_method'] === 'pickup' ? '' : ' to Agent' ?></button>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <?php if ($isBorrower && empty($d['return_borrower_confirm_at'])): ?>
-                                <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover (Return)</button>
-                            <?php endif; ?>
-                            <?php if ($isLender && empty($d['return_lender_confirm_at'])): ?>
-                                <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt (Return)</button>
+                            <?php if (!$isReturnPhase): ?>
+                                <?php if ($isBorrower && empty($d['borrower_confirm_at'])): ?>
+                                    <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
+                                <?php elseif ($isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
+                                    <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
+                                        <i class='bx bx-undo'></i> Return Book
+                                    </button>
+                                    <button onclick="openExtendModal()" class="btn btn-outline">
+                                        <i class='bx bx-calendar-plus'></i> Extend Date
+                                    </button>
+                                <?php endif; ?>
+                                <?php if ($isLender && empty($d['lender_confirm_at'])): ?>
+                                    <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover<?= $d['delivery_method'] === 'pickup' ? '' : ' to Agent' ?></button>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <?php if ($isBorrower && empty($d['return_borrower_confirm_at'])): ?>
+                                    <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover (Return)</button>
+                                <?php endif; ?>
+                                <?php if ($isLender && empty($d['return_lender_confirm_at'])): ?>
+                                    <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt (Return)</button>
+                                <?php endif; ?>
                             <?php endif; ?>
                         <?php endif; ?>
                         <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $isLender ? $d['borrower_id'] : $d['lender_id']; ?>" class="btn btn-outline">

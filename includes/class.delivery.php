@@ -246,7 +246,35 @@ class DeliveryManager {
                 createNotification($userId, 'book_restocked', "'{$tx['title']}' has been restocked!", $transactionId);
             }
             
-            $this->pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$tx['lender_id']]);
+            // PUNCTUALITY & LOYALTY REWARDS
+            $onTime = true;
+            $today = date('Y-m-d');
+            if ($tx['due_date'] && $today > $tx['due_date']) {
+                $onTime = false;
+            }
+
+            if ($onTime) {
+                // Refund credit cost to borrower
+                $refundAmount = (int)($tx['credit_cost'] ?? 10);
+                addCredits($tx['borrower_id'], $refundAmount, 'refund', "Punctual Return Reward: '{$tx['title']}'", $transactionId);
+
+                // Update punctuality stats
+                $stmt = $this->pdo->prepare("UPDATE users SET punctuality_streak = punctuality_streak + 1, total_on_time_returns = total_on_time_returns + 1 WHERE id = ?");
+                $stmt->execute([$tx['borrower_id']]);
+
+                // Check for Loyalty Bonus (Every 5 streak)
+                $stmt = $this->pdo->prepare("SELECT punctuality_streak FROM users WHERE id = ?");
+                $stmt->execute([$tx['borrower_id']]);
+                $streak = (int)$stmt->fetchColumn();
+
+                if ($streak > 0 && $streak % 5 == 0) {
+                    addCredits($tx['borrower_id'], 15, 'bonus', "Loyalty Bonus ({$streak} streak)", $transactionId);
+                    createNotification($tx['borrower_id'], 'loyalty_bonus', "Congratulations! You earned a 15-token Loyalty Bonus for your 5-book punctuality streak! 🌟");
+                }
+            } else {
+                // Late return - reset streak
+                $this->pdo->prepare("UPDATE users SET punctuality_streak = 0 WHERE id = ?")->execute([$tx['borrower_id']]);
+            }
                  
             return true;
         }

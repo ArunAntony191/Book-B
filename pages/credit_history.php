@@ -106,6 +106,8 @@ $currentCredits = getUserCredits($userId);
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
                         <li>Book Sold: Credits from sale (Lenders)</li>
                         <li>Lend books: +10 credits (Borrow transactions)</li>
+                        <li>Punctual Return: +Full Token Cost (Refund)</li>
+                        <li style="color: #059669; font-weight: 700;">Loyalty Bonus: +15 credits (Every 5 punctual returns)</li>
                         <li style="color: #059669; font-weight: 700;">Deliver Books: +10 credits (Agents)</li>
                         <li>5-star rating: +5 credits bonus</li>
                     </ul>
@@ -118,6 +120,7 @@ $currentCredits = getUserCredits($userId);
                         <li>Borrow books: -10 credits base</li>
                         <li>Buy books: Sale price in credits</li>
                         <li style="color: #1d4ed8; font-weight: 700;">Delivery Fee: -10 credits (if door-step)</li>
+                        <li>Credit Discount: -50/75 credits (for cash discount)</li>
                         <li>Credits deducted on lender acceptance</li>
                     </ul>
                 </div>
@@ -127,6 +130,7 @@ $currentCredits = getUserCredits($userId);
                     </div>
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
                         <li>Late returns: -5 credits/day</li>
+                        <li style="color: #b91c1c; font-weight: 700;">Order Cancel: -5 credits</li>
                         <li style="color: #b91c1c; font-weight: 700;">Job Abandon: -5 credits (Agents)</li>
                         <li>Damage/Loss: Variable credit deduction</li>
                     </ul>

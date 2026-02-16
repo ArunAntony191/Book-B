@@ -12,7 +12,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         'query'    => $_GET['query'] ?? '',
         'role'     => $_GET['role'] ?? '',
         'type'     => $_GET['type'] ?? '',
-        'category' => $_GET['category'] ?? ''
+        'category' => $_GET['category'] ?? '',
+        'min_rating' => $_GET['min_rating'] ?? ''
     ];
     
     if (isset($_GET['sw_lat'], $_GET['ne_lat'], $_GET['sw_lng'], $_GET['ne_lng'])) {
@@ -42,7 +43,8 @@ $filters = [
     'type'     => $_GET['type'] ?? '',
     'category' => $_GET['category'] ?? '',
     'min_price' => isset($_GET['min_price']) && $_GET['min_price'] !== '' ? (float)$_GET['min_price'] : null,
-    'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null
+    'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null,
+    'min_rating' => isset($_GET['min_rating']) && $_GET['min_rating'] !== '' ? (float)$_GET['min_rating'] : null
 ];
 
 $results = searchListingsAdvanced($filters);
@@ -459,9 +461,9 @@ $rareResults = getRareBooks(10);
                         </div>
 
                         <!-- Genre Filter -->
-                        <form action="explore.php" method="GET" style="margin-top: 1.5rem;">
+                        <form action="explore.php" method="GET" style="margin-top: 1.5rem;" id="filters-form">
                             <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Genre</h4>
-                            <select name="category" class="premium-select" onchange="this.form.submit()">
+                            <select name="category" class="premium-select" onchange="this.form.submit()" style="width: 100%; margin-bottom: 1.5rem;">
                                 <option value="">All Genres</option>
                                 <?php 
                                 $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
@@ -471,6 +473,16 @@ $rareResults = getRareBooks(10);
                                 }
                                 ?>
                             </select>
+
+                            <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Lender Rating</h4>
+                            <select name="min_rating" class="premium-select" onchange="this.form.submit()" style="width: 100%;">
+                                <option value="">All Ratings</option>
+                                <option value="4.5" <?php echo ($filters['min_rating'] == 4.5) ? 'selected' : ''; ?>>4.5+ Stars</option>
+                                <option value="4.0" <?php echo ($filters['min_rating'] == 4.0) ? 'selected' : ''; ?>>4.0+ Stars</option>
+                                <option value="3.5" <?php echo ($filters['min_rating'] == 3.5) ? 'selected' : ''; ?>>3.5+ Stars</option>
+                                <option value="3.0" <?php echo ($filters['min_rating'] == 3.0) ? 'selected' : ''; ?>>3.0+ Stars</option>
+                            </select>
+
                             <input type="hidden" name="type" value="<?php echo htmlspecialchars($filters['type']); ?>">
                             <input type="hidden" name="query" value="<?php echo htmlspecialchars($filters['query']); ?>">
                         </form>
@@ -742,7 +754,8 @@ $rareResults = getRareBooks(10);
                 query: <?php echo json_encode($filters['query']); ?>,
                 role: <?php echo json_encode($filters['role']); ?>,
                 type: <?php echo json_encode($filters['type']); ?>,
-                category: <?php echo json_encode($filters['category']); ?>
+                category: <?php echo json_encode($filters['category']); ?>,
+                min_rating: <?php echo json_encode($filters['min_rating']); ?>
             });
 
             try {

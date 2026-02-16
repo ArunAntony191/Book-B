@@ -412,8 +412,7 @@ function getUserDeliveries($userId) {
             JOIN users u_lender ON t.lender_id = u_lender.id
             LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
             LEFT JOIN users u_ret_agent ON t.return_agent_id = u_ret_agent.id
-            WHERE (t.borrower_id = ? OR t.lender_id = ?) 
-            AND t.status != 'cancelled'
+            WHERE (t.borrower_id = ? OR t.lender_id = ?)
             ORDER BY t.created_at DESC
         ");
         $stmt->execute([$userId, $userId]);
@@ -476,6 +475,31 @@ function checkAndNotifyDueSoon($userId) {
         }
     } catch (Exception $e) {
         error_log("Check due soon error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Get books due within X days
+ */
+function getDueBooks($userId, $days = 3) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.id, t.due_date, b.title, b.cover_image, l.id as listing_id
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            WHERE t.borrower_id = ? 
+            AND t.status = 'delivered'
+            AND t.due_date IS NOT NULL
+            AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+            ORDER BY t.due_date ASC
+        ");
+        $stmt->execute([$userId, $days]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get due books error: " . $e->getMessage());
+        return [];
     }
 }
 
@@ -664,6 +688,11 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         if (isset($filters['max_price']) && $filters['max_price'] !== null) {
             $sql .= " AND l.price <= ?";
             $params[] = $filters['max_price'];
+        }
+
+        if (isset($filters['min_rating']) && $filters['min_rating'] !== null && $filters['min_rating'] !== '') {
+            $sql .= " AND u.average_rating >= ?";
+            $params[] = (float)$filters['min_rating'];
         }
 
         // ONLY show available quantities by default if not specified

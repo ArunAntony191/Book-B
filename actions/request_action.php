@@ -128,12 +128,27 @@ try {
         // Total cost calculation might differ for bulk/sell, but keeping token logic for borrow
         $totalCost = $creditCost + ($wantDelivery ? 10 : 0);
 
+        // ENFORCE MINIMUM BALANCE (30 credits)
+        $userCredits = getUserCredits($userId);
+        if ($userCredits < 30) {
+            throw new Exception("Your credit balance is below the minimum threshold (30). Please earn more tokens by returning books on time or completing missions.");
+        }
+
         // Only check credits if it's NOT a sell (purchase) OR if it's a token-based sell
         if ($type !== 'sell') {
             if (!checkSufficientCredits($userId, $totalCost)) {
-                $userCredits = getUserCredits($userId);
-                throw new Exception("Insufficient credits.");
+                throw new Exception("Insufficient credits. You need $totalCost tokens.");
             }
+        }
+
+        // Credit Discount Logic (for Purchases/Delivery)
+        $useDiscount = (int)($_POST['use_discount_credits'] ?? 0); // 50 or 75
+        $discountAmount = 0;
+        if ($useDiscount > 0) {
+            if ($userCredits < ($totalCost + $useDiscount)) {
+                throw new Exception("Insufficient credits to use this discount.");
+            }
+            $discountAmount = $useDiscount; // 1:1 ratio for now
         }
 
         // Prepare Transaction
@@ -168,17 +183,23 @@ try {
             INSERT INTO transactions (
                 listing_id, borrower_id, lender_id, transaction_type, status, 
                 due_date, borrow_date, delivery_method, order_address, order_landmark, order_lat, order_lng,
-                payment_method, quantity, request_message, book_price
+                payment_method, quantity, request_message, book_price, credit_discount
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $listingId, $userId, $ownerId, $transactionType, $initialStatus, 
             $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
             $orderAddress, $orderLandmark, $orderLat, $orderLng,
-            $paymentMethod, $quantity, $requestMessage, ($listing['price'] ?? 0)
+            $paymentMethod, $quantity, $requestMessage, ($listing['price'] ?? 0),
+            $discountAmount
         ]);
         $transactionId = $pdo->lastInsertId();
+
+        // If Discount applied, deduct those credits now
+        if ($discountAmount > 0) {
+            deductCredits($userId, $discountAmount, 'spend', "Credit Discount for Order #{$transactionId}", $transactionId);
+        }
 
         // If it's a purchase (small qty, instant approved), decrease quantity immediately
         if ($type === 'sell' && $initialStatus === 'approved') {
@@ -505,6 +526,9 @@ try {
              // Notify other party
              $notifyUserId = ($userId == $tx['borrower_id']) ? $tx['lender_id'] : $tx['borrower_id'];
              createNotification($notifyUserId, 'order_cancelled', "Order #{$transactionId} was cancelled by user.", $transactionId);
+             
+             // APPLY CANCELLATION PENALTY (5 tokens)
+             deductCredits($userId, 5, 'penalty', "Cancellation Penalty for Order #{$transactionId}", $transactionId);
              
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Order cancelled successfully. Stock updated if applicable.']);
