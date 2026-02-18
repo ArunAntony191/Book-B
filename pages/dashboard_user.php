@@ -183,7 +183,7 @@ $userReviews = getUserReviews($userId, 5);
                         $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
                         $cover = $cover ?: $fallback;
                     ?>
-                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                    <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" 
                          alt="<?php echo htmlspecialchars($item['title']); ?>"
                          onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                 </div>
@@ -192,10 +192,14 @@ $userReviews = getUserReviews($userId, 5);
                     <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
                         <span style="color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                            <?php if ($item['listing_type'] === 'sell'): ?>
+                                ₹<?php echo number_format($item['price'], 2); ?>
+                            <?php else: ?>
+                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                            <?php endif; ?>
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                            Borrow
+                            <?php echo $item['listing_type'] === 'sell' ? 'Buy' : 'Borrow'; ?>
                         </button>
                     </div>
                 </div>
@@ -239,7 +243,7 @@ $userReviews = getUserReviews($userId, 5);
                         $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
                         $cover = $cover ?: $fallback;
                     ?>
-                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                    <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" 
                          alt="<?php echo htmlspecialchars($item['title']); ?>"
                          onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                 </div>
@@ -248,10 +252,14 @@ $userReviews = getUserReviews($userId, 5);
                     <div class="book-author"><?php echo htmlspecialchars($item['author']); ?></div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
                         <span style="color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                            <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                            <?php if ($item['listing_type'] === 'sell'): ?>
+                                ₹<?php echo number_format($item['price'], 2); ?>
+                            <?php else: ?>
+                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                            <?php endif; ?>
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
-                            View
+                            <?php echo $item['listing_type'] === 'sell' ? 'Buy' : 'View'; ?>
                         </button>
                     </div>
                 </div>

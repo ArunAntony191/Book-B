@@ -361,7 +361,7 @@ if ($userId) {
                         $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
                         $cover = $cover ?: $fallback;
                     ?>
-                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                    <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" 
                          class="book-img-large" alt="Book Cover"
                          onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                 </div>

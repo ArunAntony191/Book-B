@@ -13,7 +13,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         'role'     => $_GET['role'] ?? '',
         'type'     => $_GET['type'] ?? '',
         'category' => $_GET['category'] ?? '',
-        'min_rating' => $_GET['min_rating'] ?? ''
+        'min_rating' => $_GET['min_rating'] ?? '',
+        'show_all' => true
     ];
     
     if (isset($_GET['sw_lat'], $_GET['ne_lat'], $_GET['sw_lng'], $_GET['ne_lng'])) {
@@ -42,15 +43,14 @@ $filters = [
     'role'     => $_GET['role'] ?? '',
     'type'     => $_GET['type'] ?? '',
     'category' => $_GET['category'] ?? '',
-    'min_price' => isset($_GET['min_price']) && $_GET['min_price'] !== '' ? (float)$_GET['min_price'] : null,
-    'max_price' => isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : null,
     'min_rating' => isset($_GET['min_rating']) && $_GET['min_rating'] !== '' ? (float)$_GET['min_rating'] : null
 ];
 
+$filters['show_all'] = true;
 $results = searchListingsAdvanced($filters);
 
-// Separate Rare Books for Spotlight
-$rareResults = getRareBooks(10);
+// Separate Rare Books for Spotlight - sync with current filters
+$rareResults = getRareBooks(10, $filters);
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
@@ -104,7 +104,7 @@ $rareResults = getRareBooks(10);
         }
 
         .sidebar-header {
-            padding: 2.5rem 2rem 1.5rem;
+            padding: 1.5rem 1.75rem 1.25rem;
             border-bottom: 1px solid var(--border-color);
             background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%);
         }
@@ -154,6 +154,45 @@ $rareResults = getRareBooks(10);
         }
 
         .premium-select:hover { border-color: var(--primary); background-color: var(--bg-card); }
+
+        .compact-input {
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .compact-input:focus { border-color: var(--primary); outline: none; background: var(--bg-card); }
+
+        .sync-btn-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: none;
+            transition: all 0.3s;
+        }
+        .sync-btn {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            border: none;
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+            font-weight: 800;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        .sync-btn:hover { transform: translateY(-3px) scale(1.05); background: var(--primary-dark); }
 
         /* Scroller for Rare Books */
         .exclusive-banner {
@@ -421,19 +460,17 @@ $rareResults = getRareBooks(10);
                 <!-- Premium Sidebar -->
                 <aside class="premium-sidebar">
                     <div class="sidebar-header">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <h1 style="font-size: 1.75rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px; margin-bottom: 0.25rem;">Explore</h1>
-                                <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">Discover literature in your city.</p>
-                            </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Live Sync</span>
-                                <label class="switch">
-                                    <input type="checkbox" id="live-search-toggle" checked>
-                                    <span class="slider round"></span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h1 style="font-size: 1.5rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px;">Explore</h1>
+                            <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 5px 12px; border-radius: 20px; border: 2px solid var(--border-color); transition: all 0.3s; cursor: pointer;" onclick="document.getElementById('live-search-toggle').click()">
+                                <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px;">Live Sync</span>
+                                <label class="switch" style="width: 36px; height: 20px;" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="live-search-toggle" onchange="toggleSyncMode()" checked>
+                                    <span class="slider round" style="border-radius: 20px;"></span>
                                 </label>
                             </div>
                         </div>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; font-weight: 500; margin-bottom: 1.25rem;">Discover literature in your city.</p>
 
                         <!-- Listing Type Pills -->
                         <div style="margin-top: 1.5rem;">
@@ -450,10 +487,10 @@ $rareResults = getRareBooks(10);
                                     $isActive = ($currentType === $value);
                                     $activeClass = $isActive ? 'active' : '';
                                 ?>
-                                    <a href="?type=<?php echo $value; ?>&category=<?php echo urlencode($filters['category']); ?>&query=<?php echo urlencode($filters['query']); ?>" 
+                                    <a href="?type=<?php echo $value; ?>&category=<?php echo urlencode($filters['category'] ?? ''); ?>&query=<?php echo urlencode($filters['query'] ?? ''); ?>&min_rating=<?php echo urlencode($filters['min_rating'] ?? ''); ?>" 
                                        class="type-pill <?php echo $activeClass; ?>" 
-                                       style="flex: 1; min-width: 100px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700; transition: all 0.2s; <?php echo $isActive ? 'background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);' : 'background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color);'; ?>">
-                                        <i class='bx <?php echo $option['icon']; ?>' style="font-size: 1.1rem;"></i>
+                                       style="flex: 1; min-width: 90px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 0.8rem; border-radius: 10px; font-size: 0.8rem; font-weight: 700; transition: all 0.2s; <?php echo $isActive ? 'background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);' : 'background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color);'; ?>">
+                                        <i class='bx <?php echo $option['icon']; ?>' style="font-size: 1rem;"></i>
                                         <?php echo $option['label']; ?>
                                     </a>
                                 <?php endforeach; ?>
@@ -475,13 +512,14 @@ $rareResults = getRareBooks(10);
                             </select>
 
                             <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Lender Rating</h4>
-                            <select name="min_rating" class="premium-select" onchange="this.form.submit()" style="width: 100%;">
+                            <select name="min_rating" class="premium-select" onchange="this.form.submit()" style="width: 100%; margin-bottom: 1.5rem;">
                                 <option value="">All Ratings</option>
                                 <option value="4.5" <?php echo ($filters['min_rating'] == 4.5) ? 'selected' : ''; ?>>4.5+ Stars</option>
                                 <option value="4.0" <?php echo ($filters['min_rating'] == 4.0) ? 'selected' : ''; ?>>4.0+ Stars</option>
                                 <option value="3.5" <?php echo ($filters['min_rating'] == 3.5) ? 'selected' : ''; ?>>3.5+ Stars</option>
                                 <option value="3.0" <?php echo ($filters['min_rating'] == 3.0) ? 'selected' : ''; ?>>3.0+ Stars</option>
                             </select>
+
 
                             <input type="hidden" name="type" value="<?php echo htmlspecialchars($filters['type']); ?>">
                             <input type="hidden" name="query" value="<?php echo htmlspecialchars($filters['query']); ?>">
@@ -545,7 +583,7 @@ $rareResults = getRareBooks(10);
                                     <?php if ($isRare): ?>
                                         <span class="rare-badge-mini" style="top: 10px; left: 10px;">RARE</span>
                                     <?php endif; ?>
-                                    <img src="<?php echo htmlspecialchars($iCover, ENT_QUOTES, 'UTF-8', false); ?>" 
+                                    <img src="<?php echo htmlspecialchars(html_entity_decode($iCover), ENT_QUOTES, 'UTF-8'); ?>" 
                                          class="result-img-premium" alt="Book Cover"
                                          onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                     
@@ -591,7 +629,14 @@ $rareResults = getRareBooks(10);
                 </aside>
 
                 <!-- Interactive Map Area -->
-                <div id="map"></div>
+                <div id="map" style="position: relative;">
+                    <div class="sync-btn-container" id="manual-sync-container">
+                        <button class="sync-btn" onclick="fetchNewResults(true)">
+                            <i class='bx bx-refresh'></i>
+                            Search this area
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Floating Overlays -->
                 <div class="map-overlay-controls">
@@ -620,9 +665,16 @@ $rareResults = getRareBooks(10);
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
-        const initialLat = <?php echo floatval($user['service_start_lat'] ?? 12.9716); ?>;
-        const initialLng = <?php echo floatval($user['service_start_lng'] ?? 77.5946); ?>;
-        const map = L.map('map').setView([initialLat, initialLng], 12);
+        // Initialize map with persistence
+        const savedLat = sessionStorage.getItem('map_lat');
+        const savedLng = sessionStorage.getItem('map_lng');
+        const savedZoom = sessionStorage.getItem('map_zoom');
+        
+        const initialLat = savedLat ? parseFloat(savedLat) : <?php echo floatval($user['service_start_lat'] ?? 9.5285); ?>;
+        const initialLng = savedLng ? parseFloat(savedLng) : <?php echo floatval($user['service_start_lng'] ?? 76.8227); ?>;
+        const initialZoom = savedZoom ? parseInt(savedZoom) : 13;
+
+        const map = L.map('map').setView([initialLat, initialLng], initialZoom);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
             attribution: '©OpenStreetMap ©CartoDB'
@@ -737,8 +789,16 @@ $rareResults = getRareBooks(10);
             document.querySelector('.results-info-text').innerText = `Discoveries (${listings.length})`;
         }
 
-        async function fetchNewResults() {
-            if (!document.getElementById('live-search-toggle').checked) return;
+        async function fetchNewResults(ignoreToggle = false) {
+            const syncToggle = document.getElementById('live-search-toggle');
+            const manualSync = document.getElementById('manual-sync-container');
+
+            if (!syncToggle.checked && !ignoreToggle) {
+                manualSync.style.display = 'block';
+                return;
+            } else if (syncToggle.checked || ignoreToggle) {
+                manualSync.style.display = 'none';
+            }
 
             const bounds = map.getBounds();
             const center = map.getCenter();
@@ -755,13 +815,19 @@ $rareResults = getRareBooks(10);
                 role: <?php echo json_encode($filters['role']); ?>,
                 type: <?php echo json_encode($filters['type']); ?>,
                 category: <?php echo json_encode($filters['category']); ?>,
-                min_rating: <?php echo json_encode($filters['min_rating']); ?>
+                min_rating: <?php echo json_encode($filters['min_rating'] ?? ''); ?>,
+                _t: Date.now()
             });
 
             try {
                 const response = await fetch(`explore.php?${params.toString()}`);
                 const data = await response.json();
                 updateMarkers(data);
+                
+                // Save state
+                sessionStorage.setItem('map_lat', center.lat);
+                sessionStorage.setItem('map_lng', center.lng);
+                sessionStorage.setItem('map_zoom', map.getZoom());
             } catch (err) {
                 console.error("Live search failed:", err);
             }
@@ -839,6 +905,17 @@ $rareResults = getRareBooks(10);
                 });
             } else {
                 showToast('Geolocation is not supported by your browser', 'error');
+            }
+        }
+
+        function toggleSyncMode() {
+            const isLive = document.getElementById('live-search-toggle').checked;
+            const manualSync = document.getElementById('manual-sync-container');
+            if (isLive) {
+                manualSync.style.display = 'none';
+                fetchNewResults(true);
+            } else {
+                manualSync.style.display = 'block';
             }
         }
     </script>

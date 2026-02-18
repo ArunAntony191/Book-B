@@ -597,16 +597,68 @@ function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, 
         $bookId = $listing['book_id'];
 
         // 2. Update book
-        $stmt = $pdo->prepare("UPDATE books SET title = ?, author = ?, cover_image = ?, description = ?, category = ?, condition_status = ?, is_rare = ?, rare_details = ? WHERE id = ?");
-        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $isRare, $rareDetails, $bookId]);
+        $stmt = $pdo->prepare("
+            UPDATE books 
+            SET title = :title, 
+                author = :author, 
+                cover_image = :cover, 
+                description = :desc, 
+                category = :cat, 
+                condition_status = :cond, 
+                is_rare = :rare, 
+                rare_details = :rare_det 
+            WHERE id = :book_id
+        ");
+        $stmt->execute([
+            ':title' => $bookTitle,
+            ':author' => $author,
+            ':cover' => $cover,
+            ':desc' => $description,
+            ':cat' => $category,
+            ':cond' => $condition,
+            ':rare' => $isRare,
+            ':rare_det' => $rareDetails,
+            ':book_id' => $bookId
+        ]);
 
         // 3. Update listing
         $stmt = $pdo->prepare("
             UPDATE listings 
-            SET listing_type = ?, price = ?, location = ?, landmark = ?, district = ?, city = ?, pincode = ?, latitude = ?, longitude = ?, visibility = ?, community_id = ?, quantity = ?, credit_cost = ?
-            WHERE id = ? AND user_id = ?
+            SET listing_type = :type, 
+                price = :price, 
+                location = :loc, 
+                landmark = :landmark, 
+                district = :district, 
+                city = :city, 
+                pincode = :pincode, 
+                latitude = :lat, 
+                longitude = :lng, 
+                visibility = :vis, 
+                community_id = :comm, 
+                quantity = :qty, 
+                credit_cost = :cost,
+                availability_status = CASE WHEN :qty_status > 0 THEN 'available' ELSE 'unavailable' END
+            WHERE id = :id AND user_id = :uid
         ");
-        $stmt->execute([$type, $price, $location, $landmark, $district, $city, $pincode, $lat, $lng, $visibility, $communityId, $quantity, $creditCost, $listingId, $userId]);
+        
+        $stmt->execute([
+            ':type' => $type,
+            ':price' => $price,
+            ':loc' => $location,
+            ':landmark' => $landmark,
+            ':district' => $district,
+            ':city' => $city,
+            ':pincode' => $pincode,
+            ':lat' => $lat,
+            ':lng' => $lng,
+            ':vis' => $visibility,
+            ':comm' => $communityId,
+            ':qty' => $quantity,
+            ':qty_status' => $quantity,
+            ':cost' => $creditCost,
+            ':id' => $listingId,
+            ':uid' => $userId
+        ]);
         
         $pdo->commit();
         return true;
@@ -644,7 +696,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
-            WHERE l.availability_status = 'available' AND l.visibility = 'public'
+            WHERE l.availability_status IN ('available', 'unavailable') AND l.visibility = 'public'
         ";
 
         if (!empty($filters['query'])) {
@@ -681,11 +733,11 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
             $params[] = $filters['type'];
         }
 
-        if (isset($filters['min_price']) && $filters['min_price'] !== null) {
+        if (isset($filters['min_price']) && $filters['min_price'] !== null && $filters['min_price'] !== '') {
             $sql .= " AND l.price >= ?";
             $params[] = $filters['min_price'];
         }
-        if (isset($filters['max_price']) && $filters['max_price'] !== null) {
+        if (isset($filters['max_price']) && $filters['max_price'] !== null && $filters['max_price'] !== '') {
             $sql .= " AND l.price <= ?";
             $params[] = $filters['max_price'];
         }
@@ -696,7 +748,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         }
 
         // ONLY show available quantities by default if not specified
-        if (!isset($filters['show_all'])) {
+        if (!isset($filters['show_all']) || !$filters['show_all']) {
             $sql .= " AND l.quantity > 0";
         }
 
@@ -823,7 +875,8 @@ function getUserCredits($userId) {
 function addCredits($userId, $amount, $type, $description, $transactionId = null) {
     try {
         $pdo = getDBConnection();
-        $pdo->beginTransaction();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
         
         // Get current balance
         $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
@@ -845,10 +898,10 @@ function addCredits($userId, $amount, $type, $description, $transactionId = null
         ");
         $stmt->execute([$userId, $transactionId, $actualAdded, $newBalance, $type, $description]);
         
-        $pdo->commit();
+        if (!$inExistingTransaction) $pdo->commit();
         return true;
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
         error_log("Add credits error: " . $e->getMessage());
         return false;
     }
@@ -860,7 +913,8 @@ function addCredits($userId, $amount, $type, $description, $transactionId = null
 function deductCredits($userId, $amount, $type, $description, $transactionId = null) {
     try {
         $pdo = getDBConnection();
-        $pdo->beginTransaction();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
         
         // Get current balance
         $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
@@ -888,10 +942,10 @@ function deductCredits($userId, $amount, $type, $description, $transactionId = n
             createNotification($userId, 'system', $msg);
         }
         
-        $pdo->commit();
+        if (!$inExistingTransaction) $pdo->commit();
         return true;
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
         error_log("Deduct credits error: " . $e->getMessage());
         return false;
     }
@@ -1054,7 +1108,8 @@ function applyPenalty($transactionId, $userId) {
 function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment = '') {
     try {
         $pdo = getDBConnection();
-        $pdo->beginTransaction();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
         
         // Calculate trust impact based on rating (1-5 stars)
         // 5 stars: +10 trust, 4 stars: +5, 3 stars: 0, 2 stars: -5, 1 star: -10
@@ -1092,11 +1147,11 @@ function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment =
             deductCredits($revieweeId, 10, 'bad_review_penalty', 'Penalty for 1-star rating', $transactionId);
         }
         
-        $pdo->commit();
+        if (!$inExistingTransaction) $pdo->commit();
         return true;
         
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
         error_log("Add review error: " . $e->getMessage());
         return false;
     }
@@ -2480,10 +2535,12 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
 /**
  * Get available rare books
  */
-function getRareBooks($limit = 10) {
+function getRareBooks($limit = 10, $filters = []) {
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("
+        $params = [];
+        
+        $sql = "
             SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details,
                    u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
             FROM listings l
@@ -2493,11 +2550,28 @@ function getRareBooks($limit = 10) {
             AND l.availability_status = 'available'
             AND l.visibility = 'public'
             AND l.quantity > 0
-            ORDER BY l.created_at DESC
-            LIMIT ?
-        ");
-        // Ensure limit is an integer
-        $stmt->bindValue(1, (int)$limit, PDO::PARAM_INT);
+        ";
+
+        if (!empty($filters['category'])) {
+            $sql .= " AND b.category LIKE ?";
+            $params[] = "%" . $filters['category'] . "%";
+        }
+
+        if (!empty($filters['query'])) {
+            $sql .= " AND (b.title LIKE ? OR b.author LIKE ?)";
+            $params[] = "%" . $filters['query'] . "%";
+            $params[] = "%" . $filters['query'] . "%";
+        }
+
+        $sql .= " ORDER BY l.created_at DESC LIMIT ?";
+        
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+        
         $stmt->execute();
         return $stmt->fetchAll();
     } catch (PDOException $e) {

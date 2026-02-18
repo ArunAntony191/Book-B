@@ -165,7 +165,7 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
                                         $cover = $row['cover_image'];
                                         $cover = $cover ?: '../assets/images/book-placeholder.jpg';
                                     ?>
-                                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" style="width: 30px; height: 40px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                    <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" style="width: 30px; height: 40px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                     <div style="font-weight: 600;"><?php echo htmlspecialchars($row['title']); ?></div>
                                 </div>
                             </td>

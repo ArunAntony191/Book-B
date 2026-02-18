@@ -1630,3 +1630,490 @@
     [b_lng] => 76.7455434
 )
 
+[2026-02-18 15:14:05] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 15:14:36] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 30
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-02-28
+    [book_title] => That Time I Got Reincarnated as a Slime
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+)
+
+[2026-02-18 19:44:36] Create Request Action Triggered
+[2026-02-18 19:44:36] Notification Created
+[2026-02-18 15:16:00] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:17:02] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:17:08] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 108
+    [status] => active
+)
+
+[2026-02-18 15:17:11] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 108
+    [status] => delivered
+)
+
+[2026-02-18 15:17:22] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:19:14] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 106
+)
+
+[2026-02-18 15:19:23] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:19:37] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 106
+)
+
+[2026-02-18 15:19:47] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:19:52] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:20:03] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:20:07] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 108
+    [status] => return_delivered
+)
+
+[2026-02-18 15:20:17] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 108
+)
+
+[2026-02-18 15:35:42] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5741
+    [b_lng] => 76.657
+)
+
+[2026-02-18 15:35:47] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 15:36:25] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 28
+    [owner_id] => 42
+    [type] => sell
+    [due_date] => 
+    [book_title] => uuuu
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [quantity] => 19
+    [request_message] => test
+)
+
+[2026-02-18 20:06:25] Create Request Action Triggered
+[2026-02-18 20:06:25] Notification Created
+[2026-02-18 15:37:09] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 109
+)
+
+[2026-02-18 15:38:03] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 109
+)
+
+[2026-02-18 15:38:07] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 109
+    [status] => active
+)
+
+[2026-02-18 15:38:09] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 109
+    [status] => delivered
+)
+
+[2026-02-18 15:38:16] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 109
+)
+
+[2026-02-18 15:38:23] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 109
+)
+
+[2026-02-18 16:33:18] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 16:33:41] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 28
+    [owner_id] => 42
+    [delivery] => 0
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [book_title] => uuuu
+    [payment_method] => cod
+)
+
+[2026-02-18 21:03:41] Create Request Action Triggered
+[2026-02-18 21:03:41] Notification Created
+[2026-02-18 17:39:34] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 110
+)
+
+[2026-02-18 17:39:42] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 104
+)
+
+[2026-02-18 17:40:42] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 110
+)
+
+[2026-02-18 17:40:49] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 104
+)
+
+[2026-02-18 17:42:46] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 108
+    [restock] => 1
+)
+
+[2026-02-18 17:45:08] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 110
+    [listing_id] => 28
+    [quantity] => 1
+)
+
+[2026-02-18 17:45:29] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 110
+    [listing_id] => 28
+    [quantity] => 1
+)
+
+[2026-02-18 17:46:25] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 109
+    [listing_id] => 28
+    [quantity] => 19
+)
+
+[2026-02-18 22:16:25] Exception: Stock no longer available. Only 17 left.
+[2026-02-18 17:46:47] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 106
+    [listing_id] => 28
+    [quantity] => 13
+)
+
+[2026-02-18 17:47:29] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 94
+    [listing_id] => 13
+    [quantity] => 1
+)
+
+[2026-02-18 17:47:38] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 109
+    [listing_id] => 28
+    [quantity] => 19
+)
+
+[2026-02-18 22:17:38] Exception: Stock no longer available. Only 17 left.
+[2026-02-18 17:47:43] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 106
+    [listing_id] => 28
+    [quantity] => 13
+)
+
+[2026-02-18 17:47:50] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 106
+    [listing_id] => 28
+    [quantity] => 13
+)
+
+[2026-02-18 17:47:56] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 104
+    [listing_id] => 28
+    [quantity] => 11
+)
+
+[2026-02-18 17:49:12] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 111
+)
+
+[2026-02-18 17:49:48] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 111
+)
+
+[2026-02-18 17:52:47] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 112
+)
+
+[2026-02-18 17:53:16] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 112
+)
+
+[2026-02-18 17:54:14] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 32
+    [owner_id] => 42
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [book_title] => bookkkkkkkrrr
+    [payment_method] => cod
+)
+
+[2026-02-18 22:24:14] Create Request Action Triggered
+[2026-02-18 22:24:14] Notification Created
+[2026-02-18 17:54:39] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 113
+)
+
+[2026-02-18 17:54:43] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 113
+)
+
+[2026-02-18 18:10:37] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 92
+    [listing_id] => 28
+    [quantity] => 1
+)
+
+[2026-02-18 19:04:22] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 19:09:30] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 114
+)
+
+[2026-02-18 19:09:35] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 114
+    [status] => active
+)
+
+[2026-02-18 19:09:37] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 114
+    [status] => delivered
+)
+
+[2026-02-18 19:09:49] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 114
+)
+
+[2026-02-18 19:10:00] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 114
+)
+
+[2026-02-18 19:11:48] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 115
+)
+
+[2026-02-18 19:16:18] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 115
+)
+
+[2026-02-18 19:21:10] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 19:21:28] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 32
+    [owner_id] => 42
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [book_title] => bookkkkkkkrrr
+    [payment_method] => cod
+)
+
+[2026-02-18 23:51:28] Create Request Action Triggered
+[2026-02-18 23:51:28] Notification Created
+[2026-02-18 19:21:58] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 116
+)
+
+[2026-02-18 19:22:03] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 116
+    [status] => active
+)
+
+[2026-02-18 19:22:06] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 116
+    [status] => delivered
+)
+
+[2026-02-18 19:22:12] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 116
+)
+
+[2026-02-18 19:22:20] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 116
+)
+

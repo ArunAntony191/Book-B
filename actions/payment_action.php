@@ -146,19 +146,23 @@ try {
         $transactionId = $_POST['transaction_id'] ?? 0;
 
         if ($transactionId) {
-             // Update existing
-             $isDelivery = ($orderInfo['delivery'] || $transaction['delivery_method'] === 'delivery');
+             // Fetch existing transaction first
+             $stmtFetch = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+             $stmtFetch->execute([$transactionId]);
+             $transaction = $stmtFetch->fetch();
+
+             $isDelivery = (!empty($orderInfo['delivery']) || ($transaction['delivery_method'] ?? '') === 'delivery');
              $newStatus = $isDelivery ? 'assigned' : 'active';
              
-             $stmt = $pdo->prepare("UPDATE transactions SET payment_status = 'paid', status = ?, razorpay_payment_id = ?, order_address=?, order_landmark=?, order_lat=?, order_lng=?, delivery_method=? WHERE id = ?");
+             $stmt = $pdo->prepare("UPDATE transactions SET payment_status = 'paid', payment_method = 'online', status = ?, razorpay_payment_id = ?, order_address=?, order_landmark=?, order_lat=?, order_lng=?, delivery_method=? WHERE id = ?");
              $stmt->execute([
                  $newStatus,
                  $razorpay_payment_id,
-                 $orderInfo['address'] ?: $transaction['order_address'], 
-                 $orderInfo['landmark'] ?: $transaction['order_landmark'], 
-                 $orderInfo['lat'] ?: $transaction['order_lat'], 
-                 $orderInfo['lng'] ?: $transaction['order_lng'],
-                 ($orderInfo['delivery'] ? 'delivery' : ($transaction['delivery_method'] ?: 'pickup')),
+                 $orderInfo['address'] ?: ($transaction['order_address'] ?? ''), 
+                 $orderInfo['landmark'] ?: ($transaction['order_landmark'] ?? ''), 
+                 $orderInfo['lat'] ?: ($transaction['order_lat'] ?? ''), 
+                 $orderInfo['lng'] ?: ($transaction['order_lng'] ?? ''),
+                 ($isDelivery ? 'delivery' : ($transaction['delivery_method'] ?: 'pickup')),
                  $transactionId
              ]);
              // Quantity deducation happened on approval? 

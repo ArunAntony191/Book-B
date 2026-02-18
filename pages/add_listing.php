@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($postEditId) {
                         // Update Logic
                         if (updateListing($postEditId, $userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark, $isRare, $rareDetails)) {
-                            $success = "Successfully updated your book!";
+                            $success = "Successfully updated your book! (Qty: $quantity)";
                             $editData = getListingWithQuantity($postEditId); // Refresh data
                         } else {
                             $error = "Failed to update listing.";

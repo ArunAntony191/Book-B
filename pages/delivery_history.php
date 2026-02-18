@@ -158,7 +158,7 @@ function buildLocation($addr, $city, $dist) {
                              data-date="<?php echo date('Y-m-d H:i:s', strtotime($h['completion_time'])); ?>"
                              data-earnings="50">
                             
-                            <img src="<?php echo htmlspecialchars($h['cover_image'], ENT_QUOTES, 'UTF-8', false); ?>" 
+                            <img src="<?php echo htmlspecialchars(html_entity_decode($h['cover_image']), ENT_QUOTES, 'UTF-8'); ?>" 
                                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';" 
                                  class="book-img">
                             <div class="history-details">

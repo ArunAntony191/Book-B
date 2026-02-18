@@ -307,9 +307,9 @@ $myListings = $stmt->fetchAll();
                                     $fallback = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600';
                                     $cover = $cover ?: $fallback;
                                 ?>
-                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
-                                     class="listing-img" alt="Book" 
-                                     onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" 
+                                     class="book-img" 
+                                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                             </div>
                             <div class="listing-content">
                                 <div class="listing-title"><?php echo htmlspecialchars($listing['title']); ?></div>

@@ -33,8 +33,9 @@ try {
     $myListings = [];
 }
 
-// Filter payments
+// Filter payments — exclude cancelled orders
 $payments = array_filter($all_deals, function($d) {
+    if ($d['status'] === 'cancelled') return false;
     return $d['transaction_type'] === 'purchase' || (!empty($d['payment_status']) && $d['payment_status'] !== 'unpaid');
 });
 ?>
@@ -348,7 +349,7 @@ $payments = array_filter($all_deals, function($d) {
                                     $cover = $deal['cover_image'];
                                     $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
                                 ?>
-                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -397,7 +398,7 @@ $payments = array_filter($all_deals, function($d) {
                                     $cover = $deal['cover_image'];
                                     $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
                                 ?>
-                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -490,7 +491,7 @@ $payments = array_filter($all_deals, function($d) {
                                     $cover = $deal['cover_image'];
                                     $cover = $cover ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
                                 ?>
-                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                                 <span class="deal-type-tag"><?php echo $deal['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -580,7 +581,7 @@ $payments = array_filter($all_deals, function($d) {
                                     $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
                                     $cover = $cover ?: $fallback;
                                 ?>
-                                <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="deal-img" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                 <span class="deal-type-tag"><?php echo $listing['listing_type']; ?></span>
                             </div>
                             <div class="deal-main">
@@ -620,10 +621,12 @@ $payments = array_filter($all_deals, function($d) {
                         <?php 
                         $purchases = array_filter($payments, fn($p) => $p['borrower_id'] == $userId);
                         
-                        // Calculate total due
+                        // Calculate total due — exclude cancelled, COD-confirmed pickups
                         $total_due = 0;
                         foreach ($purchases as $p) {
-                            if ($p['payment_status'] !== 'paid') {
+                            if ($p['status'] === 'cancelled') continue;
+                            $isCodPickupConfirmed = ($p['payment_method'] === 'cod' && $p['delivery_method'] === 'pickup' && !empty($p['lender_confirm_at']));
+                            if ($p['payment_status'] !== 'paid' && !$isCodPickupConfirmed) {
                                 $amt = (float)$p['price_at_transaction'];
                                 if ($amt <= 0) $amt = (float)$p['book_price'];
                                 if ($amt <= 0) $amt = (float)($p['listing_price'] ?? 0);
@@ -655,7 +658,7 @@ $payments = array_filter($all_deals, function($d) {
                             <?php foreach ($purchases as $p): ?>
                                 <div class="deal-card">
                                     <div class="deal-visual">
-                                        <img src="<?php echo htmlspecialchars($p['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'); ?>" class="deal-img">
+                                        <img src="<?php echo htmlspecialchars(html_entity_decode($p['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img">
                                         <span class="deal-type-tag"><?php echo $p['transaction_type']; ?></span>
                                     </div>
                                     <div class="deal-main">
@@ -663,6 +666,7 @@ $payments = array_filter($all_deals, function($d) {
                                         <div class="deal-meta">
                                             <div class="meta-item"><i class='bx bx-user'></i> Seller: <?php echo htmlspecialchars($p['lender_name']); ?></div>
                                             <div class="meta-item"><i class='bx bx-calendar'></i> <?php echo date('M d, Y', strtotime($p['created_at'])); ?></div>
+                                            <div class="meta-item"><i class='bx bx-receipt'></i> Order #<?php echo $p['id']; ?></div>
                                         </div>
                                         <div style="margin-top: 0.75rem; display: flex; gap: 1rem; align-items: center;">
                                             <?php 
@@ -672,22 +676,34 @@ $payments = array_filter($all_deals, function($d) {
                                                 $displayAmt = $unitAmt * ($p['quantity'] ?: 1);
                                             ?>
                                             <span style="font-weight: 700; color: var(--primary);">₹<?php echo number_format($displayAmt, 2); ?></span>
-                                            <span class="status-pill <?php echo ($p['payment_status'] === 'paid') ? 'pill-approved' : 'pill-requested'; ?>" style="font-size: 0.7rem;">
-                                                <?php echo $p['payment_status'] ?: 'unpaid'; ?>
-                                            </span>
+                                            <?php 
+                                            $isCodPickupConfirmed = ($p['payment_method'] === 'cod' && $p['delivery_method'] === 'pickup' && !empty($p['lender_confirm_at']));
+                                            if ($p['payment_status'] === 'paid' || $isCodPickupConfirmed): ?>
+                                                <span class="status-pill pill-approved" style="font-size: 0.7rem;">collected</span>
+                                            <?php else: ?>
+                                                <span class="status-pill pill-requested" style="font-size: 0.7rem;"><?php echo $p['payment_status'] ?: 'unpaid'; ?></span>
+                                            <?php endif; ?>
                                             <?php if (!empty($p['payment_method'])): ?>
                                                 <span style="font-size: 0.8rem; color: var(--text-muted);"><i class='bx bx-wallet'></i> <?php echo ucfirst($p['payment_method']); ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                     <div class="deal-actions">
-                                        <?php if ($p['payment_status'] !== 'paid'): ?>
-                                             <button onclick="payForBulk(<?php echo $p['id']; ?>, <?php echo $p['listing_id']; ?>, <?php echo $p['quantity'] ?: 1; ?>, <?php echo $unitAmt; ?>)" class="btn btn-primary btn-sm">Pay Now</button>
-                                        <?php else: ?>
+                                        <?php 
+                                        $isCodPickupConfirmed = ($p['payment_method'] === 'cod' && $p['delivery_method'] === 'pickup' && !empty($p['lender_confirm_at']));
+                                        if ($p['status'] === 'cancelled'): ?>
+                                            <span class="status-pill pill-cancelled" style="font-size: 0.7rem;">Cancelled</span>
+                                        <?php elseif ($p['payment_status'] === 'paid' || $isCodPickupConfirmed): ?>
                                             <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">
-                                                ID: <?php echo $p['razorpay_payment_id'] ?: 'N/A'; ?><br>
+                                                <?php if ($isCodPickupConfirmed && $p['payment_status'] !== 'paid'): ?>
+                                                    <span style="color: #10b981; font-weight: 700;">✓ Collected (COD)</span><br>
+                                                <?php else: ?>
+                                                    ID: <?php echo $p['razorpay_payment_id'] ?: 'N/A'; ?><br>
+                                                <?php endif; ?>
                                                 TX: #<?php echo $p['id']; ?>
                                             </div>
+                                        <?php else: ?>
+                                            <button onclick="payForBulk(<?php echo $p['id']; ?>, <?php echo $p['listing_id']; ?>, <?php echo $p['quantity'] ?: 1; ?>, <?php echo $unitAmt; ?>)" class="btn btn-primary btn-sm">Pay Now</button>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -705,7 +721,7 @@ $payments = array_filter($all_deals, function($d) {
                             <?php foreach ($sales as $s): ?>
                                 <div class="deal-card">
                                     <div class="deal-visual">
-                                        <img src="<?php echo htmlspecialchars($s['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'); ?>" class="deal-img">
+                                        <img src="<?php echo htmlspecialchars(html_entity_decode($s['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200'), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img">
                                         <span class="deal-type-tag">SALE</span>
                                     </div>
                                     <div class="deal-main">

@@ -262,8 +262,35 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         </main>
     </div>
 
-    <!-- Modals (Simplified for Redo) -->
-    <div id="feedback-modal" class="modal-overlay"><div class="modal-card"><h2>Rate Your Experience</h2><p id="rating-target"></p><button onclick="closeModal('feedback-modal')">Close</button></div></div>
+    <!-- Rate Agent Modal -->
+    <div id="feedback-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header" style="margin-bottom: 1.5rem;">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Rate Delivery Agent</h2>
+                <p id="rating-target-name" style="color: #64748b; font-size: 0.9rem; margin-top: 0.25rem;"></p>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div id="feedback-rating" style="font-size: 2.5rem; color: #fbbf24; cursor: pointer; display: flex; justify-content: center; gap: 0.5rem;">
+                        <i class='bx bx-star' data-value="1"></i>
+                        <i class='bx bx-star' data-value="2"></i>
+                        <i class='bx bx-star' data-value="3"></i>
+                        <i class='bx bx-star' data-value="4"></i>
+                        <i class='bx bx-star' data-value="5"></i>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #94a3b8; font-weight: 700; margin-top: 0.5rem; text-transform: uppercase;">Tap to rate</p>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label">Optional Comment</label>
+                    <textarea id="feedback-comment" class="form-control" rows="3" placeholder="How was the delivery person?" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.75rem;">
+                <button onclick="closeFeedbackModal()" class="btn-action btn-outline" style="background: #f1f5f9; border: none; flex: 1; margin-top: 0;">Cancel</button>
+                <button onclick="submitFeedback()" class="btn-action btn-primary" style="flex: 1; margin-top: 0;">Submit Review</button>
+            </div>
+        </div>
+    </div>
 
     <?php
     function renderDeliveryCard($d, $forceLeg = null) {
@@ -273,12 +300,16 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         $isReturn = ($forceLeg === 'return') || ($forceLeg === null && in_array($d['status'], $returnStatuses));
         $isPickup = ($d['delivery_method'] === 'pickup');
 
+        // Identify Agent
+        $agentId = $isReturn ? ($d['return_agent_id'] ?? null) : ($d['delivery_agent_id'] ?? null);
+        $agentName = $isReturn ? ($d['ret_agent_name'] ?? 'Agent') : ($d['agent_name'] ?? 'Agent');
+
         // Status Label Refinement
         $status = $d['status'];
         $badgeClass = $isReturn ? 'returning' : $status;
         if ($status === 'returned') $badgeClass = 'returned';
 
-        $label = getStatusLabel($status, $isReturn ? ($d['return_agent_id'] ?? null) : ($d['delivery_agent_id'] ?? null), $d['delivery_method'] ?? 'delivery');
+        $label = getStatusLabel($status, $agentId, $d['delivery_method'] ?? 'delivery');
         
         // Don't show "Verified" unless relevant parties confirmed
         if ($status === 'delivered') {
@@ -310,6 +341,17 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             $needHandover = $isLender && empty($d['lender_confirm_at']);
             $needReceipt = $isBorrower && empty($d['borrower_confirm_at']);
         }
+
+        // Show "Rate Agent" button?
+        // Rules: Completed leg, person rating is the recipient of the leg, agent exists.
+        $showRateAgent = false;
+        if ($agentId) {
+            if (!$isReturn && $status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at'])) {
+                $showRateAgent = true;
+            } elseif ($isReturn && $status === 'returned' && $isLender && !empty($d['return_lender_confirm_at'])) {
+                $showRateAgent = true;
+            }
+        }
         ?>
         <div class="delivery-card">
             <?php if ($d['transaction_type'] === 'purchase'): 
@@ -340,8 +382,8 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             <div class="status-badge <?= $badgeClass ?>"><?= $label ?></div>
 
             <div class="delivery-main">
-                <img src="<?= htmlspecialchars($d['cover_image']) ?>" class="book-img" 
-                     onerror="this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                <img src="<?= htmlspecialchars(html_entity_decode($d['cover_image']), ENT_QUOTES, 'UTF-8') ?>" class="book-img" 
+                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
                 
                 <div class="delivery-info">
                     <span class="order-id">#ORD-<?= $d['id'] ?> • <?= date('M d', strtotime($d['created_at'])) ?></span>
@@ -377,7 +419,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <div class="v-title"><i class='bx bx-shield-check'></i> <?= $isPickup ? '2-PARTY' : '3-PARTY' ?> VERIFICATION</div>
                 <div class="v-badges">
                     <?php if($isReturn): ?>
-                        <div class="v-badge <?= !empty($d['return_borrower_confirm_at'])?'confirmed':'' ?>"><i class='bx bxs-check-circle'></i> Borrowers</div>
+                        <div class="v-badge <?= !empty($d['return_borrower_confirm_at'])?'confirmed':'' ?>"><i class='bx bxs-check-circle'></i> Borrower</div>
                         <?php if(!$isPickup): ?>
                             <div class="v-badge <?= !empty($d['return_agent_confirm_at'])?'confirmed':'' ?>"><i class='bx bxs-check-circle'></i> Agent</div>
                         <?php endif; ?>
@@ -392,32 +434,45 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 </div>
             </div>
 
-            <?php if ($status === 'delivered' && $isBorrower && empty($d['borrower_confirm_at'])): ?>
-                <!-- Already have Confirm Receipt button below -->
-            <?php elseif ($status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; margin-top: 0.5rem;">
-                    <button class="btn-action btn-outline" onclick="handleVerify('request_return_delivery', <?= $d['id'] ?>)">
-                        <i class='bx bx-undo'></i> Return Book
-                    </button>
-                    <button class="btn-action btn-outline" onclick="openExtendModal(<?= $d['id'] ?>, '<?= $d['due_date'] ?>', <?= $d['lender_id'] ?>)">
-                        <i class='bx bx-calendar-plus'></i> Extend Date
-                    </button>
-                </div>
-            <?php endif; ?>
-
-            <?php if($status !== 'cancelled'): ?>
-                <?php if($needHandover): ?>
-                    <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
-                        <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
-                    </button>
-                <?php endif; ?>
-
-                <?php if($needReceipt): ?>
+            <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <?php if (($status === 'delivered' || ($isPickup && in_array($status, ['approved', 'active']))) && $isBorrower && empty($d['borrower_confirm_at'])): ?>
                     <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
                         <i class='bx bx-package'></i> Confirm Receipt
                     </button>
                 <?php endif; ?>
-            <?php endif; ?>
+
+                <?php if ($status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%;">
+                        <button class="btn-action btn-outline" style="background:#f1f5f9; border:none; margin-top:0;" onclick="handleVerify('request_return_delivery', <?= $d['id'] ?>)">
+                            <i class='bx bx-undo'></i> Return Book
+                        </button>
+                        <button class="btn-action btn-outline" style="background:#f1f5f9; border:none; margin-top:0;" onclick="openExtendModal(<?= $d['id'] ?>, '<?= $d['due_date'] ?>', <?= $d['lender_id'] ?>)">
+                            <i class='bx bx-calendar-plus'></i> Extend Date
+                        </button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if($status !== 'cancelled'): ?>
+                    <?php if($needHandover && $status !== 'requested'): ?>
+                        <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
+                            <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if($isReturn && $status !== 'returned' && $needReceipt): ?>
+                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
+                            <i class='bx bx-check-circle'></i> Confirm Receipt (Return)
+                        </button>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if($showRateAgent): ?>
+                    <button class="btn-action" style="background: #fbbf24; color: #78350f; border: none; margin-top: 0;" 
+                            onclick="openFeedbackModal(<?= $d['id'] ?>, <?= $agentId ?>, '<?= addslashes($agentName) ?>')">
+                        <i class='bx bx-star'></i> Rate Agent: <?= htmlspecialchars($agentName) ?>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
         <?php
     }
@@ -482,6 +537,86 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 else alert(data.message || 'Action failed');
             } catch(e) {
                 alert('Connection error');
+            }
+        }
+
+        /* Feedback Functions */
+        let currentFeedbackTx = 0;
+        let currentFeedbackReviewee = 0;
+        let currentRatingValue = 0;
+
+        function openFeedbackModal(txId, revieweeId, name) {
+            currentFeedbackTx = txId;
+            currentFeedbackReviewee = revieweeId;
+            document.getElementById('rating-target-name').textContent = `Rating: ${name}`;
+            document.getElementById('feedback-modal').style.display = 'flex';
+            resetRating();
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+
+        function resetRating() {
+            currentRatingValue = 0;
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                star.className = 'bx bx-star';
+            });
+            document.getElementById('feedback-comment').value = '';
+        }
+
+        document.querySelectorAll('#feedback-rating i').forEach(star => {
+            star.addEventListener('mouseover', function() {
+                const val = this.dataset.value;
+                highlightStars(val);
+            });
+            star.addEventListener('mouseout', function() {
+                highlightStars(currentRatingValue);
+            });
+            star.addEventListener('click', function() {
+                currentRatingValue = this.dataset.value;
+                highlightStars(currentRatingValue);
+            });
+        });
+
+        function highlightStars(val) {
+            document.querySelectorAll('#feedback-rating i').forEach(star => {
+                if (star.dataset.value <= val) {
+                    star.className = 'bx bxs-star';
+                } else {
+                    star.className = 'bx bx-star';
+                }
+            });
+        }
+
+        async function submitFeedback() {
+            if (currentRatingValue === 0) {
+                alert('Please select a rating');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_feedback');
+            formData.append('transaction_id', currentFeedbackTx);
+            formData.append('reviewee_id', currentFeedbackReviewee);
+            formData.append('rating', currentRatingValue);
+            formData.append('comment', document.getElementById('feedback-comment').value);
+
+            try {
+                const response = await fetch('../actions/feedback_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+                    closeFeedbackModal();
+                    location.reload();
+                } else {
+                    alert(result.message || 'Failed to submit feedback');
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
             }
         }
 

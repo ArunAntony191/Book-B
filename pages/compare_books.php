@@ -112,8 +112,8 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
                                         $cover = $cover ?: $fallback;
                                     ?>
-                                    <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" 
-                                         class="book-preview-img" 
+                                    <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" 
+                                         class="book-cover" 
                                          onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                                     <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($book['title']); ?></h3>
                                     <p style="color: var(--text-muted);"><?php echo htmlspecialchars($book['author']); ?></p>

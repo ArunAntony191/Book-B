@@ -148,6 +148,13 @@ class DeliveryManager {
                     $this->pdo->prepare("UPDATE transactions SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
                         ->execute([$transactionId]);
                 }
+
+                // COD + Doorstep Delivery: Cash collected by agent at delivery — mark payment as paid
+                if ($tx['payment_method'] === 'cod' && $tx['delivery_method'] === 'delivery' && $tx['payment_status'] !== 'paid') {
+                    $this->pdo->prepare("UPDATE transactions SET payment_status = 'paid' WHERE id = ?")->execute([$transactionId]);
+                    $msg = "Your COD payment for '{$tx['title']}' has been collected by the delivery agent. Enjoy your book!";
+                    createNotification($tx['borrower_id'], 'payment_confirmed', $msg, $transactionId);
+                }
                 
                 // Notify Borrower
                 $this->sendUpdateNotification($tx, 'delivered');
@@ -185,13 +192,22 @@ class DeliveryManager {
     public function confirmHandover($userId, $transactionId) {
         $tx = $this->getTransaction($transactionId);
 
-        // Case 1: Standard Leg (Lender handing to agent)
+        // Case 1: Standard Leg (Lender handing to agent OR direct pickup)
         if ($tx['lender_id'] == $userId) {
             $this->pdo->prepare("UPDATE transactions SET lender_confirm_at = IFNULL(lender_confirm_at, NOW()) WHERE id = ?")->execute([$transactionId]);
             // If not yet picked up by agent (officially), mark it picked up since owner says they handed it over
             if (!$tx['picked_up_at'] && in_array($tx['status'], ['approved', 'assigned'])) {
                  $this->pdo->prepare("UPDATE transactions SET status = 'active', picked_up_at = NOW() WHERE id = ?")->execute([$transactionId]);
             }
+
+            // COD + Pickup: Cash is exchanged at handover — auto-mark payment as paid
+            if ($tx['payment_method'] === 'cod' && $tx['delivery_method'] === 'pickup' && $tx['payment_status'] !== 'paid') {
+                $this->pdo->prepare("UPDATE transactions SET payment_status = 'paid' WHERE id = ?")->execute([$transactionId]);
+                // Notify buyer that payment is confirmed
+                $msg = "Your COD payment for '{$tx['title']}' has been confirmed by the owner. Enjoy your book!";
+                createNotification($tx['borrower_id'], 'payment_confirmed', $msg, $transactionId);
+            }
+
             return true;
         }
 

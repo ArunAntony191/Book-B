@@ -54,6 +54,7 @@ markSpecificNotificationAsRead($userId, $id, ['borrow_request', 'sell_request', 
 
 $isLender = ($d['lender_id'] == $userId);
 $isBorrower = ($d['borrower_id'] == $userId);
+$isReturnPhase = in_array($d['status'], ['returning', 'returned']);
 
 function getStatusLabel($status, $agentId, $method) {
     if ($status === 'approved' && $method === 'pickup') return 'Ready for Collection';
@@ -222,7 +223,7 @@ function getStatusLabel($status, $agentId, $method) {
                             $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';
                             $cover = $cover ?: $fallback;
                         ?>
-                        <img src="<?php echo htmlspecialchars($cover, ENT_QUOTES, 'UTF-8', false); ?>" class="book-cover" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
+                        <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="book-cover" onerror="this.onerror=null; this.src='<?php echo $fallback; ?>';">
                         <div>
                             <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($d['title']); ?></h2>
                             <p style="color: var(--text-muted); font-size: 1rem;">by <?php echo htmlspecialchars($d['author']); ?></p>
@@ -246,7 +247,6 @@ function getStatusLabel($status, $agentId, $method) {
                     <div class="info-section">
                         <h3 class="section-title"><i class='bx bx-rocket'></i> Delivery Progress</h3>
                         <?php 
-                        $isReturnPhase = in_array($d['status'], ['returning', 'returned']);
                         $steps = $isReturnPhase ? ['delivered', 'returning', 'returned'] : ['requested', 'approved', 'active', 'delivered'];
                         $currentIndex = array_search($d['status'], $steps);
                         if($currentIndex === false) $currentIndex = 0;
@@ -320,9 +320,9 @@ function getStatusLabel($status, $agentId, $method) {
                             <?php endif; ?>
 
                             <?php if (!$isReturnPhase): ?>
-                                <?php if ($isBorrower && empty($d['borrower_confirm_at'])): ?>
+                                <?php if (($d['status'] === 'delivered' || ($d['delivery_method'] === 'pickup' && in_array($d['status'], ['approved', 'active']))) && $isBorrower && empty($d['borrower_confirm_at'])): ?>
                                     <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
-                                <?php elseif ($isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
+                                <?php elseif ($d['status'] === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
                                     <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
                                         <i class='bx bx-undo'></i> Return Book
                                     </button>
@@ -330,14 +330,15 @@ function getStatusLabel($status, $agentId, $method) {
                                         <i class='bx bx-calendar-plus'></i> Extend Date
                                     </button>
                                 <?php endif; ?>
-                                <?php if ($isLender && empty($d['lender_confirm_at'])): ?>
+                                
+                                <?php if (in_array($d['status'], ['approved', 'assigned', 'active']) && $isLender && empty($d['lender_confirm_at'])): ?>
                                     <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover<?= $d['delivery_method'] === 'pickup' ? '' : ' to Agent' ?></button>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <?php if ($isBorrower && empty($d['return_borrower_confirm_at'])): ?>
+                                <?php if ($d['status'] === 'returning' && $isBorrower && empty($d['return_borrower_confirm_at'])): ?>
                                     <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover (Return)</button>
                                 <?php endif; ?>
-                                <?php if ($isLender && empty($d['return_lender_confirm_at'])): ?>
+                                <?php if ($d['status'] === 'returned' && $isLender && empty($d['return_lender_confirm_at'])): ?>
                                     <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt (Return)</button>
                                 <?php endif; ?>
                             <?php endif; ?>
