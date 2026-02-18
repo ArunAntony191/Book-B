@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .auth-wrapper {
@@ -32,14 +32,14 @@
             align-items: center;
             gap: 0.5rem;
             font-size: 1.75rem;
-            font-weight: 800;
-            color: var(--text-main);
+            font-weight: 900;
+            color: #0f172a;
             margin-bottom: 1rem;
         }
         .auth-logo-icon {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            background: var(--primary);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -132,7 +132,7 @@
                 <div class="auth-header">
                     <div class="auth-logo">
                         <div class="auth-logo-icon"><i class='bx bx-book-bookmark'></i></div>
-                        BOOK-<span>B</span>
+                        BOOK- <span>B</span>
                     </div>
                     <h1 class="auth-title">Invalid Link</h1>
                     <p class="auth-subtitle">This password reset link is invalid or has expired.</p>
@@ -142,7 +142,7 @@
                 <div class="auth-header">
                     <div class="auth-logo">
                         <div class="auth-logo-icon"><i class='bx bx-book-bookmark'></i></div>
-                        BOOK-<span>B</span>
+                        BOOK- <span>B</span>
                     </div>
                     <h1 class="auth-title">New Password</h1>
                     <p class="auth-subtitle">Create a secure new password for your account</p>

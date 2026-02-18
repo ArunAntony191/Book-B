@@ -26,7 +26,7 @@ $wishlist = $stmt->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Wishlist | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .books-grid {
@@ -86,6 +86,7 @@ $wishlist = $stmt->fetchAll();
     </style>
 </head>
 <body>
+    <?php include '../includes/dashboard_header.php'; ?>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         

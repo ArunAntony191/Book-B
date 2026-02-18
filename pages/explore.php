@@ -58,7 +58,7 @@ $rareResults = getRareBooks(10);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Explore Books | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=1.1">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -412,6 +412,7 @@ $rareResults = getRareBooks(10);
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 </head>
 <body>
+    <?php include '../includes/dashboard_header.php'; ?>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -443,7 +444,6 @@ $rareResults = getRareBooks(10);
                                 $typeOptions = [
                                     '' => ['label' => 'All', 'icon' => 'bx-list-ul'],
                                     'borrow' => ['label' => 'Borrow', 'icon' => 'bx-book-reader'],
-                                    'exchange' => ['label' => 'Exchange', 'icon' => 'bx-transfer'],
                                     'sell' => ['label' => 'Buy', 'icon' => 'bx-shopping-bag']
                                 ];
                                 foreach($typeOptions as $value => $option):
@@ -620,11 +620,11 @@ $rareResults = getRareBooks(10);
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
-        const initialLat = <?php echo ($user['service_start_lat'] ?? 9.4124); ?>;
-        const initialLng = <?php echo ($user['service_start_lng'] ?? 76.6946); ?>;
+        const initialLat = <?php echo floatval($user['service_start_lat'] ?? 12.9716); ?>;
+        const initialLng = <?php echo floatval($user['service_start_lng'] ?? 77.5946); ?>;
         const map = L.map('map').setView([initialLat, initialLng], 12);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
             attribution: '©OpenStreetMap ©CartoDB'
         }).addTo(map);
 

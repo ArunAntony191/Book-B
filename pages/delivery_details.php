@@ -50,7 +50,7 @@ try {
 }
 
 // Mark this notification as read if it exists
-markSpecificNotificationAsRead($userId, $id, ['borrow_request', 'sell_request', 'exchange_request', 'delivery_assigned', 'delivery_update']);
+markSpecificNotificationAsRead($userId, $id, ['borrow_request', 'sell_request', 'delivery_assigned', 'delivery_update']);
 
 $isLender = ($d['lender_id'] == $userId);
 $isBorrower = ($d['borrower_id'] == $userId);
@@ -75,7 +75,7 @@ function getStatusLabel($status, $agentId, $method) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transaction Details | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -386,7 +386,7 @@ function getStatusLabel($status, $agentId, $method) {
         const d = <?php echo json_encode($d); ?>;
         if (d.pickup_lat && d.order_lat) {
             const map = L.map('map').setView([d.pickup_lat, d.pickup_lng], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png').addTo(map);
             
             L.marker([d.pickup_lat, d.pickup_lng]).addTo(map).bindPopup('Pickup Location');
             L.marker([d.order_lat, d.order_lng]).addTo(map).bindPopup('Delivery Location');

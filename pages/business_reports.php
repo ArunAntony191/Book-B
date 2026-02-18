@@ -1,9 +1,8 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
 $user_role = $_SESSION['role'] ?? 'user';
 
 // Ensure only library or bookstore (or admin) can access
@@ -16,18 +15,8 @@ $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-d');
 
 $report = getBusinessReportStats($userId, $startDate, $endDate);
-$user = getUserById($userId);
-
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Reports | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .report-header {
             display: flex; justify-content: space-between; align-items: flex-end;
             margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);
@@ -61,9 +50,7 @@ $user = getUserById($userId);
             .report-card { border: none !important; box-shadow: none !important; }
             body { background: white !important; }
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -242,9 +229,9 @@ $user = getUserById($userId);
             options: { responsive: true, maintainAspectRatio: false }
         });
 
-        // 2. Type Chart (Sell vs Borrow vs Exchange)
+        // 2. Type Chart (Sell vs Borrow)
         <?php
-            $typeData = ['sell' => 0, 'borrow' => 0, 'exchange' => 0];
+            $typeData = ['sell' => 0, 'borrow' => 0];
             foreach ($report['activity'] as $act) {
                 if (isset($typeData[$act['listing_type']])) $typeData[$act['listing_type']]++;
             }
@@ -253,10 +240,10 @@ $user = getUserById($userId);
         new Chart(typeCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Sell', 'Borrow', 'Exchange'],
+                labels: ['Sell', 'Borrow'],
                 datasets: [{
-                    data: [<?php echo $typeData['sell']; ?>, <?php echo $typeData['borrow']; ?>, <?php echo $typeData['exchange']; ?>],
-                    backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6']
+                    data: [<?php echo $typeData['sell']; ?>, <?php echo $typeData['borrow']; ?>],
+                    backgroundColor: ['#10b981', '#3b82f6']
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }

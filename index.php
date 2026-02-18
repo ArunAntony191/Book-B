@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BOOK-B | Free Book Borrowing Platform</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
 <body>
@@ -13,7 +13,7 @@
         <div class="container nav-container">
             <a href="index.php" class="logo">
                 <div class="logo-icon"><i class='bx bx-book-bookmark'></i></div>
-                BOOK-<span>B</span>
+                BOOK- <span>B</span>
             </a>
             <div style="display: flex; gap: 2rem; align-items: center;">
                 <a href="#features" style="text-decoration: none; color: var(--text-body); font-weight: 500;">Features</a>

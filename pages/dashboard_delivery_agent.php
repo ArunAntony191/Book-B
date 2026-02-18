@@ -1,12 +1,9 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
-$user_role = $_SESSION['role'] ?? 'user';
-
-if (!$userId || ($user_role !== 'delivery_agent' && $user_role !== 'admin')) {
+if ($user['role'] !== 'delivery_agent' && $user['role'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
@@ -103,22 +100,23 @@ $active_transit_count = count(array_filter($my_deliveries, fn($d) => $d['status'
 $pending_pickup_count = count(array_filter($my_deliveries, fn($d) => $d['status'] === 'approved'));
 
 // Delivered Today / Total
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE delivery_agent_id = ? AND status = 'delivered'");
-$stmt->execute([$userId]);
-$total_delivered = $stmt->fetchColumn();
+// Delivered Today / Total
+// Sum both forward deliveries and return missions using confirmation timestamps for consistency with report
+$stmt = $pdo->prepare("
+    SELECT 
+        (SELECT COUNT(*) FROM transactions WHERE delivery_agent_id = ? AND agent_confirm_delivery_at IS NOT NULL) +
+        (SELECT COUNT(*) FROM transactions WHERE return_agent_id = ? AND return_agent_confirm_at IS NOT NULL)
+");
+$stmt->execute([$userId, $userId]);
+$total_delivered = (int)$stmt->fetchColumn();
+
+// Calculate Earnings consistency with report (total_completed * 50)
+$calculated_earnings = $total_delivered * 50.00;
 
 // Fetch latest reviews for the modal
 $userReviews = getUserReviews($userId, 5); 
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Hub | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         :root {
             --primary-logistics: #2563eb;
             --success-logistics: #16a34a;
@@ -306,9 +304,7 @@ $userReviews = getUserReviews($userId, 5);
         .review-item:last-child {
             border-bottom: none;
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -365,6 +361,24 @@ $userReviews = getUserReviews($userId, 5);
                     </div>
                     <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">
                         Built on reliability
+                    </div>
+                </div>
+
+                <!-- Wallet Balance -->
+                <div class="widget-card" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 2px solid #10b981; cursor: pointer;" onclick="location.href='agent_reports.php'">
+                    <div class="widget-title">
+                        <span><i class='bx bx-wallet'></i> Wallet Balance</span>
+                    </div>
+                    <div style="margin: 1rem 0; text-align: center;">
+                        <div style="font-size: 2.5rem; font-weight: 900; color: #10b981;">
+                            ₹<?php echo number_format($calculated_earnings, 2); ?>
+                        </div>
+                        <div style="color: #10b981; font-size: 0.9rem; font-weight: 700; margin-top: 0.5rem; text-transform: uppercase;">
+                            Real Money
+                        </div>
+                    </div>
+                    <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                        Withdrawable Earnings
                     </div>
                 </div>
 
@@ -604,8 +618,8 @@ $userReviews = getUserReviews($userId, 5);
                                     <div style="font-weight: 700; margin-bottom: 0.3rem;">Pickup in <?php echo substr($av['pickup_location'], 0, 20); ?>...</div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted);">Dropping off at <?php echo substr($av['order_address'], 0, 20); ?>...</div>
                                 </div>
-                                <div style="background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight:700;">
-                                    EARN 10 CR
+                                <div style="background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight:700; text-align: right;">
+                                    EARN ₹50<br>+ 10 CR
                                 </div>
                             </div>
                             <button class="btn btn-sm btn-primary w-full" onclick="location.href='delivery_jobs.php'">View & Claim</button>

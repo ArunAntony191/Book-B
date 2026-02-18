@@ -109,12 +109,12 @@ function getUserById($userId) {
         $pdo = getDBConnection();
         
         $stmt = $pdo->prepare("
-            SELECT id, email, firstname, lastname, phone, role, reputation_score, trust_score, 
+            SELECT id, email, firstname, lastname, phone, role, reputation_score, trust_score, credits,
                    total_lends, total_borrows, average_rating, total_ratings, created_at,
                    address, landmark, district, city, pincode, state, 
                    theme_mode, email_notifications, notify_new_listings,
                    service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
-                   profile_picture, favorite_category
+                   profile_picture, favorite_category, available_earnings, pending_earnings
             FROM users 
             WHERE id = ?
         ");
@@ -491,8 +491,8 @@ function getDueBooks($userId, $days = 3) {
             JOIN books b ON l.book_id = b.id
             WHERE t.borrower_id = ? 
             AND t.status = 'delivered'
-            AND t.due_date IS NOT NULL
-            AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+            AND t.due_date IS NOT NULL AND t.due_date != '0000-00-00'
+            AND t.due_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
             ORDER BY t.due_date ASC
         ");
         $stmt->execute([$userId, $days]);
@@ -1321,7 +1321,7 @@ function getUserStatsEnhanced($userId) {
         
         // Get user data
         $stmt = $pdo->prepare("
-            SELECT credits, trust_score, average_rating, total_ratings, 
+            SELECT credits, available_earnings, trust_score, average_rating, total_ratings, 
                    total_lends, total_borrows, late_returns
             FROM users 
             WHERE id = ?
@@ -1360,6 +1360,7 @@ function getUserStatsEnhanced($userId) {
             'total_listings' => $listings,
             'active_borrows' => $activeBorrows,
             'pending_requests' => $pendingRequests,
+            'available_earnings' => $stats['available_earnings'] ?? 0,
             'trust_rating' => getTrustScoreRating($stats['trust_score'] ?? 50)
         ]);
         
@@ -1465,7 +1466,7 @@ function getUnreadRequestsCount($userId) {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM notifications 
             WHERE user_id = ? AND is_read = 0 
-            AND type IN ('borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined')
+            AND type IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined')
         ");
         $stmt->execute([$userId]);
         return (int)$stmt->fetchColumn();
@@ -1520,7 +1521,7 @@ function getUnreadSystemNotificationsCount($userId) {
             SELECT COUNT(*) FROM notifications 
             WHERE user_id = ? AND is_read = 0 
             AND type NOT IN (
-                'borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined',
+                'borrow_request', 'sell_request', 'request_accepted', 'request_declined',
                 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'
             )
         ");
@@ -1768,7 +1769,16 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         $startStr = $startDate . " 00:00:00";
         $endStr = $endDate . " 23:59:59";
         
-        $stats = [];
+        $stats = [
+            'total_completed' => 0,
+            'lifetime_completed' => 0,
+            'total_earnings' => 0,
+            'cash_earnings' => 0.00,
+            'lifetime_cash' => 0.00,
+            'total_abandoned' => 0,
+            'avg_rating' => 0.0,
+            'success_rate' => 100
+        ];
         
         // Total Completed Missions (Sum of Forward + Return counts)
         $stmt = $pdo->prepare("
@@ -1782,6 +1792,17 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         ");
         $stmt->execute([$agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
         $stats["total_completed"] = (int)$stmt->fetchColumn();
+
+        // Lifetime Completed Missions
+        $stmt = $pdo->prepare("
+            SELECT 
+                (SELECT COUNT(*) FROM transactions WHERE delivery_agent_id = ? AND agent_confirm_delivery_at IS NOT NULL)
+                +
+                (SELECT COUNT(*) FROM transactions WHERE return_agent_id = ? AND return_agent_confirm_at IS NOT NULL)
+                as lifetime_completed
+        ");
+        $stmt->execute([$agentId, $agentId]);
+        $stats["lifetime_completed"] = (int)$stmt->fetchColumn();
         
         // Earnings (Credits earned)
         $stmt = $pdo->prepare("
@@ -1812,6 +1833,10 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
         // Success Rate
         $total_attempts = $stats["total_completed"] + $stats["total_abandoned"];
         $stats["success_rate"] = $total_attempts > 0 ? ($stats["total_completed"] / $total_attempts) * 100 : 100;
+
+        // Monetary Earnings (Total Completed * 50)
+        $stats["cash_earnings"] = $stats["total_completed"] * 50.00;
+        $stats["lifetime_cash"] = $stats["lifetime_completed"] * 50.00;
         
         // Unified Activity Log (UNION ALL to support separate Forward/Return entries)
         $sql = "
@@ -1848,10 +1873,57 @@ function getAgentReportStats($agentId, $startDate, $endDate) {
             $agentId, $startStr, $endStr
         ]);
         $stats["activity"] = $stmt->fetchAll();
+
+        // 6. Lifetime Activity Log (No date filter)
+        $sqlLife = "
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Forward' as mission_type,
+                    t.agent_confirm_delivery_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL)
+            
+            UNION ALL
+            
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Return' as mission_type,
+                    t.return_agent_confirm_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL)
+             
+            ORDER BY mission_timestamp DESC
+        ";
+        
+        $stmtLife = $pdo->prepare($sqlLife);
+        $stmtLife->execute([$agentId, $agentId]);
+        $stats["lifetime_activity"] = $stmtLife->fetchAll();
         
         return $stats;
     } catch (PDOException $e) {
         error_log("Get agent report stats error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Add monetary earnings to user balance
+ */
+function addEarnings($userId, $amount, $description = "") {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE users SET available_earnings = available_earnings + ? WHERE id = ?");
+        return $stmt->execute([$amount, $userId]);
+    } catch (PDOException $e) {
+        error_log("Add earnings error: " . $e->getMessage());
         return false;
     }
 }
@@ -2042,7 +2114,6 @@ function createNotification($userId, $type, $message, $referenceId = null) {
             switch ($type) {
                 case 'borrow_request':
                 case 'sell_request':
-                case 'exchange_request':
                     $subject = 'New Book Request';
                     $actionUrl = APP_URL . '/pages/deals.php';
                     $actionText = 'View Request';

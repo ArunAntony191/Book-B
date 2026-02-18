@@ -1,13 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
-
-$userId = $_SESSION['user_id'] ?? 0;
-if (!$userId) {
-    header("Location: login.php");
-    exit();
-}
+include '../includes/dashboard_header.php';
 
 $pdo = getDBConnection();
 
@@ -66,7 +60,7 @@ $myListings = $stmt->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Listings | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .page-header {
@@ -127,7 +121,6 @@ $myListings = $stmt->fetchAll();
         }
         .badge-borrow { background: var(--info); }
         .badge-sell { background: var(--success); }
-        .badge-exchange { background: #8b5cf6; }
 
         .listing-content {
             padding: 1.5rem;
@@ -258,7 +251,6 @@ $myListings = $stmt->fetchAll();
                         <option value="all" <?php echo $type === 'all' ? 'selected' : ''; ?>>All Types</option>
                         <option value="borrow" <?php echo $type === 'borrow' ? 'selected' : ''; ?>>Borrow</option>
                         <option value="sell" <?php echo $type === 'sell' ? 'selected' : ''; ?>>Sell</option>
-                        <option value="exchange" <?php echo $type === 'exchange' ? 'selected' : ''; ?>>Exchange</option>
                     </select>
                 </div>
 

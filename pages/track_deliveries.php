@@ -18,7 +18,7 @@ $deliveries = getUserDeliveries($userId);
 $returnStatuses = ['return_requested', 'return_approved', 'returning', 'returned', 'return_delivery_assigned', 'return_pending_confirmation'];
 
 // Categorization
-$incoming = []; $outgoing = []; $returns = []; $exchanges = []; $pickups = []; $cancelled = []; $all_deliveries = [];
+$incoming = []; $outgoing = []; $returns = []; $pickups = []; $cancelled = []; $all_deliveries = [];
 
 foreach ($deliveries as $d) {
     $all_deliveries[] = $d;
@@ -26,10 +26,6 @@ foreach ($deliveries as $d) {
 
     if ($d['status'] === 'cancelled') {
         $cancelled[] = $d;
-        continue;
-    }
-    if ($d['transaction_type'] === 'exchange') {
-        $exchanges[] = $d;
         continue;
     }
     if ($isActuallyReturning && $d['transaction_type'] !== 'purchase') {
@@ -70,7 +66,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Track Deliveries | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -248,7 +244,6 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <button class="tab-btn" onclick="switchTab('incoming', this)">Incoming <span>(<?= count($incoming) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('outgoing', this)">Outgoing <span>(<?= count($outgoing) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('returns', this)">Returns <span>(<?= count($returns) ?>)</span></button>
-                    <button class="tab-btn" onclick="switchTab('exchanges', this)">Exchanges <span>(<?= count($exchanges) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('pickups', this)">Pickups <span>(<?= count($pickups) ?>)</span></button>
                     <button class="tab-btn" onclick="switchTab('cancelled', this)">Cancelled <span>(<?= count($cancelled) ?>)</span></button>
                 </div>
@@ -257,7 +252,6 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <div id="incoming-list" class="tab-content" style="display:none"><?php foreach($incoming as $d) renderDeliveryCard($d); ?></div>
                 <div id="outgoing-list" class="tab-content" style="display:none"><?php foreach($outgoing as $d) renderDeliveryCard($d); ?></div>
                 <div id="returns-list" class="tab-content" style="display:none"><?php foreach($returns as $d) renderDeliveryCard($d, 'return'); ?></div>
-                <div id="exchanges-list" class="tab-content" style="display:none"><?php foreach($exchanges as $d) renderDeliveryCard($d); ?></div>
                 <div id="pickups-list" class="tab-content" style="display:none"><?php foreach($pickups as $d) renderDeliveryCard($d); ?></div>
                 <div id="cancelled-list" class="tab-content" style="display:none"><?php foreach($cancelled as $d) renderDeliveryCard($d); ?></div>
 

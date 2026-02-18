@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboards Hub | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
 </head>
 <body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-body);">
     <div class="container" style="text-align: center; max-width: 800px;">
@@ -18,7 +18,7 @@
                         <i class='bx bx-user'></i>
                     </div>
                     <h3 style="margin: 0;">Individual User</h3>
-                    <p style="font-size: 0.9rem; color: var(--text-muted);">For standard borrowing, swapping, and reputation tracking.</p>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">For standard borrowing and reputation tracking.</p>
                 </div>
             </a>
             

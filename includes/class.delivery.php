@@ -59,28 +59,44 @@ class DeliveryManager {
             throw new Exception("Unauthorized: Not a delivery agent.");
         }
         
-        // Check transaction state
-        $stmt = $this->pdo->prepare("SELECT status, delivery_agent_id, return_delivery_method, return_agent_id FROM transactions WHERE id = ?");
-        $stmt->execute([$transactionId]);
-        $tx = $stmt->fetch();
-
-        if (!$tx) throw new Exception("Transaction not found.");
-
-        // Case 1: Standard pickup (Approved status, no agent)
-        if ($tx['status'] === 'approved' && !$tx['delivery_agent_id']) {
-            $sql = "UPDATE transactions SET delivery_agent_id = ? WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
-            return true;
-        } 
+        // Start transaction for atomic check-and-claim
+        $this->pdo->beginTransaction();
         
-        // Case 2: Return leg (Returning status OR approved for return phase)
-        if ($tx['return_delivery_method'] === 'delivery' && !$tx['return_agent_id']) {
-            $sql = "UPDATE transactions SET return_agent_id = ?, status = 'returning' WHERE id = ?";
-            $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
-            return true;
-        }
+        try {
+            // Check transaction state with row lock to prevent race conditions
+            $stmt = $this->pdo->prepare("SELECT status, delivery_agent_id, return_delivery_method, return_agent_id FROM transactions WHERE id = ? FOR UPDATE");
+            $stmt->execute([$transactionId]);
+            $tx = $stmt->fetch();
 
-        throw new Exception("Job already claimed or not ready for pickup.");
+            if (!$tx) {
+                $this->pdo->rollBack();
+                throw new Exception("Transaction not found.");
+            }
+
+            // Case 1: Standard pickup (Approved status, no agent)
+            if ($tx['status'] === 'approved' && !$tx['delivery_agent_id']) {
+                $sql = "UPDATE transactions SET delivery_agent_id = ? WHERE id = ?";
+                $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
+                $this->pdo->commit();
+                return true;
+            } 
+            
+            // Case 2: Return leg (Returning status OR approved for return phase)
+            if ($tx['return_delivery_method'] === 'delivery' && !$tx['return_agent_id']) {
+                $sql = "UPDATE transactions SET return_agent_id = ?, status = 'returning' WHERE id = ?";
+                $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
+                $this->pdo->commit();
+                return true;
+            }
+
+            // Already claimed
+            $this->pdo->rollBack();
+            throw new Exception("Job already claimed or not ready for pickup.");
+            
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
     }
 
     /**
@@ -118,8 +134,9 @@ class DeliveryManager {
             if (!$tx['agent_confirm_delivery_at']) {
                 $this->pdo->prepare("UPDATE transactions SET agent_confirm_delivery_at = NOW() WHERE id = ?")->execute([$transactionId]);
                 
-                // Award credits only once
+                // Award credits and money only once
                 addCredits($tx['delivery_agent_id'], 10, 'earn', "Mission Completed: Deliver '{$tx['title']}'", $transactionId);
+                addEarnings($tx['delivery_agent_id'], 50, "Mission Completed: Deliver '{$tx['title']}'");
                 
                 // If not picked up, mark as picked up now
                 if (!$tx['picked_up_at']) {
@@ -148,8 +165,9 @@ class DeliveryManager {
                 $this->pdo->prepare("UPDATE transactions SET return_delivered_at = NOW() WHERE id = ?")
                     ->execute([$transactionId]);
                 
-                // Award credits only once
+                // Award credits and money only once
                 addCredits($tx['return_agent_id'], 10, 'earn', "Mission Completed: Return '{$tx['title']}' to owner", $transactionId);
+                addEarnings($tx['return_agent_id'], 50, "Mission Completed: Return '{$tx['title']}' to owner");
 
                 // Notify parties
                 $msg = "Return delivery complete! '{$tx['title']}' has been delivered back to the owner.";
@@ -218,7 +236,7 @@ class DeliveryManager {
                 }
             }
 
-            // Pay seller only if it's a borrow/exchange (token-based)
+            // Pay seller only if it's a borrow (token-based)
             // Purchases are handled via Cash (COD) or Online Payment
             if (!$alreadyConfirmed && $tx['transaction_type'] !== 'purchase') {
                  $credits = $tx['credit_cost'] ?? 10;

@@ -1,12 +1,9 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
-$user_role = $_SESSION['role'] ?? 'user';
-
-if (!$userId || ($user_role !== 'delivery_agent' && $user_role !== 'admin')) {
+if ($user['role'] !== 'delivery_agent' && $user['role'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
@@ -18,15 +15,7 @@ $report = getAgentReportStats($userId, $startDate, $endDate);
 $agent = getUserById($userId);
 
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earnings Report | BOOK-B Agent</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .report-header {
             display: flex; justify-content: space-between; align-items: flex-end;
             margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);
@@ -60,9 +49,7 @@ $agent = getUserById($userId);
             .report-card { border: none !important; box-shadow: none !important; }
             body { background: white !important; }
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -97,9 +84,19 @@ $agent = getUserById($userId);
             </form>
 
             <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 1.5px solid #10b981;">
+                    <div class="stat-label">Wallet Balance</div>
+                    <div class="stat-value" style="color: #059669;">₹<?php echo number_format($report['lifetime_cash'], 2); ?></div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Withdrawable Earnings</div>
+                </div>
                 <div class="stat-card">
-                    <div class="stat-label">Total Earnings</div>
-                    <div class="stat-value" style="color: #059669;"><?php echo $report['total_earnings']; ?> CR</div>
+                    <div class="stat-label">Earnings in Period</div>
+                    <div class="stat-value" style="color: #059669;">₹<?php echo number_format($report['cash_earnings'], 2); ?></div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">From Selected Dates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Credit Earnings</div>
+                    <div class="stat-value" style="color: #3b82f6;"><?php echo $report['total_earnings']; ?> CR</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Credits Collected</div>
                 </div>
                 <div class="stat-card">
@@ -143,12 +140,16 @@ $agent = getUserById($userId);
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0;"><i class='bx bx-list-check'></i> Delivery Activity Log</h3>
+                <h3 style="margin: 0;"><i class='bx bx-list-check'></i> Lifetime Delivery Activity Log</h3>
             </div>
             
-            <?php if (empty($report['activity'])): ?>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Showing all completed missions contributing to your current Wallet Balance (regardless of the date filter).
+            </p>
+            
+            <?php if (empty($report['lifetime_activity'])): ?>
                 <div style="text-align: center; padding: 4rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
-                    <p style="color: var(--text-muted);">No activity found for the selected period.</p>
+                    <p style="color: var(--text-muted);">No activity found for your account.</p>
                 </div>
             <?php else: ?>
                 <table class="report-table" id="activityTable">
@@ -159,11 +160,12 @@ $agent = getUserById($userId);
                             <th>Book Title</th>
                             <th>Participants</th>
                             <th>Status</th>
-                            <th>Earnings</th>
+                            <th>Credits</th>
+                            <th>Cash</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach($report['activity'] as $row): ?>
+                        <?php foreach($report['lifetime_activity'] as $row): ?>
                         <tr>
                             <td style="font-weight: 500; font-size: 0.85rem;">
                                 <?php echo date('M d, Y', strtotime($row['mission_timestamp'])); ?><br>
@@ -199,7 +201,10 @@ $agent = getUserById($userId);
                                 </span>
                             </td>
                             <td>
-                                <span style="font-weight: 700; color: #059669;">+10 CR</span>
+                                <span style="font-weight: 700; color: #3b82f6;">+10 CR</span>
+                            </td>
+                            <td>
+                                <span style="font-weight: 700; color: #059669;">+₹50.00</span>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -214,7 +219,7 @@ $agent = getUserById($userId);
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script>
-        // 1. Prepare Data for Chart
+        // 1. Prepare Data for Chart - ONLY showing filtered period activity
         <?php
             // Aggregate earnings and mission counts by date
             $chartData = [];
@@ -223,10 +228,11 @@ $agent = getUserById($userId);
                 $date = date('Y-m-d', strtotime($act['mission_timestamp']));
                 
                 if (!isset($chartData[$date])) {
-                    $chartData[$date] = ['earnings' => 0, 'forward' => 0, 'return' => 0];
+                    $chartData[$date] = ['credits' => 0, 'cash' => 0, 'forward' => 0, 'return' => 0];
                 }
                 
-                $chartData[$date]['earnings'] += 10;
+                $chartData[$date]['credits'] += 10;
+                $chartData[$date]['cash'] += 50;
                 
                 if ($act['mission_type'] === 'Forward') {
                     $chartData[$date]['forward']++;
@@ -237,7 +243,8 @@ $agent = getUserById($userId);
             ksort($chartData); // Sort by date
             
             $labels = array_keys($chartData);
-            $earningsValues = array_column($chartData, 'earnings');
+            $creditValues = array_column($chartData, 'credits');
+            $cashValues = array_column($chartData, 'cash');
             $forwardValues = array_column($chartData, 'forward');
             $returnValues = array_column($chartData, 'return');
         ?>
@@ -248,28 +255,35 @@ $agent = getUserById($userId);
             type: 'line',
             data: {
                 labels: <?php echo json_encode($labels); ?>,
-                datasets: [{
-                    label: 'Daily Earnings (CR)',
-                    data: <?php echo json_encode($earningsValues); ?>,
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#4f46e5',
-                    pointBorderWidth: 2,
-                    pointRadius: 4
-                }]
+                datasets: [
+                    {
+                        label: 'Cash Earnings (₹)',
+                        data: <?php echo json_encode($cashValues); ?>,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Credit Earnings (CR)',
+                        data: <?php echo json_encode($creditValues); ?>,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: true, position: 'top' } },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { callback: function(value) { return value + ' CR'; } }
+                        ticks: { callback: function(value) { return value; } }
                     }
                 }
             }
@@ -320,7 +334,7 @@ $agent = getUserById($userId);
             const ws_data = [];
             
             // Headers
-            ws_data.push(['Date', 'Order ID', 'Book Title', 'Participants', 'Status', 'Earnings']);
+            ws_data.push(['Date', 'Order ID', 'Book Title', 'Participants', 'Status', 'Credits', 'Cash']);
             
             // Rows
             const rows = table.querySelectorAll('tbody tr');
@@ -332,9 +346,10 @@ $agent = getUserById($userId);
                 const title = cols[2].innerText.trim();
                 const participants = cols[3].innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim(); // Flatten text
                 const status = cols[4].innerText.trim();
-                const earnings = cols[5].innerText.trim();
+                const credits = cols[5].innerText.trim();
+                const cash = cols[6].innerText.trim();
                 
-                ws_data.push([date, orderId, title, participants, status, earnings]);
+                ws_data.push([date, orderId, title, participants, status, credits, cash]);
             });
 
             // Make Sheet

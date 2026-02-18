@@ -6,8 +6,10 @@
 
 // Function to calculate days remaining
 function getDaysRemaining($dueDate) {
+    if (empty($dueDate) || $dueDate === '0000-00-00') return 999;
     $now = time();
     $due = strtotime($dueDate);
+    if ($due === false) return 999;
     $diff = $due - $now;
     return round($diff / (60 * 60 * 24));
 }

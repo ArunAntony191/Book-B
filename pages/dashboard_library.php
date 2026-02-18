@@ -21,18 +21,32 @@ $userReviews = getUserReviews($userId, 5);
     <main class="main-content">
         <?php include '../includes/announcements_component.php'; ?>
 
-        <div class="section-header">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <div>
-                <h1>Library Management 🏛️<br><small style="font-size: 1rem; color: var(--text-muted);">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
-                <p>Manage your collection, track borrowings, and serve your community.</p>
+                <h1 style="font-size: 2rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem;">Library Management 🏛️<br><small style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
+                <p style="color: var(--text-muted); margin-top: -0.5rem;">Manage your collection, track borrowings, and serve your community.</p>
             </div>
-            <a href="add_listing.php" class="btn btn-primary">
+            <a href="add_listing.php" class="btn btn-primary" style="white-space: nowrap;">
                 <i class='bx bx-plus-circle'></i> Add Books
             </a>
         </div>
 
-        <!-- Enhanced Library Stats -->
-        <div class="widgets-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Symmetrical Widgets Grid -->
+        <style>
+            .library-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }
+            @media (max-width: 1100px) {
+                .library-grid { grid-template-columns: repeat(2, 1fr); }
+            }
+            @media (max-width: 600px) {
+                .library-grid { grid-template-columns: 1fr; }
+            }
+        </style>
+        <div class="library-grid">
             <!-- Total Inventory -->
             <div class="widget-card" onclick="window.location.href='listings.php'" style="background: linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%); border: 2px solid #3b82f6; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">

@@ -10,7 +10,7 @@ if (!$userId) {
 }
 
 // Mark request notifications as read when visiting this page
-markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined']);
+markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'request_accepted', 'request_declined']);
 
 $deals = getUserDeals($userId);
 $all_deals = $deals; // All deals
@@ -44,7 +44,7 @@ $payments = array_filter($all_deals, function($d) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Deals | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>

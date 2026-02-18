@@ -1,9 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
-
-$userId = $_SESSION['user_id'] ?? 0;
+include '../includes/dashboard_header.php';
 $listingId = $_GET['id'] ?? 0;
 
 $pdo = getDBConnection();
@@ -61,7 +59,7 @@ if ($userId) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($book['title']); ?> | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link rel="stylesheet" href="../assets/css/toast.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -349,9 +347,7 @@ if ($userId) {
             0% { transform: scale(1); opacity: 1; }
             100% { transform: scale(3); opacity: 0; }
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -470,10 +466,6 @@ if ($userId) {
                                 <?php elseif ($book['listing_type'] === 'sell'): ?>
                                     <button onclick="openRequestModal('sell')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
                                         Buy Now
-                                    </button>
-                                <?php else: ?>
-                                    <button onclick="openRequestModal('exchange')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
-                                        Request Swap
                                     </button>
                                 <?php endif; ?>
                             <?php else: ?>
@@ -643,9 +635,9 @@ if ($userId) {
                     <span>+10 Tokens</span>
                 </div>
                 <div class="credit-row credit-total">
-                    <span>Total to Spend</span>
+                    <span id="total-label">Total to Spend</span>
                     <span id="base-cost" style="display:none;"><?php echo $book['credit_cost'] ?? 10; ?></span>
-                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>
+                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span><span id="cost-unit"> Tokens</span></span>
                 </div>
             </div>
 
@@ -802,34 +794,27 @@ if ($userId) {
                 title.innerText = 'Request to Borrow';
                 desc.innerText = 'Please select a return date for this item.';
                 document.getElementById('date-group').style.display = 'block';
-                document.getElementById('qty-group').style.display = 'none'; // No qty for borrow usually
+                document.getElementById('qty-group').style.display = 'none';
                 document.getElementById('reason-group').style.display = 'none';
                 document.getElementById('btn-submit-request').innerText = 'Send Request';
                 paySec.style.display = 'none';
-                
-                // Show Tokens
-                tokenRow.innerHTML = `<span>Total to Spend</span> <span id="base-cost" style="display:none;"><?php echo $book['credit_cost'] ?? 10; ?></span> <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span> Tokens</span>`;
+                document.getElementById('total-label').innerText = 'Total to Spend';
+                document.getElementById('cost-unit').style.display = '';
+                document.getElementById('total-cost').innerText = '<?php echo $book['credit_cost'] ?? 10; ?>';
+                document.getElementById('base-cost').innerText = '<?php echo $book['credit_cost'] ?? 10; ?>';
 
             } else if (type === 'sell') {
                 title.innerText = 'Buy Book';
                 desc.innerHTML = '';
                 document.getElementById('date-group').style.display = 'none';
                 document.getElementById('qty-group').style.display = 'block';
-                
-                // Default state
                 document.getElementById('btn-submit-request').innerText = 'Buy Now';
                 paySec.style.display = 'block';
                 document.getElementById('reason-group').style.display = 'none';
+                document.getElementById('total-label').innerText = 'Total Price';
+                document.getElementById('cost-unit').style.display = 'none';
                 
                 updateTotalCost();
-            } else {
-                title.innerText = 'Request Swap';
-                desc.innerText = 'Propose a swap for this book.';
-                document.getElementById('date-group').style.display = 'none';
-                document.getElementById('qty-group').style.display = 'none';
-                document.getElementById('reason-group').style.display = 'none';
-                document.getElementById('btn-submit-request').innerText = 'Send Request';
-                paySec.style.display = 'none';
             }
             updatePaymentMethodUI();
         }
@@ -864,12 +849,26 @@ if ($userId) {
             if (currentType !== 'sell') return;
             
             const qty = parseInt(document.getElementById('req-qty').value) || 1;
-            const price = bookPrice;
-            const total = qty * price;
+            const subtotal = qty * bookPrice;
             
-            // Note: Displaying price in INR, not tokens
+            // Update base-cost (subtotal without delivery)
+            const baseCostEl = document.getElementById('base-cost');
+            if (baseCostEl) baseCostEl.innerText = subtotal;
+
+            // Update label
             const tokenRow = document.querySelector('.credit-total');
-            tokenRow.innerHTML = `<span>Total Price</span> <span>₹${total}</span>`;
+            if (tokenRow) {
+                const label = tokenRow.querySelector('span:first-child');
+                if (label) label.innerText = 'Total Price';
+            }
+
+            // Re-use toggleDeliveryMap logic to recalculate final total (includes delivery if checked)
+            const wantDelivery = document.getElementById('want-delivery').checked;
+            const deliveryFee = wantDelivery ? 50 : 0;
+            const totalCostEl = document.getElementById('total-cost');
+            if (totalCostEl) {
+                totalCostEl.innerText = `₹${subtotal + deliveryFee}`;
+            }
         }
 
         function closeModal() {
@@ -878,11 +877,19 @@ if ($userId) {
 
         function toggleDeliveryMap() {
             const isChecked = document.getElementById('want-delivery').checked;
-            document.getElementById('delivery-setup').style.display = isChecked ? 'block' : 'none';
+            const deliverySetup = document.getElementById('delivery-setup');
+            if (deliverySetup) deliverySetup.style.display = isChecked ? 'block' : 'none';
             
-            const baseCost = parseFloat(document.getElementById('base-cost').innerText);
+            const baseCostEl = document.getElementById('base-cost');
             const deliveryFeeRow = document.getElementById('delivery-fee-row');
             const totalCostEl = document.getElementById('total-cost');
+            
+            if (!baseCostEl && currentType !== 'sell') {
+                console.error('base-cost element missing');
+                return;
+            }
+
+            const baseCost = baseCostEl ? parseFloat(baseCostEl.innerText) : (currentType === 'sell' ? (parseInt(document.getElementById('req-qty').value) || 1) * bookPrice : 0);
             
             let deliveryFee = 0;
             let deliveryText = '';
@@ -895,12 +902,25 @@ if ($userId) {
                 deliveryText = '+ 10 Tokens';
             }
 
-            deliveryFeeRow.style.display = isChecked ? 'flex' : 'none';
-            deliveryFeeRow.querySelector('span:last-child').innerText = deliveryText;
+            if (deliveryFeeRow) {
+                deliveryFeeRow.style.display = isChecked ? 'flex' : 'none';
+                const feeVal = deliveryFeeRow.querySelector('span:last-child');
+                if (feeVal) feeVal.innerText = deliveryText;
+            }
             
-            totalCostEl.innerText = baseCost + deliveryFee;
+            if (totalCostEl) {
+                if (currentType === 'sell') {
+                    totalCostEl.innerText = `₹${baseCost + deliveryFee}`;
+                } else {
+                    totalCostEl.innerText = baseCost + deliveryFee;
+                }
+            }
 
             if (isChecked) {
+                // Ensure map container exists and is visible
+                const mapContainer = document.getElementById('delivery-map');
+                if (!mapContainer) return;
+
                 if (!dMap) {
                     setTimeout(() => {
                         initDeliveryMap();
@@ -916,14 +936,22 @@ if ($userId) {
         function initDeliveryMap() {
             if (dMap) return;
             
+            const lat = parseFloat(userLatDefault) || 9.4124;
+            const lng = parseFloat(userLngDefault) || 76.6946;
+
             dMap = L.map('delivery-map', {
                 zoomControl: true,
                 scrollWheelZoom: true
-            }).setView([userLatDefault, userLngDefault], 14);
+            }).setView([lat, lng], 14);
                     
-                    const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-                    const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-                    L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(dMap);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(dMap);
+
+            // Force a resize check after a short delay
+            setTimeout(() => {
+                if (dMap) dMap.invalidateSize();
+            }, 250);
                     
                     // Custom Pulsing Pin Icon
                     const pulsingIcon = L.divIcon({
@@ -1212,7 +1240,7 @@ if ($userId) {
                 fetch('../actions/payment_action.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `action=create_order&listing_id=${listingId}&delivery=${wantDelivery?1:0}`
+                    body: `action=create_order&listing_id=${listingId}&delivery=${wantDelivery?1:0}&quantity=${qty}`
                 })
                 .then(res => {
                     return res.text().then(text => {
@@ -1274,7 +1302,7 @@ if ($userId) {
                 return; 
             }
 
-            // --- STANDARD FLOW FOR BORROW / EXCHANGE / BULK PURCHASE ---
+            // --- STANDARD FLOW FOR BORROW / BULK PURCHASE ---
             const quantity = document.getElementById('req-qty').value;
             const reasons = document.getElementById('req-reason').value;
 
@@ -1383,7 +1411,6 @@ if ($userId) {
             document.getElementById('mini-map').addEventListener('click', openMapModal);
         <?php endif; ?>
     </script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script src="../assets/js/toast.js"></script>
 </body>
 </html>

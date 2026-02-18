@@ -1,12 +1,9 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
-$user_role = $_SESSION['role'] ?? 'user';
-
-if (!$userId || ($user_role !== 'delivery_agent' && $user_role !== 'admin')) {
+if ($user['role'] !== 'delivery_agent' && $user['role'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
@@ -117,16 +114,8 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
     });
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Find Jobs | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
         :root {
             --glass-bg: rgba(255, 255, 255, 0.9);
             --glass-border: rgba(255, 255, 255, 0.4);
@@ -309,9 +298,7 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
             color: var(--primary);
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -361,8 +348,8 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
                         <div class="job-card <?php echo $job['job_type'] === 'return' ? 'return-job' : ''; ?>" id="job-<?php echo $job['id']; ?>">
                             <div class="job-meta">
                                 <div class="earnings-tag" style="<?php echo $job['job_type'] === 'return' ? 'background: linear-gradient(135deg, #e11d48, #be123c);' : ''; ?>">
-                                    <i class='bx bxs-coin-stack'></i>
-                                    10 CREDITS
+                                    <i class='bx bx-money'></i> ₹50 + 
+                                    <i class='bx bxs-coin-stack' style="margin-left: 4px;"></i> 10 CR
                                 </div>
                                 <div style="display: flex; flex-direction: column; align-items: flex-end;">
                                     <?php if($job['job_type'] === 'return'): ?>
@@ -454,7 +441,12 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
         const agentLoc = <?php echo json_encode(['lat' => $aLatBase, 'lng' => $aLngBase]); ?>;
 
         const map = L.map('radar-map').setView([agentLoc.lat || 9.9312, agentLoc.lng || 76.2673], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png').addTo(map);
+
+        // Fix for fragmented tiles on initial load
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 300);
 
         if (agentLoc.lat) {
             L.marker([agentLoc.lat, agentLoc.lng], {

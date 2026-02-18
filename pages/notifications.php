@@ -16,7 +16,7 @@ $status = $_GET['status'] ?? 'all';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notifications | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
     <link rel="stylesheet" href="../assets/css/toast.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
@@ -102,6 +102,7 @@ $status = $_GET['status'] ?? 'all';
     </style>
 </head>
 <body>
+    <?php include '../includes/dashboard_header.php'; ?>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -140,7 +141,7 @@ $status = $_GET['status'] ?? 'all';
                     $stmt->execute([$userId]);
                     $countsByType = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
                     
-                    $requestTypes = ['borrow_request', 'sell_request', 'exchange_request', 'request_accepted', 'request_declined', 'extension_request'];
+                    $requestTypes = ['borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request'];
                     $deliveryTypes = ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'];
                     $messageTypes = ['message'];
                     $creditTypes = ['credit_earned', 'credit_spent', 'credit_refund'];
@@ -168,7 +169,7 @@ $status = $_GET['status'] ?? 'all';
                         JOIN transactions t ON n.reference_id = t.id
                         WHERE n.user_id = ? 
                         AND (
-                            (n.type IN ('borrow_request', 'sell_request', 'exchange_request') AND t.status = 'requested')
+                            (n.type IN ('borrow_request', 'sell_request') AND t.status = 'requested')
                             OR (n.type = 'extension_request' AND t.pending_due_date IS NOT NULL)
                         )
                     ");
@@ -214,13 +215,13 @@ $status = $_GET['status'] ?? 'all';
                         $conditions[] = "n.is_read = 0";
                     } elseif ($status === 'action') {
                         $conditions[] = "(
-                            (n.type IN ('borrow_request', 'sell_request', 'exchange_request') AND t.status = 'requested')
+                            (n.type IN ('borrow_request', 'sell_request') AND t.status = 'requested')
                             OR (n.type = 'extension_request' AND t.pending_due_date IS NOT NULL)
                         )";
                     }
 
                     if ($filter === 'requests') {
-                        $conditions[] = "n.type IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request')";
+                        $conditions[] = "n.type IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request')";
                     } elseif ($filter === 'delivery') {
                         $conditions[] = "n.type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')";
                     } elseif ($filter === 'credits') {
@@ -228,7 +229,7 @@ $status = $_GET['status'] ?? 'all';
                     } elseif ($filter === 'listings') {
                         $conditions[] = "n.type IN ('new_listing')";
                     } elseif ($filter === 'support') {
-                        $conditions[] = "n.type NOT IN ('borrow_request', 'exchange_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'extension_request')";
+                        $conditions[] = "n.type NOT IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'extension_request')";
                     }
 
                     $whereClause = implode(" AND ", $conditions);
@@ -323,8 +324,6 @@ $status = $_GET['status'] ?? 'all';
                                 if ($n['reference_id'] != $userId) {
                                     $link = APP_URL . "/chat/index.php?user=" . $n['reference_id'];
                                 }
-                            } elseif (strpos($n['type'], 'exchange') !== false && $n['reference_id']) {
-                                $link = "book_details.php?id=" . $n['reference_id'];
                             } elseif ($n['type'] === 'new_listing' && $n['reference_id']) {
                                 $link = "book_details.php?id=" . $n['reference_id'];
                             } elseif (preg_match('/request|delivery|receipt|borrower_confirmed/', $n['type'])) {

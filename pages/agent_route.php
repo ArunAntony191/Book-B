@@ -1,12 +1,9 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
-$userRole = $_SESSION['role'] ?? 'user';
-
-if (!$userId || $userRole !== 'delivery_agent') {
+if ($user['role'] !== 'delivery_agent') {
     header("Location: login.php");
     exit();
 }
@@ -43,25 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Assign | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
+<style>
         #map { height: 500px; width: 100%; border-radius: var(--radius-lg); border: 2px solid var(--border-color); }
         .instruction-card {
             background: #f0f9ff; color: #0369a1; padding: 1.5rem;
             border-radius: 0.75rem; margin-bottom: 2rem;
             border: 1px solid #bae6fd;
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         

@@ -1,47 +1,59 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
-$userId = $_SESSION['user_id'] ?? 0;
-$user_role = $_SESSION['role'] ?? 'user';
-
-if (!$userId || ($user_role !== 'delivery_agent' && $user_role !== 'admin')) {
+if ($user['role'] !== 'delivery_agent' && $user['role'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
 
 $pdo = getDBConnection();
 
-// Fetch all completed legs for this agent
+// Fetch all completed legs for this agent using UNION ALL to separate mission types
 $stmt = $pdo->prepare("
-    SELECT t.*, b.title, b.cover_image,
-           u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname, 
-           u_borrower.address as borrower_address, u_borrower.city as borrower_city, u_borrower.district as borrower_district,
-           u_lender.firstname as lender_fname, u_lender.lastname as lender_lname, 
-           u_lender.address as lender_address, u_lender.city as lender_city, u_lender.district as lender_district,
-           l.location as listing_loc, l.city as listing_city, l.district as listing_dist,
-           CASE 
-             WHEN t.delivery_agent_id = ? THEN 'Delivery Mission'
-             WHEN t.return_agent_id = ? THEN 'Return Mission'
-           END as job_type_label,
-           CASE 
-             WHEN t.delivery_agent_id = ? THEN t.agent_confirm_delivery_at
-             WHEN t.return_agent_id = ? THEN t.return_agent_confirm_at
-           END as completion_time
-    FROM transactions t
-    JOIN listings l ON t.listing_id = l.id
-    JOIN books b ON l.book_id = b.id
-    JOIN users u_borrower ON t.borrower_id = u_borrower.id
-    JOIN users u_lender ON t.lender_id = u_lender.id
-    WHERE (t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL)
-       OR (t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL)
+    (SELECT t.id, t.created_at, b.title, b.cover_image, 
+            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
+            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
+            u_borrower.address as borrower_address, u_borrower.city as borrower_city, u_borrower.district as borrower_district,
+            u_lender.address as lender_address, u_lender.city as lender_city, u_lender.district as lender_district,
+            l.location as listing_loc, l.city as listing_city, l.district as listing_dist,
+            'Delivery Mission' as job_type_label,
+            t.agent_confirm_delivery_at as completion_time,
+            t.order_address
+     FROM transactions t
+     JOIN listings l ON t.listing_id = l.id
+     JOIN books b ON l.book_id = b.id
+     JOIN users u_lender ON t.lender_id = u_lender.id
+     JOIN users u_borrower ON t.borrower_id = u_borrower.id
+     WHERE t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL)
+
+    UNION ALL
+
+    (SELECT t.id, t.created_at, b.title, b.cover_image, 
+            u_lender.firstname as lender_fname, u_lender.lastname as lender_lname,
+            u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname,
+            u_borrower.address as borrower_address, u_borrower.city as borrower_city, u_borrower.district as borrower_district,
+            u_lender.address as lender_address, u_lender.city as lender_city, u_lender.district as lender_district,
+            l.location as listing_loc, l.city as listing_city, l.district as listing_dist,
+            'Return Mission' as job_type_label,
+            t.return_agent_confirm_at as completion_time,
+            t.order_address
+     FROM transactions t
+     JOIN listings l ON t.listing_id = l.id
+     JOIN books b ON l.book_id = b.id
+     JOIN users u_lender ON t.lender_id = u_lender.id
+     JOIN users u_borrower ON t.borrower_id = u_borrower.id
+     WHERE t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL)
+
     ORDER BY completion_time DESC
 ");
-$stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId]);
+$stmt->execute([$userId, $userId]);
 $history = $stmt->fetchAll();
 
 $stats = getUserStatsEnhanced($userId);
+// Calculate Lifetime Earnings based on history count for consistency
+$lifetime_earnings = count($history) * 50.00;
 
 // Helper function to build location string
 function buildLocation($addr, $city, $dist) {
@@ -51,15 +63,7 @@ function buildLocation($addr, $city, $dist) {
     return "Location not provided";
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delivery History | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .history-card {
             background: white;
             border-radius: var(--radius-lg);
@@ -90,9 +94,7 @@ function buildLocation($addr, $city, $dist) {
         .tag-return { background: #fff1f2; color: #e11d48; }
         .address-box { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; }
         .addr-point { display: flex; align-items: center; gap: 0.5rem; }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
@@ -108,7 +110,7 @@ function buildLocation($addr, $city, $dist) {
                     </button>
                     <div style="background: white; padding: 0.8rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Lifetime Earnings</div>
-                        <div style="font-size: 1.4rem; font-weight: 800; color: #059669;">₹<?php echo (count($history) * 10); ?></div>
+                        <div style="font-size: 1.4rem; font-weight: 800; color: #059669;">₹<?php echo number_format($lifetime_earnings, 2); ?></div>
                     </div>
                 </div>
             </div>
@@ -154,7 +156,7 @@ function buildLocation($addr, $city, $dist) {
                              data-from="<?php echo htmlspecialchars($fromAddr); ?>"
                              data-to="<?php echo htmlspecialchars($toAddr); ?>"
                              data-date="<?php echo date('Y-m-d H:i:s', strtotime($h['completion_time'])); ?>"
-                             data-earnings="10">
+                             data-earnings="50">
                             
                             <img src="<?php echo htmlspecialchars($h['cover_image'], ENT_QUOTES, 'UTF-8', false); ?>" 
                                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';" 
@@ -169,11 +171,11 @@ function buildLocation($addr, $city, $dist) {
                                 <div class="address-box">
                                     <div class="addr-point">
                                         <i class='bx bx-radio-circle' style="color: #2563eb;"></i>
-                                        <span>From: <?php echo htmlspecialchars($fromAddr); ?></span>
+                                        <span>From: <strong><?php echo htmlspecialchars($h['job_type_label'] === 'Delivery Mission' ? $h['lender_fname'] : $h['borrower_fname']); ?></strong> • <?php echo htmlspecialchars($fromAddr); ?></span>
                                     </div>
                                     <div class="addr-point">
                                         <i class='bx bx-map' style="color: #e11d48;"></i>
-                                        <span>To: <?php echo htmlspecialchars($toAddr); ?></span>
+                                        <span>To: <strong><?php echo htmlspecialchars($h['job_type_label'] === 'Delivery Mission' ? $h['borrower_fname'] : $h['lender_fname']); ?></strong> • <?php echo htmlspecialchars($toAddr); ?></span>
                                     </div>
                                 </div>
 
@@ -183,7 +185,7 @@ function buildLocation($addr, $city, $dist) {
                             </div>
                             <div class="history-status">
                                 <div class="earned-badge">
-                                    <i class='bx bx-plus-circle'></i> ₹10 Earned
+                                    <i class='bx bx-plus-circle'></i> ₹50 Earned
                                 </div>
                                 <div style="margin-top: 0.5rem; color: #2563eb; font-weight: 600; font-size: 0.8rem; opacity: 0.8;">
                                     <i class='bx bxs-check-shield'></i> Verified
@@ -208,7 +210,7 @@ function buildLocation($addr, $city, $dist) {
 
             const data = [];
             // Headers
-            data.push(['Order ID', 'Mission Type', 'Book Title', 'From Location', 'To Location', 'Completion Date', 'Earnings (CR)']);
+            data.push(['Order ID', 'Mission Type', 'Book Title', 'From Location', 'To Location', 'Completion Date', 'Earnings (₹)']);
 
             cards.forEach(card => {
                 const row = [

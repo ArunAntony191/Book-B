@@ -1,7 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
+include '../includes/dashboard_header.php';
 
 $viewUserId = $_GET['id'] ?? 0;
 if (!$viewUserId) {
@@ -17,15 +17,7 @@ if (!$user) {
 
 $reviews = getUserReviews($viewUserId, 20);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?> - Profile | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .profile-container {
             max-width: 1000px;
             margin: 2rem auto;
@@ -128,9 +120,7 @@ $reviews = getUserReviews($viewUserId, 20);
             color: var(--text-muted);
             line-height: 1.6;
         }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         

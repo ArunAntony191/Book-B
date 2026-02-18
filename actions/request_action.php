@@ -216,7 +216,6 @@ try {
         } else {
             $msg = "User " . $_SESSION['firstname'] . " wants to ";
             if ($type === 'borrow') $msg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate));
-            else $msg .= "swap for '{$bookTitle}'";
             $notifyType = $type . '_request';
         }
 
@@ -230,7 +229,6 @@ try {
         } else {
             $chatMsg = "Hi, I would like to ";
             if ($type === 'borrow') $chatMsg .= "borrow '{$bookTitle}' until " . date('M d, Y', strtotime($dueDate)) . ". Is this date okay?";
-            else $chatMsg .= "exchange '{$bookTitle}'.";
         }
         
         $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)")
@@ -267,7 +265,7 @@ try {
                  createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
                  
              } else {
-                 // For Borrow/Exchange: Deduct Credits & Stock immediately (legacy flow)
+                 // For Borrow: Deduct Credits & Stock immediately (legacy flow)
                  if ($transaction['quantity'] <= 0) throw new Exception("Book is out of stock.");
     
                  $transactionCreditCost = $transaction['credit_cost'] ?? 10; 

@@ -348,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <main class="main-content">
             <div class="add-container">
                 <h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.5rem;"><?php echo $editId ? 'Edit Book Listing' : 'List a New Book'; ?></h1>
-                <p style="color: var(--text-muted); margin-bottom: 2rem;"><?php echo $editId ? 'Update your book details below.' : 'Share your books with the community and start swaps or sales.'; ?></p>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;"><?php echo $editId ? 'Update your book details below.' : 'Share your books with the community — lend or sell.'; ?></p>
 
                 <?php if ($success): ?>
                     <div style="background: #ecfdf5; color: #059669; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid #10b981;">
@@ -472,7 +472,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="form-group">
                                 <label class="form-label">Listing Type</label>
-                                <div class="type-grid">
+                                <div class="type-grid" style="grid-template-columns: repeat(2, 1fr);">
                                     <?php $listingType = $editData['listing_type'] ?? 'borrow'; ?>
                                     <label class="type-card <?php echo $listingType === 'borrow' ? 'active' : ''; ?>" onclick="selectType('borrow')">
                                         <input type="radio" name="listing_type" value="borrow" class="type-input" <?php echo $listingType === 'borrow' ? 'checked' : ''; ?>>
@@ -485,12 +485,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <i class='bx bx-rupee'></i>
                                         <div style="font-weight: 700;">Sell</div>
                                         <small style="font-size: 0.75rem;">Get Paid</small>
-                                    </label>
-                                    <label class="type-card <?php echo $listingType === 'exchange' ? 'active' : ''; ?>" onclick="selectType('exchange')">
-                                        <input type="radio" name="listing_type" value="exchange" class="type-input" <?php echo $listingType === 'exchange' ? 'checked' : ''; ?>>
-                                        <i class='bx bx-refresh'></i>
-                                        <div style="font-weight: 700;">Swap</div>
-                                        <small style="font-size: 0.75rem;">Book for Book</small>
                                     </label>
                                 </div>
                             </div>
@@ -595,11 +589,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // --- Map Initialization ---
-            const initialLat = <?php echo ($editData['latitude'] ?? 12.9716); ?>;
-            const initialLng = <?php echo ($editData['longitude'] ?? 77.5946); ?>;
+            const initialLat = <?php echo floatval($editData['latitude'] ?? 12.9716); ?>;
+            const initialLng = <?php echo floatval($editData['longitude'] ?? 77.5946); ?>;
             const map = L.map('picker-map').setView([initialLat, initialLng], 12);
             
-            const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+            const cartoTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
             const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
             L.tileLayer(cartoTiles, { attribution: cartoAttr }).addTo(map);
     

@@ -21,18 +21,32 @@ $userReviews = getUserReviews($userId, 5);
     <main class="main-content">
         <?php include '../includes/announcements_component.php'; ?>
 
-        <div class="section-header">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <div>
-                <h1>Bookstore Management 📚<br><small style="font-size: 1rem; color: var(--text-muted);">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
-                <p>Manage inventory, track sales, and grow your book business.</p>
+                <h1 style="font-size: 2rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem;">Bookstore Management 📚<br><small style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">Welcome, <strong><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></strong></small></h1>
+                <p style="color: var(--text-muted); margin-top: -0.5rem;">Manage inventory, track sales, and grow your book business.</p>
             </div>
-            <a href="add_listing.php" class="btn btn-primary">
+            <a href="add_listing.php" class="btn btn-primary" style="white-space: nowrap;">
                 <i class='bx bx-plus-circle'></i> Add Books
             </a>
         </div>
 
-        <!-- Enhanced Bookstore Stats -->
-        <div class="widgets-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Symmetrical Widgets Grid -->
+        <style>
+            .bookstore-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }
+            @media (max-width: 1100px) {
+                .bookstore-grid { grid-template-columns: repeat(2, 1fr); }
+            }
+            @media (max-width: 600px) {
+                .bookstore-grid { grid-template-columns: 1fr; }
+            }
+        </style>
+        <div class="bookstore-grid">
             <!-- Total Inventory -->
             <div class="widget-card" onclick="window.location.href='listings.php'" style="background: linear-gradient(135deg, #8b5cf615 0%, #8b5cf605 100%); border: 2px solid #8b5cf6; cursor: pointer;">
                 <div class="widget-title" style="justify-content: center;">
@@ -235,69 +249,237 @@ $userReviews = getUserReviews($userId, 5);
 <div id="reviewsModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+            <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.75rem; color: #1e293b;">
                 <i class='bx bxs-star' style="color: #fbbf24;"></i> Bookstore Reviews
             </h2>
-            <button class="modal-close" onclick="closeReviewsModal()">&times;</button>
+            <button class="modal-close" onclick="closeReviewsModal()"><i class='bx bx-x'></i></button>
         </div>
         <div class="modal-body">
             <?php if (empty($userReviews)): ?>
-                <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                    <i class='bx bx-message-rounded-dots' style="font-size: 3rem; opacity: 0.3;"></i>
-                    <p>No customer reviews yet.</p>
+                <div class="empty-reviews">
+                    <i class='bx bx-chat'></i>
+                    <p>No customer reviews yet. Build your reputation by fulfilling orders!</p>
                 </div>
             <?php else: ?>
                 <div class="reviews-list">
                     <?php foreach ($userReviews as $r): ?>
                         <div class="review-item">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                                <span style="font-weight: 700; color: var(--text-main);">
-                                    <?php echo htmlspecialchars($r['firstname'] . ' ' . $r['lastname']); ?>
-                                </span>
-                                <span style="font-size: 0.75rem; color: var(--text-muted);">
+                            <div class="review-meta">
+                                <div class="reviewer-info">
+                                    <div class="reviewer-avatar">
+                                        <?php echo strtoupper(substr($r['firstname'], 0, 1)); ?>
+                                    </div>
+                                    <span style="font-weight: 700; color: #1e293b; font-size: 0.95rem;">
+                                        <?php echo htmlspecialchars($r['firstname'] . ' ' . $r['lastname']); ?>
+                                    </span>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">
                                     <?php echo date('M d, Y', strtotime($r['created_at'])); ?>
                                 </span>
                             </div>
-                            <div style="color: #fbbf24; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                            <div class="rating-stars" style="margin-bottom: 0.75rem;">
                                 <?php for($i=1; $i<=5; $i++): ?>
                                     <i class='bx <?php echo $i <= $r['rating'] ? "bxs-star" : "bx-star"; ?>'></i>
                                 <?php endfor; ?>
                             </div>
                             <?php if ($r['comment']): ?>
-                                <p style="font-size: 0.9rem; color: var(--text-body); line-height: 1.5;">
-                                    <?php echo nl2br(htmlspecialchars($r['comment'])); ?>
+                                <p style="font-size: 0.9rem; color: #475569; line-height: 1.6; margin: 0;">
+                                    "<?php echo nl2br(htmlspecialchars($r['comment'])); ?>"
                                 </p>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <div style="margin-top: 2rem; text-align: center;">
-                <a href="user_profile.php?id=<?php echo $userId; ?>#reviews" class="btn btn-outline btn-sm">View All Reviews on Profile</a>
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #f1f5f9; text-align: center;">
+                <a href="user_profile.php?id=<?php echo $userId; ?>#reviews" class="btn btn-outline" style="width: 100%; justify-content: center; border-radius: 14px;">
+                    View All Reviews on Profile <i class='bx bx-right-arrow-alt'></i>
+                </a>
             </div>
         </div>
     </div>
 </div>
 
+<style>
+    /* Premium Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal-content {
+        background: rgba(255, 255, 255, 0.95);
+        width: 90%;
+        max-width: 600px;
+        max-height: 85vh;
+        border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        overflow: hidden;
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-overlay.active .modal-content {
+        transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+        padding: 1.5rem 2rem;
+        background: #fff;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5rem;
+        letter-spacing: -0.025em;
+    }
+
+    .modal-close {
+        background: #f1f5f9;
+        color: #64748b;
+        border: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .modal-close:hover {
+        background: #fee2e2;
+        color: #ef4444;
+        transform: rotate(90deg);
+    }
+
+    .modal-body {
+        padding: 2rem;
+        overflow-y: auto;
+        flex-grow: 1;
+        scrollbar-width: thin;
+    }
+
+    /* Review Items */
+    .reviews-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .review-item {
+        padding: 1.25rem;
+        background: #f8fafc;
+        border-radius: 18px;
+        border: 1px solid #f1f5f9;
+        transition: all 0.3s ease;
+    }
+
+    .review-item:hover {
+        background: #fff;
+        border-color: #fbbf24;
+        transform: translateX(5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    }
+
+    .review-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .reviewer-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .reviewer-avatar {
+        width: 32px;
+        height: 32px;
+        background: #e0e7ff;
+        color: #4338ca;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+
+    .rating-stars {
+        color: #fbbf24;
+        display: flex;
+        gap: 2px;
+    }
+
+    .empty-reviews {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .empty-reviews i {
+        font-size: 4rem;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1.5rem;
+    }
+
+    .empty-reviews p {
+        color: #94a3b8;
+        font-weight: 500;
+    }
+</style>
+
 <script>
     function openReviewsModal() {
-        document.getElementById('reviewsModal').classList.add('active');
+        const modal = document.getElementById('reviewsModal');
+        modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
 
     function closeReviewsModal() {
-        document.getElementById('reviewsModal').classList.remove('active');
+        const modal = document.getElementById('reviewsModal');
+        modal.classList.remove('active');
         document.body.style.overflow = '';
     }
 
-    // Close on overlay click
     window.addEventListener('click', function(e) {
         const modal = document.getElementById('reviewsModal');
         if (e.target === modal) closeReviewsModal();
     });
 </script>
-
-</style>
 
 </body>
 </html>

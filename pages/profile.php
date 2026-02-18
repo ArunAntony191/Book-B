@@ -44,15 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=1.1">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<?php
+include '../includes/dashboard_header.php';
+// Restore full user data as dashboard_header overwrites $user with a partial array
+if (isset($userData)) {
+    $user = $userData;
+} else {
+    $user = getUserById($userId);
+}
+?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         .profile-wrapper {
@@ -392,8 +393,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .glass-card { padding: 1.5rem; }
         }
     </style>
-</head>
-<body>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         

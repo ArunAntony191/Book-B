@@ -1333,3 +1333,300 @@
     [reason] => Admin adjustment
 )
 
+[2026-02-17 16:54:01] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 16:54:56] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 16:56:10] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 16:59:13] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 16:59:34] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 16:59:44] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:03:01] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:03:16] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:03:16] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:03:16] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:03:16] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:03:17] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:03:17] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:04:27] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:05:04] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:05:33] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:05:40] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.5494
+    [b_lng] => 76.6049
+)
+
+[2026-02-17 17:05:51] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:05:52] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:05:53] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:07:36] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:08:10] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:08:41] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 12.9716
+    [b_lng] => 77.5946
+)
+
+[2026-02-17 17:45:07] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5079
+    [l_lng] => 76.6393
+    [b_lat] => 9.5275931
+    [b_lng] => 76.8216097
+)
+
+[2026-02-17 17:48:07] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:48:36] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:53:15] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:55:38] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:57:10] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:57:49] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-17 17:58:44] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 06:19:28] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-18 07:01:29] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+

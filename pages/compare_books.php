@@ -1,10 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
-
-$userId = $_SESSION['user_id'] ?? 0;
-if (!$userId) { header("Location: login.php"); exit(); }
+include '../includes/dashboard_header.php';
 
 $idsParam = $_GET['ids'] ?? '';
 $ids = array_filter(explode(',', $idsParam), 'is_numeric');
@@ -32,16 +29,7 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Sort books to match input order if needed, or just display as is.
 ?>
-<!DOCTYPE html>
-<html lang="en" data-theme="<?php echo $_SESSION['theme_mode'] ?? 'light'; ?>">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compare Books | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .compare-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -99,9 +87,7 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
             letter-spacing: 0.5px;
         }
         .btn-action { width: 100%; margin-top: 1rem; }
-    </style>
-</head>
-<body>
+</style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
