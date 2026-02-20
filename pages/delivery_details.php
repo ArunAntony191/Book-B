@@ -146,6 +146,44 @@ function getStatusLabel($status, $agentId, $method) {
         }
         .form-control:focus { border-color: var(--primary); }
 
+        /* Premium Extension Modal Styles */
+        .ext-header { text-align: center; padding-bottom: 0.5rem; }
+        .ext-icon-wrapper {
+            width: 64px; height: 64px; background: rgba(79, 70, 229, 0.1);
+            color: var(--primary); border-radius: 20px; display: flex;
+            align-items: center; justify-content: center; font-size: 2rem;
+            margin: 0 auto 1.25rem;
+        }
+        .ext-info-box {
+            background: #fffbeb; border: 1px solid #fef3c7;
+            padding: 1rem; border-radius: 12px; display: flex;
+            align-items: flex-start; gap: 0.75rem; margin-top: 1.25rem;
+        }
+        .ext-info-icon { color: #d97706; font-size: 1.25rem; }
+        .ext-info-content { flex: 1; }
+        .ext-info-title { font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 0.2rem; }
+        .ext-info-text { color: #a16207; font-size: 0.8rem; line-height: 1.4; }
+        .ext-modal-footer {
+            padding: 1.5rem; background: #f8fafc;
+            display: flex; flex-direction: column; gap: 0.75rem;
+        }
+        .ext-btn-primary {
+            background: var(--primary); color: white; border: none;
+            padding: 0.875rem; border-radius: 12px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; transition: all 0.3s; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+        .ext-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3); }
+        .ext-btn-outline {
+            background: white; color: var(--text-main);
+            border: 1px solid var(--border-color); padding: 0.875rem;
+            border-radius: 12px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; transition: all 0.3s; cursor: pointer;
+        }
+        .ext-btn-outline:hover { background: #f1f5f9; }
+
         .price-tag {
             background: #fffbeb; color: #92400e; border: 1px solid #fef3c7;
             padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.75rem;
@@ -355,29 +393,48 @@ function getStatusLabel($status, $agentId, $method) {
     <!-- Extension Modal -->
     <div id="extension-modal" class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-header">
-                <h2 style="font-weight: 800; font-size: 1.25rem;">Extend Return Date</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Request a later return date from the owner.</p>
+            <div class="modal-header ext-header" style="border-bottom: none; padding-top: 2rem;">
+                <div class="ext-icon-wrapper">
+                    <i class='bx bx-calendar-plus'></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.5rem; color: var(--text-main);">Extend Return Date</h2>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">Need more time? Request an extension from the owner.</p>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 1rem 2rem 2rem;">
                 <div class="form-group">
-                    <label class="form-label">New Due Date</label>
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-calendar-event' style="color: var(--primary);"></i>
+                        New Due Date
+                    </label>
                     <input type="date" id="ext-date" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Reason for Extension</label>
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-comment-detail' style="color: var(--primary);"></i>
+                        Reason for Extension
+                    </label>
                     <textarea id="ext-reason" class="form-control" rows="3" placeholder="Explain why you need more time..."></textarea>
                 </div>
-                <div style="background: #fffbeb; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class='bx bx-info-circle'></i> This extension will cost 5 credits upon approval.
+                <div class="ext-info-box">
+                    <div class="ext-info-icon"><i class='bx bxs-info-circle'></i></div>
+                    <div class="ext-info-content">
+                        <p class="ext-info-title">Cost: 5 Credits</p>
+                        <p class="ext-info-text">Credits will be deducted once the owner approves your request.</p>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $d['lender_id']; ?>" class="btn btn-outline" style="margin-right: auto; border: none; background: #f1f5f9; color: var(--text-main);">
-                    <i class='bx bx-message-square-dots'></i> Chat
-                </a>
-                <button onclick="closeExtendModal()" class="btn btn-outline" style="border: none;">Cancel</button>
-                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+            <div class="ext-modal-footer">
+                <button onclick="submitExtension()" class="ext-btn-primary">
+                    <i class='bx bx-paper-plane'></i> Send Request
+                </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <a href="<?php echo APP_URL; ?>/chat/index.php?user=<?php echo $d['lender_id']; ?>" class="ext-btn-outline" style="text-decoration: none;">
+                        <i class='bx bx-message-square-dots'></i> Chat
+                    </a>
+                    <button onclick="closeExtendModal()" class="ext-btn-outline" style="color: #ef4444; border-color: #fee2e2;">
+                        Cancel
+                    </button>
+                </div>
             </div>
         </div>
     </div>

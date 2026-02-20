@@ -497,28 +497,34 @@ $rareResults = getRareBooks(10, $filters);
                             </div>
                         </div>
 
-                        <!-- Genre Filter -->
+                        <!-- Advanced Filters -->
                         <form action="explore.php" method="GET" style="margin-top: 1.5rem;" id="filters-form">
-                            <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Genre</h4>
-                            <select name="category" class="premium-select" onchange="this.form.submit()" style="width: 100%; margin-bottom: 1.5rem;">
-                                <option value="">All Genres</option>
-                                <?php 
-                                $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
-                                foreach($cats as $c) {
-                                    $sel = ($filters['category'] == $c) ? 'selected' : '';
-                                    echo "<option value='$c' $sel>$c</option>";
-                                }
-                                ?>
-                            </select>
+                            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem;">Genre</h4>
+                                    <select name="category" class="premium-select" onchange="this.form.submit()" style="width: 100%;">
+                                        <option value="">All Genres</option>
+                                        <?php 
+                                        $cats = ['Fiction', 'Non-Fiction', 'Education', 'Sci-Fi', 'Romance', 'Mystery', 'Self-Help', 'Business', 'History'];
+                                        foreach($cats as $c) {
+                                            $sel = ($filters['category'] == $c) ? 'selected' : '';
+                                            echo "<option value='$c' $sel>$c</option>";
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
 
-                            <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Lender Rating</h4>
-                            <select name="min_rating" class="premium-select" onchange="this.form.submit()" style="width: 100%; margin-bottom: 1.5rem;">
-                                <option value="">All Ratings</option>
-                                <option value="4.5" <?php echo ($filters['min_rating'] == 4.5) ? 'selected' : ''; ?>>4.5+ Stars</option>
-                                <option value="4.0" <?php echo ($filters['min_rating'] == 4.0) ? 'selected' : ''; ?>>4.0+ Stars</option>
-                                <option value="3.5" <?php echo ($filters['min_rating'] == 3.5) ? 'selected' : ''; ?>>3.5+ Stars</option>
-                                <option value="3.0" <?php echo ($filters['min_rating'] == 3.0) ? 'selected' : ''; ?>>3.0+ Stars</option>
-                            </select>
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem;">Rating</h4>
+                                    <select name="min_rating" class="premium-select" onchange="this.form.submit()" style="width: 100%;">
+                                        <option value="">All Ratings</option>
+                                        <option value="4.5" <?php echo ($filters['min_rating'] == 4.5) ? 'selected' : ''; ?>>4.5+ Stars</option>
+                                        <option value="4.0" <?php echo ($filters['min_rating'] == 4.0) ? 'selected' : ''; ?>>4.0+ Stars</option>
+                                        <option value="3.5" <?php echo ($filters['min_rating'] == 3.5) ? 'selected' : ''; ?>>3.5+ Stars</option>
+                                        <option value="3.0" <?php echo ($filters['min_rating'] == 3.0) ? 'selected' : ''; ?>>3.0+ Stars</option>
+                                    </select>
+                                </div>
+                            </div>
 
 
                             <input type="hidden" name="type" value="<?php echo htmlspecialchars($filters['type']); ?>">

@@ -395,10 +395,12 @@ try {
              if ($transaction['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
              
              $pdo->prepare("UPDATE transactions SET status = 'returned', return_date = CURDATE() WHERE id = ?")->execute([$transactionId]);
-              if (empty($transaction['is_restocked'])) {
-                  updateListingQuantity($transaction['listing_id'], 1);
-                  $pdo->prepare("UPDATE transactions SET is_restocked = 1 WHERE id = ?")->execute([$transactionId]);
-              }
+             
+             $restock = isset($_POST['restock']) && $_POST['restock'] == '1';
+             if ($restock && empty($transaction['is_restocked'])) {
+                 updateListingQuantity($transaction['listing_id'], 1);
+                 $pdo->prepare("UPDATE transactions SET is_restocked = 1 WHERE id = ?")->execute([$transactionId]);
+             }
              
              $penalty = calculatePenalty($transactionId);
              $penaltyApplied = false;

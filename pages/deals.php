@@ -300,6 +300,103 @@ $payments = array_filter($all_deals, function($d) {
             padding: 0.75rem; font-family: inherit; outline: none; transition: border-color 0.3s;
         }
         .form-control:focus { border-color: var(--primary); }
+
+        /* Premium Extension Modal Styles */
+        .ext-header {
+            text-align: center;
+            padding-bottom: 0.5rem;
+        }
+        .ext-icon-wrapper {
+            width: 64px;
+            height: 64px;
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--primary);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 1.25rem;
+        }
+        .ext-info-box {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+            transition: all 0.3s;
+        }
+        .ext-info-box:hover {
+            transform: scale(1.02);
+            border-color: #fcd34d;
+        }
+        .ext-info-icon {
+            color: #d97706;
+            font-size: 1.25rem;
+            margin-top: 0.1rem;
+        }
+        .ext-info-content {
+            flex: 1;
+        }
+        .ext-info-title {
+            font-weight: 700;
+            color: #92400e;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+        .ext-info-text {
+            color: #a16207;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        .ext-modal-footer {
+            padding: 1.5rem;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .ext-btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.875rem;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+        .ext-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+            filter: brightness(1.1);
+        }
+        .ext-btn-outline {
+            background: white;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.875rem;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .ext-btn-outline:hover {
+            background: #f1f5f9;
+            border-color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -449,12 +546,12 @@ $payments = array_filter($all_deals, function($d) {
                                         </div>
                                     <?php endif; ?>
                                     <?php if ($deal['status'] !== 'delivered'): ?>
-                                        <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
+                                        <button onclick="openReturnModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm">
                                             <i class='bx bx-check-circle'></i> Mark Returned
                                         </button>
                                     <?php endif; ?>
                                 <?php elseif (($deal['status'] === 'approved' || $deal['status'] === 'active') && $deal['listing_type'] === 'borrow'): ?>
-                                    <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'mark_returned')" class="btn btn-primary btn-sm">
+                                    <button onclick="openReturnModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm">
                                         <i class='bx bx-check-circle'></i> Mark Returned
                                     </button>
 
@@ -551,7 +648,7 @@ $payments = array_filter($all_deals, function($d) {
                         <i class='bx bx-calendar-plus'></i> Extend
                     </button>
                                     <?php endif; ?>
-                                    <?php if ($deal['status'] === 'delivered' || $deal['status'] === 'returned'): ?>
+                                    <?php if (($deal['status'] === 'delivered' || $deal['status'] === 'returned') && empty($deal['is_reviewed'])): ?>
                                         <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-outline btn-sm">
                                             <i class='bx bx-star'></i> Rate
                                         </button>
@@ -765,31 +862,53 @@ $payments = array_filter($all_deals, function($d) {
 
     <!-- Extension Modal -->
     <div id="extension-modal" class="modal-overlay">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h2 style="font-weight: 800; font-size: 1.4rem;">Extend Return Date</h2>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Request a later return date from the owner.</p>
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header ext-header" style="border-bottom: none; padding-top: 2rem;">
+                <div class="ext-icon-wrapper">
+                    <i class='bx bx-calendar-plus'></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.5rem; color: var(--text-main);">Extend Return Date</h2>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">Need more time? Request an extension from the owner.</p>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 1rem 2rem 2rem;">
                 <input type="hidden" id="ext-tx-id">
+                
                 <div class="form-group">
-                    <label class="form-label">New Due Date</label>
-                    <input type="date" id="ext-date" class="form-control">
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-calendar-event' style="color: var(--primary);"></i>
+                        <span>New Due Date</span>
+                    </label>
+                    <input type="date" id="ext-date" class="form-control" style="border-radius: 12px; padding: 0.8rem; border: 2px solid #e2e8f0; transition: border-color 0.3s;">
                 </div>
+                
                 <div class="form-group">
-                    <label class="form-label">Reason for Extension</label>
-                    <textarea id="ext-reason" class="form-control" rows="3" placeholder="Explain why you need more time..."></textarea>
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-comment-detail' style="color: var(--primary);"></i>
+                        <span>Reason for Extension</span>
+                    </label>
+                    <textarea id="ext-reason" class="form-control" rows="3" placeholder="A short explanation helps get your request approved faster..." style="border-radius: 12px; padding: 0.8rem; border: 2px solid #e2e8f0; resize: none;"></textarea>
                 </div>
-                <div style="background: #fffbeb; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class='bx bx-info-circle'></i> This extension will cost 5 credits upon approval.
+                
+                <div class="ext-info-box">
+                    <div class="ext-info-icon"><i class='bx bxs-info-circle'></i></div>
+                    <div class="ext-info-content">
+                        <p class="ext-info-title">Cost: 5 Credits</p>
+                        <p class="ext-info-text">Credits will be deducted once the owner approves your request.</p>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a id="ext-chat-btn" href="#" class="btn btn-outline" style="margin-right: auto; border: none; background: #f1f5f9; color: var(--text-main);">
-                    <i class='bx bx-message-square-dots'></i> Chat
-                </a>
-                <button onclick="closeExtendModal()" class="btn btn-outline" style="border: none;">Cancel</button>
-                <button onclick="submitExtension()" class="btn btn-primary">Send Request</button>
+            <div class="ext-modal-footer">
+                <button onclick="submitExtension()" class="ext-btn-primary">
+                    <i class='bx bx-paper-plane'></i> Send Extension Request
+                </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <a id="ext-chat-btn" href="#" class="ext-btn-outline" style="text-decoration: none;">
+                        <i class='bx bx-message-square-dots'></i> Chat with Owner
+                    </a>
+                    <button onclick="closeExtendModal()" class="ext-btn-outline" style="color: #ef4444; border-color: #fee2e2;">
+                        Cancel
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -881,6 +1000,33 @@ $payments = array_filter($all_deals, function($d) {
             </div>
             <div class="modal-footer">
                 <button onclick="document.getElementById('payment-modal').style.display='none'" class="btn btn-outline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Confirmation Modal -->
+    <div id="return-confirm-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Confirm Book Return</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">The borrower has returned the book. Do you want to restock it now?</p>
+            </div>
+            <div class="modal-body">
+                <div style="background: #f0fdf4; border: 1px solid #86efac; padding: 1.25rem; border-radius: 12px; margin-bottom: 1rem;">
+                    <p style="font-size: 0.85rem; margin: 0; color: #16a34a;">
+                        <strong>Restocking</strong> will add the book back to your active listings. 
+                        Choose <strong>Mark Only</strong> if you wish to inspect the book first.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button onclick="processReturn(true)" class="btn btn-primary" style="width: 100%;">
+                    <i class='bx bx-package'></i> Yes, Restock & Confirm
+                </button>
+                <button onclick="processReturn(false)" class="btn btn-outline" style="width: 100%;">
+                    <i class='bx bx-check'></i> Mark as Returned Only
+                </button>
+                <button onclick="closeReturnModal()" class="btn btn-sm" style="border: none; background: transparent; color: var(--text-muted);">Cancel</button>
             </div>
         </div>
     </div>
@@ -1122,6 +1268,47 @@ $payments = array_filter($all_deals, function($d) {
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showToast(result.message, 'error');
+                }
+            } catch (error) {
+                showToast('Network error. Please try again.', 'error');
+            }
+        }
+
+        /* Return Confirmation Functions */
+        let currentReturnTxId = 0;
+
+        function openReturnModal(txId) {
+            currentReturnTxId = txId;
+            document.getElementById('return-confirm-modal').style.display = 'flex';
+        }
+
+        function closeReturnModal() {
+            document.getElementById('return-confirm-modal').style.display = 'none';
+            currentReturnTxId = 0;
+        }
+
+        async function processReturn(shouldRestock) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'mark_returned');
+                formData.append('transaction_id', currentReturnTxId);
+                if (shouldRestock) {
+                    formData.append('restock', '1');
+                }
+
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeReturnModal();
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.message || 'Action failed', 'error');
                 }
             } catch (error) {
                 showToast('Network error. Please try again.', 'error');

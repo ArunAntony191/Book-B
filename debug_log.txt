@@ -2117,3 +2117,40 @@
     [transaction_id] => 116
 )
 
+[2026-02-20 06:54:59] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-14
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+)
+
+[2026-02-20 11:24:59] Create Request Action Triggered
+[2026-02-20 11:25:00] Notification Created
+[2026-02-20 06:56:12] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 117
+)
+
+[2026-02-20 06:56:29] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 117
+)
+
+[2026-02-20 06:56:41] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 117
+)
+

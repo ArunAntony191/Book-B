@@ -15,6 +15,9 @@ foreach ($announcements as $ann):
     
     // Check if user has dismissed this announcement
     if (isset($_COOKIE[$announcementId])) continue;
+
+    // Secondary check: Hide if end date has passed (fallback for DB time discrepancies)
+    if (!empty($ann['end_date']) && $ann['end_date'] < date('Y-m-d')) continue;
 ?>
 <div id="<?php echo $announcementId; ?>" class="announcement-modern">
     <div class="ann-accent-bar"></div>

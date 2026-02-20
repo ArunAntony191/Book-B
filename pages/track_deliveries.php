@@ -148,6 +148,77 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         .status-badge.active { background: var(--warning-soft); color: var(--warning-dark); border-color: #ffedd5; }
         .status-badge.delivered { background: var(--success-soft); color: var(--success-dark); border-color: #dcfce7; }
         .status-badge.cancelled { background: #f1f5f9; color: #475569; border-color: #cbd5e1; text-decoration: line-through; }
+
+        /* Premium Extension Modal Styles */
+        .modal-overlay {
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999;
+        }
+        .modal-card {
+            background: white; 
+            border-radius: 20px; 
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .ext-header { text-align: center; padding: 2rem 1.5rem 0.5rem; }
+        .ext-icon-wrapper {
+            width: 64px; height: 64px; background: rgba(79, 70, 229, 0.1);
+            color: var(--primary); border-radius: 20px; display: flex;
+            align-items: center; justify-content: center; font-size: 2rem;
+            margin: 0 auto 1.25rem;
+        }
+        .ext-info-box {
+            background: #fffbeb; border: 1px solid #fef3c7;
+            padding: 1rem; border-radius: 12px; display: flex;
+            align-items: flex-start; gap: 0.75rem; margin-top: 1.25rem;
+        }
+        .ext-info-icon { color: #d97706; font-size: 1.25rem; }
+        .ext-info-content { flex: 1; }
+        .ext-info-title { font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 0.2rem; }
+        .ext-info-text { color: #a16207; font-size: 0.8rem; line-height: 1.4; }
+        .ext-modal-footer {
+            padding: 1.5rem; background: #f8fafc;
+            display: flex; flex-direction: column; gap: 0.75rem;
+        }
+        .ext-btn-primary {
+            background: var(--primary); color: white; border: none;
+            padding: 0.875rem; border-radius: 12px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; transition: all 0.3s; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+        .ext-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3); }
+        .ext-btn-outline {
+            background: white; color: var(--slate-dark);
+            border: 1px solid #e2e8f0; padding: 0.875rem;
+            border-radius: 12px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; transition: all 0.3s; cursor: pointer;
+        }
+        .ext-btn-outline:hover { background: #f1f5f9; }
+        
+        .form-group { margin-bottom: 1.25rem; }
+        .form-label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: #1e293b; font-size: 0.85rem; }
+        .form-control {
+            width: 100%; border: 2px solid #e2e8f0; border-radius: 12px;
+            padding: 0.8rem; font-family: inherit; outline: none; transition: border-color 0.3s;
+        }
+        .form-control:focus { border-color: var(--primary); }
         .status-badge.returning { background: var(--danger-soft); color: var(--danger-dark); border-color: #ffe4e6; }
         .status-badge.returned { background: var(--slate-soft); color: var(--slate-dark); border-color: #e2e8f0; }
 
@@ -343,9 +414,9 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         }
 
         // Show "Rate Agent" button?
-        // Rules: Completed leg, person rating is the recipient of the leg, agent exists.
+        // Rules: Completed leg, person rating is the recipient of the leg, agent exists, and not already reviewed.
         $showRateAgent = false;
-        if ($agentId) {
+        if ($agentId && empty($d['is_reviewed'])) {
             if (!$isReturn && $status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at'])) {
                 $showRateAgent = true;
             } elseif ($isReturn && $status === 'returned' && $isLender && !empty($d['return_lender_confirm_at'])) {
@@ -481,30 +552,49 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
     <!-- Extension Modal -->
     <div id="extension-modal" class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-header">
-                <h2 style="font-weight: 800; font-size: 1.25rem;">Extend Return Date</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Request a later return date from the owner.</p>
+            <div class="modal-header ext-header">
+                <div class="ext-icon-wrapper">
+                    <i class='bx bx-calendar-plus'></i>
+                </div>
+                <h2 style="font-weight: 950; font-size: 1.4rem; color: #0f172a; margin: 0;">Extend Return Date</h2>
+                <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.4rem;">Request a later return date from the owner.</p>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 1rem 1.75rem 1.75rem;">
                 <input type="hidden" id="ext-tx-id">
                 <div class="form-group">
-                    <label class="form-label">New Due Date</label>
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-calendar-event' style="color: var(--primary);"></i>
+                        New Due Date
+                    </label>
                     <input type="date" id="ext-date" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Reason for Extension</label>
+                    <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class='bx bx-comment-detail' style="color: var(--primary);"></i>
+                        Reason for Extension
+                    </label>
                     <textarea id="ext-reason" class="form-control" rows="3" placeholder="Explain why you need more time..."></textarea>
                 </div>
-                <div style="background: #fffbeb; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class='bx bx-info-circle'></i> This extension will cost 5 credits upon approval.
+                <div class="ext-info-box">
+                    <div class="ext-info-icon"><i class='bx bxs-info-circle'></i></div>
+                    <div class="ext-info-content">
+                        <p class="ext-info-title">Cost: 5 Credits</p>
+                        <p class="ext-info-text">This will be deducted once the owner approves your request.</p>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a id="ext-chat-btn" href="#" class="btn-action btn-outline" style="margin-right: auto; border: none; background: #f1f5f9; color: var(--text-main);">
-                    <i class='bx bx-message-square-dots'></i> Chat
-                </a>
-                <button onclick="closeExtendModal()" class="btn-action btn-outline" style="border: none;">Cancel</button>
-                <button onclick="submitExtension()" class="btn-action btn-primary">Send Request</button>
+            <div class="ext-modal-footer">
+                <button onclick="submitExtension()" class="ext-btn-primary">
+                    <i class='bx bx-paper-plane'></i> Send Request
+                </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <a id="ext-chat-btn" href="#" class="ext-btn-outline" style="text-decoration: none;">
+                        <i class='bx bx-message-square-dots'></i> Chat
+                    </a>
+                    <button onclick="closeExtendModal()" class="ext-btn-outline" style="color: #ef4444; border-color: #fee2e2;">
+                        Cancel
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -591,7 +681,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
 
         async function submitFeedback() {
             if (currentRatingValue === 0) {
-                alert('Please select a rating');
+                showToast('Please select a rating', 'warning');
                 return;
             }
 
@@ -609,14 +699,14 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 });
                 const result = await response.json();
                 if (result.success) {
-                    alert(result.message);
+                    showToast(result.message, 'success');
                     closeFeedbackModal();
-                    location.reload();
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert(result.message || 'Failed to submit feedback');
+                    showToast(result.message || 'Failed to submit feedback', 'error');
                 }
             } catch (error) {
-                alert('An error occurred. Please try again.');
+                showToast('An error occurred. Please try again.', 'error');
             }
         }
 

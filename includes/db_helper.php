@@ -374,7 +374,8 @@ function getUserDeals($userId) {
         $stmt = $pdo->prepare("
             SELECT t.*, b.title, b.author, b.cover_image, 
                    u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
-                   l.listing_type, l.price as listing_price
+                   l.listing_type, l.price as listing_price,
+                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             JOIN books b ON l.book_id = b.id
@@ -383,7 +384,7 @@ function getUserDeals($userId) {
             WHERE t.borrower_id = ? OR t.lender_id = ?
             ORDER BY t.created_at DESC
         ");
-        $stmt->execute([$userId, $userId]);
+        $stmt->execute([$userId, $userId, $userId]);
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log("Get deals error: " . $e->getMessage());
@@ -404,7 +405,8 @@ function getUserDeliveries($userId) {
                    l.latitude as pickup_lat, l.longitude as pickup_lng,
                    l.price, l.credit_cost,
                    u_agent.firstname as agent_name, u_agent.phone as agent_phone,
-                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone
+                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone,
+                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             JOIN books b ON l.book_id = b.id
@@ -415,7 +417,7 @@ function getUserDeliveries($userId) {
             WHERE (t.borrower_id = ? OR t.lender_id = ?)
             ORDER BY t.created_at DESC
         ");
-        $stmt->execute([$userId, $userId]);
+        $stmt->execute([$userId, $userId, $userId]);
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log("Get deliveries error: " . $e->getMessage());

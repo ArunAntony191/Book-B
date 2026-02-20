@@ -64,8 +64,8 @@ $my_announcements = getAnnouncementsByUser($user_id);
                                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit;">
                         </div>
                         <div class="form-group">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">End Date (Optional)</label>
-                            <input type="date" name="end_date" 
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">End Date (Auto-expiry)</label>
+                            <input type="date" name="end_date" title="Announcement will automatically vanish after this date"
                                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit;">
                         </div>
                     </div>

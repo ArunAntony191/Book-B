@@ -352,6 +352,11 @@ if ($userId) {
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
         <div class="content-wrapper">
+            <div style="padding: 1.5rem 2rem 0; max-width: 1400px; margin: 0 auto;">
+                <a href="javascript:history.back()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; border-radius: 10px; font-weight: 600;">
+                    <i class='bx bx-left-arrow-alt'></i> Back
+                </a>
+            </div>
             <div class="details-grid">
                 <!-- Left: Image -->
                 <div class="column-left">
