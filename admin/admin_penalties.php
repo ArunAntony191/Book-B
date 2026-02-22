@@ -25,16 +25,7 @@ try {
     $penalties = [];
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Penalty Log | Admin</title>
-    <link rel="stylesheet" href="assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-</head>
-<body>
-    <div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         <main class="main-content">
             <div class="section-header">
@@ -56,17 +47,31 @@ try {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach($penalties as $p): ?>
+                        <?php foreach($penalties as $p): 
+                            $typeColor = '#64748b'; // default
+                            if ($p['penalty_type'] === 'late_return') $typeColor = '#f59e0b';
+                            if ($p['penalty_type'] === 'report_ref') $typeColor = '#ef4444';
+                            if ($p['penalty_type'] === 'manual_deduction') $typeColor = '#3b82f6';
+                        ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
                             <td style="padding: 1rem;">
-                                <strong><?php echo htmlspecialchars($p['firstname'] . ' ' . $p['lastname']); ?></strong>
+                                <strong><?php echo htmlspecialchars($p['firstname'] . ' ' . $p['lastname']); ?></strong><br>
+                                <small style="color: var(--text-muted);"><?php echo htmlspecialchars($p['email']); ?></small>
                             </td>
-                            <td style="padding: 1rem; text-transform: capitalize;"><?php echo $p['penalty_type']; ?></td>
+                            <td style="padding: 1rem;">
+                                <span style="padding: 0.2rem 0.6rem; background: <?php echo $typeColor; ?>15; color: <?php echo $typeColor; ?>; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
+                                    <?php echo str_replace('_', ' ', $p['penalty_type']); ?>
+                                </span>
+                            </td>
                             <td style="padding: 1rem; text-align: center; color: #ef4444; font-weight: 700;">
                                 -<?php echo $p['amount']; ?> Credits
                             </td>
-                            <td style="padding: 1rem; color: var(--text-muted);"><?php echo htmlspecialchars($p['reason']); ?></td>
-                            <td style="padding: 1rem; text-align: right; color: var(--text-muted);"><?php echo date('M d, Y', strtotime($p['created_at'])); ?></td>
+                            <td style="padding: 1rem; color: var(--text-main); font-size: 0.9rem;">
+                                <?php echo htmlspecialchars($p['reason']); ?>
+                            </td>
+                            <td style="padding: 1rem; text-align: right; color: var(--text-muted); font-size: 0.85rem;">
+                                <?php echo date('M d, Y', strtotime($p['created_at'])); ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($penalties)): ?>
@@ -79,5 +84,3 @@ try {
             </div>
         </main>
     </div>
-</body>
-</html>

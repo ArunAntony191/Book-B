@@ -123,7 +123,7 @@ $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         
                         <!-- Cost/Price -->
                         <tr>
-                            <th class="attr-label">Price / Tokens</th>
+                            <th class="attr-label">Price / Credits</th>
                             <?php foreach ($books as $book): ?>
                                 <td>
                                     <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);">

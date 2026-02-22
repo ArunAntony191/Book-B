@@ -10,12 +10,13 @@ if (!$userId) {
 }
 
 // Mark request notifications as read when visiting this page
-markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'request_accepted', 'request_declined']);
+// markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'request_accepted', 'request_declined']);
 
 $deals = getUserDeals($userId);
 $all_deals = $deals; // All deals
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
+$returns = array_filter($deals, fn($d) => in_array($d['status'], ['returning', 'returned']));
 
 // Get user's listings
 try {
@@ -397,6 +398,24 @@ $payments = array_filter($all_deals, function($d) {
             background: #f1f5f9;
             border-color: var(--text-muted);
         }
+
+        .report-btn {
+            background: #fee2e2;
+            color: #ef4444;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .report-btn:hover {
+            background: #fecaca;
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
@@ -424,6 +443,9 @@ $payments = array_filter($all_deals, function($d) {
                     </button>
                     <button class="tab-btn" onclick="switchTab('listings', this)">
                         My Listings <span class="tab-count"><?php echo count($myListings); ?></span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('returns', this)">
+                        Returns <span class="tab-count"><?php echo count($returns); ?></span>
                     </button>
                     <button class="tab-btn" onclick="switchTab('payments', this)">
                         Payments <span class="tab-count"><?php echo count($payments); ?></span>
@@ -523,7 +545,12 @@ $payments = array_filter($all_deals, function($d) {
                                 <?php endif; ?>
                             </div>
                             <div class="deal-actions">
-                                <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                    <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                    <button onclick="openUserReportModal(<?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="report-btn" title="Report Borrower">
+                                        <i class='bx bx-flag'></i>
+                                    </button>
+                                </div>
                                 <?php if ($deal['status'] === 'requested'): ?>
                                     <div class="btn-group">
                                         <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'accept_request')" class="btn btn-primary btn-sm">Accept</button>
@@ -625,13 +652,24 @@ $payments = array_filter($all_deals, function($d) {
                                 </div>
                             </div>
                             <div class="deal-actions">
-                                <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                    <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                    <button onclick="openUserReportModal(<?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="report-btn" title="Report Owner">
+                                        <i class='bx bx-flag'></i>
+                                    </button>
+                                </div>
                                 
-                                <!-- Pay Now for Buyers -->
-                                <?php if ($deal['transaction_type'] == 'purchase' && $deal['status'] == 'approved' && $deal['payment_status'] != 'paid'): ?>
-                                    <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none;">Cancel</button>
-                                <?php elseif (in_array($deal['status'], ['requested', 'active']) && $deal['status'] !== 'delivered'): ?>
-                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; margin-bottom: 0.5rem;">Cancel Order</button>
+                                <!-- Cancel Order for Borrowers/Buyers -->
+                                <?php 
+                                    $canCancel = in_array($deal['status'], ['requested', 'approved', 'active']) 
+                                               && $deal['status'] !== 'delivered' 
+                                               && empty($deal['delivery_agent_id']) 
+                                               && empty($deal['return_agent_id']);
+                                ?>
+                                <?php if ($canCancel): ?>
+                                     <button onclick="handleDeal(<?php echo $deal['id']; ?>, 'cancel_order', '<?php echo $deal['status']; ?>')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; margin-bottom: 0.5rem;">
+                                         <i class='bx bx-x-circle'></i> Cancel Order
+                                     </button>
                                 <?php endif; ?>
 
                                 <div class="btn-group">
@@ -699,6 +737,46 @@ $payments = array_filter($all_deals, function($d) {
                                         <i class='bx bx-trash'></i> Delete
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- Returns Tab -->
+                <div id="returns-list" style="display: none;">
+                    <?php if (empty($returns)): ?>
+                        <div class="empty-deals">
+                            <i class='bx bx-undo' style="font-size: 4rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"></i>
+                            <p style="font-size: 1.1rem; font-weight: 500;">No return transactions found.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php foreach ($returns as $deal): ?>
+                        <div class="deal-card">
+                            <div class="deal-visual">
+                                <?php 
+                                    $cover = $deal['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?w=200';
+                                ?>
+                                <img src="<?php echo htmlspecialchars(html_entity_decode($cover), ENT_QUOTES, 'UTF-8'); ?>" class="deal-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1543004218-ee141104975a?w=400';">
+                                <span class="deal-type-tag">RETURN</span>
+                            </div>
+                            <div class="deal-main">
+                                <div class="deal-title"><?php echo htmlspecialchars($deal['title']); ?></div>
+                                <div class="deal-meta">
+                                    <div class="meta-item">
+                                        <?php if ($deal['lender_id'] == $userId): ?>
+                                            <i class='bx bx-user'></i> From: <?php echo htmlspecialchars($deal['borrower_name']); ?>
+                                        <?php else: ?>
+                                            <i class='bx bx-store-alt'></i> To: <?php echo htmlspecialchars($deal['lender_name']); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="meta-item"><i class='bx bx-calendar'></i> Updated: <?php echo date('M d', strtotime($deal['updated_at'] ?? $deal['created_at'])); ?></div>
+                                </div>
+                            </div>
+                            <div class="deal-actions">
+                                <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
+                                <button onclick="window.location.href='track_deliveries.php'" class="btn btn-outline btn-sm">
+                                    <i class='bx bx-radar'></i> Track Return
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -856,6 +934,44 @@ $payments = array_filter($all_deals, function($d) {
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Report User Modal -->
+    <div id="user-report-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 450px;">
+            <div class="modal-header ext-header" style="border-bottom: none; padding-top: 2rem;">
+                <div class="ext-icon-wrapper" style="background: #fee2e2; color: #ef4444;">
+                    <i class='bx bx-flag'></i>
+                </div>
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Report User</h2>
+                <p id="report-user-name" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;"></p>
+            </div>
+            <div class="modal-body" style="padding: 1rem 1.5rem;">
+                <div class="form-group">
+                    <label class="form-label">Reason for Report</label>
+                    <select id="report-reason" class="form-control" style="appearance: none; background: #fff url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E') no-repeat right 0.75rem center; background-size: 0.65rem auto;">
+                        <option value="">Select a reason...</option>
+                        <option value="fake">Fake Profile / Scam</option>
+                        <option value="harassment">Harassment / Abusive Language</option>
+                        <option value="no_show">No-show / Item Not Handed Over</option>
+                        <option value="bad_item">Book Not in Described Condition</option>
+                        <option value="other">Other Issue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="report-description" class="form-control" rows="4" placeholder="Provide more context..."></textarea>
+                </div>
+            </div>
+            <div class="ext-modal-footer">
+                <button onclick="submitUserReport()" class="ext-btn-primary" style="background: #ef4444; border-radius: 12px;">
+                    Submit Report
+                </button>
+                <button onclick="closeUserReportModal()" class="ext-btn-outline" style="border-radius: 12px;">
+                    Cancel
+                </button>
+            </div>
+        </div>
     </div>
 
 
@@ -1040,11 +1156,18 @@ $payments = array_filter($all_deals, function($d) {
             document.getElementById('incoming-list').style.display = tab === 'incoming' ? 'block' : 'none';
             document.getElementById('outgoing-list').style.display = tab === 'outgoing' ? 'block' : 'none';
             document.getElementById('listings-list').style.display = tab === 'listings' ? 'block' : 'none';
+            document.getElementById('returns-list').style.display = tab === 'returns' ? 'block' : 'none';
             document.getElementById('payments-list').style.display = tab === 'payments' ? 'block' : 'none';
         }
 
 
-        async function handleDeal(transactionId, action) {
+        async function handleDeal(transactionId, action, status = '') {
+            if (action === 'cancel_order') {
+                const msg = status === 'requested' 
+                    ? "Are you sure you want to cancel this request? (Cancellation is FREE before owner approval)"
+                    : "Are you sure you want to cancel this order? (A 5-credit penalty will be deducted)";
+                if (!confirm(msg)) return;
+            }
             try {
                 const formData = new FormData();
                 formData.append('action', action);
@@ -1456,6 +1579,58 @@ $payments = array_filter($all_deals, function($d) {
                 }
             }
         });
+
+        /* User Report Functions */
+        let currentReportedUserId = 0;
+
+        function openUserReportModal(userId, name) {
+            currentReportedUserId = userId;
+            document.getElementById('report-user-name').textContent = `Reporting: ${name}`;
+            document.getElementById('report-reason').value = '';
+            document.getElementById('report-description').value = '';
+            document.getElementById('user-report-modal').style.display = 'flex';
+        }
+
+        function closeUserReportModal() {
+            document.getElementById('user-report-modal').style.display = 'none';
+        }
+
+        async function submitUserReport() {
+            const reason = document.getElementById('report-reason').value;
+            const description = document.getElementById('report-description').value;
+
+            if (!reason) {
+                showToast('Please select a reason', 'error');
+                return;
+            }
+            if (!description.trim()) {
+                showToast('Please provide a description', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_report');
+            formData.append('reported_id', currentReportedUserId);
+            formData.append('reason', reason);
+            formData.append('description', description);
+            formData.append('type', 'user');
+
+            try {
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Report submitted. Our team will investigate.', 'success');
+                    closeUserReportModal();
+                } else {
+                    showToast(result.message || 'Failed to submit report', 'error');
+                }
+            } catch (error) {
+                showToast('Connection error', 'error');
+            }
+        }
     </script>
 </body>
 </html>

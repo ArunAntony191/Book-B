@@ -65,17 +65,20 @@ try {
         $price = (float)$listing['price'];
         $deliveryFee = $delivery ? 50 : 0;
         
-        $discountAmount = 0;
+        $discountAmountMonetary = 0;
         if ($txId) {
             $stmtDisc = $pdo->prepare("SELECT credit_discount FROM transactions WHERE id = ?");
             $stmtDisc->execute([$txId]);
-            $discountAmount = (int)$stmtDisc->fetchColumn();
+            $discountAmountMonetary = (int)$stmtDisc->fetchColumn();
         } else {
-            // New instant buy
-            $discountAmount = (int)($_POST['use_discount_credits'] ?? 0);
+            $discountAmountCredits = (int)($_POST['use_discount_credits'] ?? 0);
+            if ($discountAmountCredits == 100) {
+                $subtotal = $price * $quantity;
+                $discountAmountMonetary = $subtotal * 0.2; // 20% discount
+            }
         }
 
-        $totalAmount = (($price * $quantity) + $deliveryFee - $discountAmount) * 100; // Convert to paise
+        $totalAmount = (($price * $quantity) + $deliveryFee - $discountAmountMonetary) * 100; // Convert to paise
         
         if ($totalAmount < 100) {
             $totalAmount = 100; // Razorpay minimum is ₹1
@@ -171,7 +174,11 @@ try {
              // Logic: "Approve" usually reserves it. Check `accept_request`.
         } else {
             // New Insert
-            $discountAmount = (int)($orderInfo['use_discount_credits'] ?? 0);
+            $discountCredits = (int)($orderInfo['use_discount_credits'] ?? 0);
+            $discountAmountMonetary = 0;
+            if ($discountCredits == 100) {
+                $discountAmountMonetary = ($bookPrice * $quantity) * 0.2;
+            }
 
             $stmt = $pdo->prepare("
                 INSERT INTO transactions (
@@ -194,13 +201,13 @@ try {
                 $razorpay_payment_id,
                 $bookPrice,
                 $quantity,
-                $discountAmount
+                $discountAmountMonetary
             ]);
             
             $transactionId = $pdo->lastInsertId();
 
-            if ($discountAmount > 0) {
-                deductCredits($currentUser, $discountAmount, 'spend', "Credit Discount for Order #{$transactionId}", $transactionId);
+            if ($discountCredits == 100) {
+                deductCredits($currentUser, 100, 'spend', "Used 100 credits for 20% discount on Order #{$transactionId}", $transactionId);
             }
             
             // Decrease quantity

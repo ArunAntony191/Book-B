@@ -404,8 +404,8 @@ function getUserDeliveries($userId) {
                    l.listing_type, l.location as pickup_location, l.landmark as pickup_landmark,
                    l.latitude as pickup_lat, l.longitude as pickup_lng,
                    l.price, l.credit_cost,
-                   u_agent.firstname as agent_name, u_agent.phone as agent_phone,
-                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone,
+                   u_agent.firstname as agent_name, u_agent.phone as agent_phone, u_agent.average_rating as agent_rating,
+                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone, u_ret_agent.average_rating as ret_agent_rating,
                    (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
@@ -940,7 +940,7 @@ function deductCredits($userId, $amount, $type, $description, $transactionId = n
 
         // Trigger Notification if hitting minimum limit
         if ($newBalance < MIN_TOKEN_LIMIT && $currentBalance >= MIN_TOKEN_LIMIT) {
-            $msg = "Warning: Your token balance has dropped below " . MIN_TOKEN_LIMIT . ". You must increase your tokens to continue listing or borrowing books.";
+            $msg = "Warning: Your credit balance has dropped below " . MIN_TOKEN_LIMIT . ". You must increase your credits to continue listing or borrowing books.";
             createNotification($userId, 'system', $msg);
         }
         
@@ -1056,6 +1056,30 @@ function calculatePenalty($transactionId) {
 }
 
 /**
+ * Record a penalty in the platform audit log
+ */
+function recordPenalty($userId, $type, $amount, $trustPenalty, $reason, $transactionId = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO penalties (user_id, penalty_type, amount, trust_penalty, reason, transaction_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        return $stmt->execute([
+            $userId,
+            $type,
+            $amount,
+            $trustPenalty,
+            $reason,
+            $transactionId
+        ]);
+    } catch (Exception $e) {
+        error_log("Record penalty error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Apply penalty for late return
  */
 function applyPenalty($transactionId, $userId) {
@@ -1066,22 +1090,13 @@ function applyPenalty($transactionId, $userId) {
         if ($penalty['days'] > 0) {
             $pdo->beginTransaction();
             
-            // Record penalty
-            $stmt = $pdo->prepare("
-                INSERT INTO penalties (transaction_id, user_id, days_overdue, credit_penalty, trust_penalty)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $transactionId,
-                $userId,
-                $penalty['days'],
-                $penalty['credit_penalty'],
-                $penalty['trust_penalty']
-            ]);
+            $reason = "Late return penalty: {$penalty['days']} days overdue";
+            
+            // Record penalty using the new centralized helper
+            recordPenalty($userId, 'late_return', $penalty['credit_penalty'], $penalty['trust_penalty'], $reason, $transactionId);
             
             // Deduct credits
-            deductCredits($userId, $penalty['credit_penalty'], 'penalty', 
-                "Late return penalty: {$penalty['days']} days overdue", $transactionId);
+            deductCredits($userId, $penalty['credit_penalty'], 'penalty', $reason, $transactionId);
             
             // Update trust score
             updateTrustScore($userId, -$penalty['trust_penalty'], 'late_return');
@@ -1551,6 +1566,19 @@ function getUnreadDeliveryUpdatesCount($userId) {
 }
 
 /**
+ * Mark all unread notifications related to a transaction as read
+ */
+function markTxNotificationsRead($userId, $transactionId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND reference_id = ? AND is_read = 0");
+        return $stmt->execute([$userId, $transactionId]);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
  * Get count of available delivery jobs for agents
  */
 function getAvailableDeliveryJobsCount() {
@@ -1559,9 +1587,27 @@ function getAvailableDeliveryJobsCount() {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM transactions 
             WHERE (delivery_method = 'delivery' AND status = 'approved' AND delivery_agent_id IS NULL)
-               OR (return_delivery_method = 'delivery' AND status = 'active' AND return_agent_id IS NULL)
+               OR (return_delivery_method = 'delivery' AND status = 'returning' AND return_agent_id IS NULL)
         ");
         $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get count of active (in-progress) jobs for a specific agent
+ */
+function getActiveAgentJobsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE (delivery_agent_id = ? AND agent_confirm_delivery_at IS NULL AND status IN ('approved', 'assigned', 'active'))
+               OR (return_agent_id = ? AND return_agent_confirm_at IS NULL AND status = 'returning')
+        ");
+        $stmt->execute([$userId, $userId]);
         return (int)$stmt->fetchColumn();
     } catch (Exception $e) {
         return 0;
@@ -2479,7 +2525,7 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
         // 3. Completed Transactions (as Lender/Seller)
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM transactions 
-            WHERE lender_id = ? AND status = 'completed' AND created_at BETWEEN ? AND ?
+            WHERE lender_id = ? AND status IN ('completed', 'delivered', 'returned') AND created_at BETWEEN ? AND ?
         ");
         $stmt->execute([$userId, $startStr, $endStr]);
         $stats["total_completed"] = (int)$stmt->fetchColumn();
@@ -2489,7 +2535,7 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
         $stmt = $pdo->prepare("
             SELECT SUM(l.price) FROM transactions t
             JOIN listings l ON t.listing_id = l.id
-            WHERE t.lender_id = ? AND t.status = 'completed' AND t.created_at BETWEEN ? AND ?
+            WHERE t.lender_id = ? AND t.status IN ('completed', 'delivered', 'returned') AND t.created_at BETWEEN ? AND ?
         ");
         $stmt->execute([$userId, $startStr, $endStr]);
         $stats["total_revenue_money"] = (float)($stmt->fetchColumn() ?: 0);
@@ -2497,7 +2543,7 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
         $stmt = $pdo->prepare("
             SELECT SUM(l.credit_cost) FROM transactions t
             JOIN listings l ON t.listing_id = l.id
-            WHERE t.lender_id = ? AND t.status = 'completed' AND t.created_at BETWEEN ? AND ?
+            WHERE t.lender_id = ? AND t.status IN ('completed', 'delivered', 'returned') AND t.created_at BETWEEN ? AND ?
         ");
         $stmt->execute([$userId, $startStr, $endStr]);
         $stats["total_revenue_tokens"] = (int)($stmt->fetchColumn() ?: 0);
@@ -2505,7 +2551,7 @@ function getBusinessReportStats($userId, $startDate, $endDate) {
         // 5. Active Deals
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM transactions 
-            WHERE lender_id = ? AND status NOT IN ('completed', 'cancelled', 'returned')
+            WHERE lender_id = ? AND status NOT IN ('completed', 'cancelled', 'returned', 'delivered')
         ");
         $stmt->execute([$userId]);
         $stats["active_deals"] = (int)$stmt->fetchColumn();
@@ -2730,6 +2776,24 @@ function deleteAnnouncement($announcementId, $userId) {
         return $stmt->execute([$announcementId, $userId]);
     } catch (PDOException $e) {
         error_log("Delete announcement error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update an existing announcement
+ */
+function updateAnnouncement($announcementId, $userId, $title, $message, $link = null, $startDate = null, $endDate = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE announcements 
+            SET title = ?, message = ?, target_link = ?, start_date = ?, end_date = ? 
+            WHERE id = ? AND user_id = ?
+        ");
+        return $stmt->execute([$title, $message, $link, $startDate, $endDate, $announcementId, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update announcement error: " . $e->getMessage());
         return false;
     }
 }

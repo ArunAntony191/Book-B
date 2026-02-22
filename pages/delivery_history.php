@@ -8,6 +8,11 @@ if ($user['role'] !== 'delivery_agent' && $user['role'] !== 'admin') {
     exit();
 }
 
+if ($user['role'] === 'delivery_agent') {
+    header("Location: agent_history.php");
+    exit();
+}
+
 $pdo = getDBConnection();
 
 // Fetch all completed legs for this agent using UNION ALL to separate mission types

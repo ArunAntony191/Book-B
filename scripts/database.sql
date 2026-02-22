@@ -37,6 +37,7 @@ CREATE TABLE users (
     service_end_lng DECIMAL(11, 8) DEFAULT NULL,
     is_accepting_deliveries BOOLEAN DEFAULT 0,
     profile_picture VARCHAR(255) DEFAULT NULL,
+    notify_new_listings BOOLEAN DEFAULT 0 COMMENT 'User preference to receive notifications when new books are listed',
     INDEX idx_email (email),
     INDEX idx_role (role),
     INDEX idx_trust_score (trust_score)

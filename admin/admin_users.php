@@ -47,17 +47,7 @@ try {
     $users = [];
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management | BOOK-B Admin</title>
-    <link rel="stylesheet" href="assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-</head>
-<body>
-    <div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
 
         <main class="main-content">
@@ -133,7 +123,7 @@ try {
                             </td>
                             <td style="padding: 1.25rem; text-align: right;">
                                     <button onclick="adjustTokens(<?php echo $u['id']; ?>, '<?php echo htmlspecialchars($u['firstname'] . ' ' . $u['lastname']); ?>')" class="btn btn-sm" style="background: var(--primary); color: white; border: none; margin-right: 0.5rem;">
-                                        <i class='bx bx-coin-stack'></i> Tokens
+                                        <i class='bx bx-coin-stack'></i> Credits
                                     </button>
                                     <?php if ($u['is_banned']): ?>
                                         <button onclick="toggleBan(<?php echo $u['id']; ?>, 'unban')" class="btn btn-sm" style="background: #10b981; color: white; border: none;">Unban</button>
@@ -185,7 +175,7 @@ try {
     }
 
     async function adjustTokens(userId, userName) {
-        const amount = prompt(`Adjust tokens for ${userName}:\nEnter positive number to add, negative to take away (e.g. 50 or -20)`);
+        const amount = prompt(`Adjust credits for ${userName}:\nEnter positive number to add, negative to take away (e.g. 50 or -20)`);
         if (amount === null || amount === "" || isNaN(amount) || parseInt(amount) === 0) return;
 
         const reason = prompt("Enter reason for adjustment:", "Admin adjustment");
@@ -216,5 +206,3 @@ try {
         }
     }
     </script>
-</body>
-</html>

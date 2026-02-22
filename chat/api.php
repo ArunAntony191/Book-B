@@ -68,9 +68,19 @@ if ($method === 'GET') {
             // Notification Count
             $notifCount = getUnreadNotificationsCount($userId);
 
+            // Deals & Delivery Counts
+            $dealsCount = getUnreadRequestsCount($userId);
+            $deliveryCount = getUnreadDeliveryUpdatesCount($userId);
+            $activeJobsCount = getActiveAgentJobsCount($userId);
+            $availableJobsCount = getAvailableDeliveryJobsCount();
+
             echo json_encode([
                 'messages' => $msgCount,
-                'notifications' => $notifCount
+                'notifications' => $notifCount,
+                'deals' => $dealsCount,
+                'delivery' => $deliveryCount,
+                'active_jobs' => $activeJobsCount,
+                'available_jobs' => $availableJobsCount
             ]);
         } else {
             echo json_encode(['messages' => 0, 'notifications' => 0]);

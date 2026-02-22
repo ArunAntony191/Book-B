@@ -96,8 +96,18 @@ $trustRating = $stats['trust_rating'] ?? getTrustScoreRating(50);
 
 // 2. Get Delivery Stats
 // Active Jobs (Assigned to me)
-$active_transit_count = count(array_filter($my_deliveries, fn($d) => $d['status'] === 'active'));
-$pending_pickup_count = count(array_filter($my_deliveries, fn($d) => $d['status'] === 'approved'));
+$active_transit_count = count(array_filter($my_deliveries, function($d) {
+    if ($d['job_type'] === 'return') {
+        return $d['status'] === 'returning' && !empty($d['return_picked_up_at']);
+    }
+    return $d['status'] === 'active';
+}));
+$pending_pickup_count = count(array_filter($my_deliveries, function($d) {
+    if ($d['job_type'] === 'return') {
+        return $d['status'] === 'returning' && empty($d['return_picked_up_at']);
+    }
+    return in_array($d['status'], ['approved', 'assigned']);
+}));
 
 // Delivered Today / Total
 // Delivered Today / Total
@@ -406,7 +416,7 @@ $userReviews = getUserReviews($userId, 5);
                 </div>
 
                 <!-- Active Deliveries -->
-                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;" onclick="window.scrollTo({top: 500, behavior: 'smooth'})">
+                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;" onclick="location.href='current_jobs.php'">
                     <div class="widget-title">
                         <span><i class='bx bx-rocket'></i> In Transit</span>
                     </div>
@@ -428,7 +438,7 @@ $userReviews = getUserReviews($userId, 5);
                 </div>
 
                 <!-- Pending Pickup -->
-                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;" onclick="window.scrollTo({top: 500, behavior: 'smooth'})">
+                <div class="widget-card" style="cursor: pointer; transition: all 0.3s;" onclick="location.href='current_jobs.php'">
                     <div class="widget-title">
                         <span><i class='bx bx-package'></i> To Pickup</span>
                     </div>
@@ -452,7 +462,12 @@ $userReviews = getUserReviews($userId, 5);
             <?php endif; ?>
 
             <!-- Active Jobs Section -->
-            <div class="section-title"><i class='bx bx-list-ul'></i> My Current Jobs</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="section-title" style="margin-bottom: 0;"><i class='bx bx-list-ul'></i> My Current Jobs</div>
+                <?php if (!empty($my_deliveries)): ?>
+                    <a href="current_jobs.php" class="btn btn-sm btn-outline">Manage All Tasks</a>
+                <?php endif; ?>
+            </div>
             
             <?php if (empty($my_deliveries)): ?>
                 <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color); color: var(--text-muted); margin-bottom: 2rem;">

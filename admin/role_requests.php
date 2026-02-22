@@ -1,10 +1,7 @@
 <?php
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
-session_start();
-
-$userId = $_SESSION['user_id'] ?? 0;
-$user = getUserById($userId);
+include '../includes/dashboard_header.php';
 
 // Ensure only admin can access
 if (!$user || $user['role'] !== 'admin') {
@@ -33,55 +30,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pendingRequests = getRoleRequests('pending');
 $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('rejected'));
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Role Change Requests | Admin</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
-        .request-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .user-info h3 { margin: 0; font-size: 1.1rem; }
-        .user-info p { margin: 4px 0; color: #64748b; font-size: 0.9rem; }
-        .role-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: #f1f5f9;
-        }
-        .requested-role { background: #e0e7ff; color: #4338ca; }
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-        }
-        .status-approved { background: #dcfce7; color: #15803d; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
-        
-        .action-btns { display: flex; gap: 0.5rem; }
-        .btn-approve { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
-        .btn-reject { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <div class="dashboard-wrapper">
-        <?php include '../includes/dashboard_sidebar.php'; ?>
-        
-        <main class="main-content">
-            <div style="max-width: 1000px; margin: 0 auto;">
+<style>
+    .request-card {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .user-info h3 { margin: 0; font-size: 1.1rem; }
+    .user-info p { margin: 4px 0; color: var(--text-muted); font-size: 0.9rem; }
+    .role-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--section-bg);
+    }
+    .requested-role { background: #e0e7ff; color: #4338ca; }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .status-approved { background: #dcfce7; color: #15803d; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .action-btns { display: flex; gap: 0.5rem; }
+    .btn-approve { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+    .btn-reject { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+</style>
+<div class="dashboard-wrapper">
+    <?php include '../includes/dashboard_sidebar.php'; ?>
+    
+    <main class="main-content">
+        <div style="max-width: 1000px; margin: 0 auto;">
                 <h1>Role Change Requests</h1>
                 <p>Manage user requests to change their account type</p>
 

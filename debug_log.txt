@@ -2154,3 +2154,611 @@
     [transaction_id] => 117
 )
 
+[2026-02-22 08:14:27] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 117
+)
+
+[2026-02-22 12:44:27] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-02-22 08:17:44] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 117
+)
+
+[2026-02-22 08:21:41] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:21:45] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-02-28
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 12:51:45] Create Request Action Triggered
+[2026-02-22 12:51:45] Exception: You have already requested or are currently processing an order for this book.
+[2026-02-22 08:21:49] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-02-28
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 12:51:49] Create Request Action Triggered
+[2026-02-22 12:51:49] Exception: You have already requested or are currently processing an order for this book.
+[2026-02-22 08:21:52] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-02-28
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 12:51:52] Create Request Action Triggered
+[2026-02-22 12:51:52] Exception: You have already requested or are currently processing an order for this book.
+[2026-02-22 08:23:03] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 117
+)
+
+[2026-02-22 08:28:28] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 117
+)
+
+[2026-02-22 08:28:48] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:28:51] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 12:58:51] Create Request Action Triggered
+[2026-02-22 12:58:51] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:28:57] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:29:03] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 12:59:03] Create Request Action Triggered
+[2026-02-22 12:59:03] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:30:16] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:30:19] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-13
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 13:00:19] Create Request Action Triggered
+[2026-02-22 13:00:19] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:30:23] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-13
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 13:00:23] Create Request Action Triggered
+[2026-02-22 13:00:23] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:30:28] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-13
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 13:00:28] Create Request Action Triggered
+[2026-02-22 13:00:28] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:30:36] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:30:38] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-13
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 13:00:38] Create Request Action Triggered
+[2026-02-22 13:00:38] Exception: Delivery location is required for delivery requests.
+[2026-02-22 08:40:31] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 08:40:40] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 13:10:40] Create Request Action Triggered
+[2026-02-22 13:10:40] Notification Created
+[2026-02-22 08:40:54] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:41:02] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:41:11] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 120
+    [status] => active
+)
+
+[2026-02-22 08:41:13] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 120
+    [status] => delivered
+)
+
+[2026-02-22 08:41:28] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:41:36] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:42:05] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:56:43] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:57:02] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 120
+    [status] => returning_active
+)
+
+[2026-02-22 08:57:05] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 120
+    [status] => return_delivered
+)
+
+[2026-02-22 08:57:12] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 120
+)
+
+[2026-02-22 08:57:20] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 120
+)
+
+[2026-02-22 09:37:43] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5079
+    [l_lng] => 76.6393
+    [b_lat] => 9.5275931
+    [b_lng] => 76.8216097
+)
+
+[2026-02-22 09:37:53] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 7
+    [owner_id] => 5
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => Naruto, Vol. 1
+    [delivery] => 0
+    [address] => Central Complex, Amal Jyothi College of Engineering, Amal Jyothi College of Engineering Skywalk, Koovapally, Kanjirappally, Kottayam, Kerala, 686518, India
+    [landmark] => ajc
+    [lat] => 9.5275931
+    [lng] => 76.8216097
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 14:07:53] Create Request Action Triggered
+[2026-02-22 14:07:53] Notification Created
+[2026-02-22 09:38:04] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 121
+)
+
+[2026-02-22 11:08:24] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 11:09:38] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 122
+)
+
+[2026-02-22 12:05:05] Request Action Hit: Array
+(
+    [action] => mark_returned
+    [transaction_id] => 121
+)
+
+[2026-02-22 12:05:51] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-05
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 16:35:51] Create Request Action Triggered
+[2026-02-22 16:35:51] Notification Created
+[2026-02-22 12:06:31] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 123
+)
+
+[2026-02-22 12:34:03] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 17:04:03] Create Request Action Triggered
+[2026-02-22 17:04:03] Notification Created
+[2026-02-22 12:34:13] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 124
+)
+
+[2026-02-22 12:42:07] Request Action Hit: Array
+(
+    [action] => cancel_order
+    [transaction_id] => 124
+)
+
+[2026-02-22 13:49:06] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 13:50:24] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 125
+)
+
+[2026-02-22 13:52:19] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 125
+    [status] => active
+)
+
+[2026-02-22 13:52:34] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 125
+    [status] => delivered
+)
+
+[2026-02-22 13:52:52] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 125
+)
+
+[2026-02-22 13:53:16] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 125
+)
+
+[2026-02-22 13:57:33] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5275931
+    [l_lng] => 76.8216097
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-22 13:57:42] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 33
+    [owner_id] => 42
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => That Time I Got Reincarnated as a Slime, Vol. 1 (light novel)
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-22 18:27:42] Create Request Action Triggered
+[2026-02-22 18:27:42] Notification Created
+[2026-02-22 13:58:26] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 126
+)
+
+[2026-02-22 13:59:05] Request Action Hit: Array
+(
+    [action] => cancel_job
+    [transaction_id] => 122
+)
+
+[2026-02-22 13:59:49] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 126
+)
+
+[2026-02-22 14:00:00] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 126
+    [status] => active
+)
+
+[2026-02-22 14:00:02] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 126
+    [status] => delivered
+)
+
+[2026-02-22 14:00:11] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 126
+)
+
+[2026-02-22 14:00:19] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 126
+)
+
+[2026-02-22 14:00:28] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 126
+)
+
+[2026-02-22 14:10:11] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 126
+)
+
+[2026-02-22 14:10:44] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 126
+    [status] => returning_active
+)
+
+[2026-02-22 14:16:37] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 126
+    [status] => return_delivered
+)
+
+[2026-02-22 16:11:49] Request Action Hit: Array
+(
+    [action] => adjust_tokens
+    [user_id] => 43
+    [amount] => -5
+    [reason] => Admin adjustment
+)
+

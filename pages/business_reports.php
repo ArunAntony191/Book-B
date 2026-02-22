@@ -101,7 +101,7 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Successful Orders</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label"><?php echo $user_role === 'bookstore' ? 'Revenue' : 'Tokens Earned'; ?></div>
+                    <div class="stat-label"><?php echo $user_role === 'bookstore' ? 'Revenue' : 'Credits Earned'; ?></div>
                     <div class="stat-value" style="color: var(--primary);">
                         <?php 
                             if ($user_role === 'bookstore') {

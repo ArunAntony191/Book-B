@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_POST = sanitizeInput($_POST);
 
     if (!$canList) {
-        $error = "Insufficient tokens. You need at least 10 tokens to list a new book, and maintain a minimum balance of " . MIN_TOKEN_LIMIT . " tokens.";
+        $error = "Insufficient credits. You need at least 10 credits to list a new book, and maintain a minimum balance of " . MIN_TOKEN_LIMIT . " credits.";
     } else {
         $postEditId = isset($_POST['edit_id']) ? validateId($_POST['edit_id']) : 0;
         $title = $_POST['title'] ?? '';
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $creditCost = isset($_POST['credit_cost']) ? max(1, intval($_POST['credit_cost'])) : 10;
         
         // Handle Cover Upload (URL or File)
-        $cover = $_POST['cover_image'] ?? ''; 
+        $cover = htmlspecialchars_decode($_POST['cover_image'] ?? '', ENT_QUOTES); 
         if ($postEditId && empty($cover)) {
             $cover = $editData['cover_image'] ?? '';
         }
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Create Logic
                         if (addListing($userId, $title, $author, $type, $price, $location, $lat, $lng, $cover, $description, $categories, $condition, $visibility, $communityId, $quantity, $creditCost, $district, $city, $pincode, $landmark, $isRare, $rareDetails)) {
                             deductCredits($userId, 10, 'listing_fee', "Book listing fee: {$title}");
-                            $success = "Successfully listed your book! 10 tokens have been deducted.";
+                            $success = "Successfully listed your book! 10 credits have been deducted.";
                         } else {
                             $error = "Failed to add listing.";
                         }
@@ -506,14 +506,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </p>
                             </div>
 
-                            <!-- Token Cost Field -->
+                            <!-- Credit Cost Field -->
                             <div class="form-group">
                                 <label class="form-label">
-                                    <i class='bx bx-wallet'></i> Token Cost
+                                    <i class='bx bx-wallet'></i> Credit Cost
                                 </label>
-                                <input type="number" name="credit_cost" class="form-input" value="<?php echo htmlspecialchars($editData['credit_cost'] ?? 10); ?>" min="1" placeholder="Tokens required">
+                                <input type="number" name="credit_cost" class="form-input" value="<?php echo htmlspecialchars($editData['credit_cost'] ?? 10); ?>" min="1" placeholder="Credits required">
                                 <p class="form-hint" style="margin-top: 0.5rem;">
-                                    <i class='bx bx-info-circle'></i> Tokens borrowers need to pay (default: 10)
+                                    <i class='bx bx-info-circle'></i> Credits borrowers need to pay (default: 10)
                                 </p>
                             </div>
 

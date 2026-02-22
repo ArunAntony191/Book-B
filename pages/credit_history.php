@@ -9,6 +9,11 @@ if (!$userId) {
     exit();
 }
 
+if ($user['role'] === 'delivery_agent') {
+    header("Location: agent_history.php");
+    exit();
+}
+
 $creditHistory = getCreditHistory($userId, 50);
 $currentCredits = getUserCredits($userId);
 ?>
@@ -28,6 +33,23 @@ $currentCredits = getUserCredits($userId);
                 <div style="font-size: 0.8rem; opacity: 0.9;">credits</div>
             </div>
         </div>
+        
+        <?php if ($currentCredits >= MAX_TOKEN_LIMIT): ?>
+        <div style="background: #fff7ed; border: 1.5px solid #fbbf24; color: #9a3412; padding: 1.25rem; border-radius: var(--radius-lg); margin-top: 1.5rem; display: flex; align-items: flex-start; gap: 1rem; box-shadow: var(--shadow-sm);">
+            <i class='bx bx-info-circle' style="font-size: 1.8rem; color: #fbbf24; margin-top: 2px;"></i>
+            <div>
+                <strong style="display: block; font-size: 1.1rem; margin-bottom: 0.25rem;">Credit Limit Reached (<?php echo MAX_TOKEN_LIMIT; ?>)</strong>
+                <p style="margin: 0; font-size: 0.95rem; line-height: 1.5; opacity: 0.9;">
+                    <?php if (($_SESSION['role'] ?? 'user') === 'delivery_agent'): ?>
+                        You have reached the maximum credit capacity (500 credits). 
+                        <strong>Note:</strong> This only affects your token bonuses. Your <strong>₹50 Cash Earnings</strong> per delivery are still being tracked correctly in your Wallet/Performance Reports.
+                    <?php else: ?>
+                        You have reached the maximum credit capacity. To earn more credits, you'll need to spend some of your current credits by borrowing books or using them for delivery fees.
+                    <?php endif; ?>
+                </p>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <?php if (count($creditHistory) > 0): ?>
         <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-md); margin-top: 2rem;">
@@ -131,6 +153,7 @@ $currentCredits = getUserCredits($userId);
                     <ul style="color: var(--text-muted); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
                         <li>Late returns: -5 credits/day</li>
                         <li style="color: #b91c1c; font-weight: 700;">Order Cancel: -5 credits</li>
+                        <li style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">(Free before owner approval. Blocked once agent accepts)</li>
                         <li style="color: #b91c1c; font-weight: 700;">Job Abandon: -5 credits (Agents)</li>
                         <li>Damage/Loss: Variable credit deduction</li>
                     </ul>

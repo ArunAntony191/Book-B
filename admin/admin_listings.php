@@ -38,17 +38,7 @@ try {
     $listings = [];
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Listings | BOOK-B Admin</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-</head>
-<body>
-    <div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
 
         <main class="main-content">
@@ -158,5 +148,3 @@ try {
         }
     }
     </script>
-</body>
-</html>

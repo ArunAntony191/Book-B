@@ -3,15 +3,7 @@ require_once '../includes/db_helper.php';
 require_once '../paths.php';
 include '../includes/dashboard_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community | BOOK-B</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+<style>
         .community-layout {
             display: grid;
             grid-template-columns: 350px 1fr;
@@ -125,10 +117,8 @@ include '../includes/dashboard_header.php';
         .comm-book-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.3; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .comm-book-author { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
         .comm-book-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #e2e8f0; color: #475569; font-weight: 600; text-transform: uppercase; }
-    </style>
-</head>
-<body>
-    <div class="dashboard-wrapper">
+</style>
+<div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
 
         <main class="main-content">
@@ -137,7 +127,9 @@ include '../includes/dashboard_header.php';
                 <div class="comm-sidebar">
                     <div class="comm-header">
                         <h2 style="font-size: 1.2rem; margin: 0;">Communities</h2>
+                        <?php if (!$user || $user['role'] !== 'admin'): ?>
                         <button class="btn btn-primary" onclick="showModal('create')"><i class='bx bx-plus'></i></button>
+                        <?php endif; ?>
                     </div>
                     <div style="padding: 1rem;">
                         <input type="text" class="form-input" placeholder="Find communities..." oninput="searchCommunity(this.value)">
@@ -291,6 +283,7 @@ include '../includes/dashboard_header.php';
         let currentCommId = null;
         let currentCommCreator = null;
         let userId = <?php echo $_SESSION['user_id']; ?>;
+        const isAdmin = <?php echo ($user && $user['role'] === 'admin') ? 'true' : 'false'; ?>;
 
         // Helper to fix image paths
         function getImgPath(path) {
@@ -339,7 +332,7 @@ include '../includes/dashboard_header.php';
                                     <div style="font-weight:600;">${c.name}</div>
                                     <div style="font-size:0.8rem; color:#64748b;">${c.member_count} members</div>
                                 </div>
-                                <button class="btn btn-primary" style="padding:0.2rem 0.6rem; font-size:0.7rem;" onclick="joinCommunity(${c.id})">Join</button>
+                                ${isAdmin ? '' : `<button class="btn btn-primary" style="padding:0.2rem 0.6rem; font-size:0.7rem;" onclick="joinCommunity(${c.id})">Join</button>`}
                             </div>
                         `;
                     });
@@ -484,7 +477,7 @@ include '../includes/dashboard_header.php';
         function sendMessage() {
             const input = document.getElementById('msg-input');
             const fileInput = document.getElementById('file-upload');
-            if ((!input.value.trim() && !fileInput.files[0]) || !currentCommId) return;
+            if ((!input.value.trim() && !fileInput.files[0]) || !currentCommId || isAdmin) return;
             
             const formData = new FormData();
             formData.append('community_id', currentCommId);
@@ -517,7 +510,7 @@ include '../includes/dashboard_header.php';
                     const list = document.getElementById('community-list');
                     list.innerHTML = '';
                     data.forEach(c => {
-                        const btn = c.is_member ? '<span style="color:var(--primary); font-size:0.8rem;">Joined</span>' : `<button class="btn btn-primary" style="padding:0.2rem 0.6rem; font-size:0.7rem;" onclick="joinCommunity(${c.id})">Join</button>`;
+                        const btn = c.is_member ? '<span style="color:var(--primary); font-size:0.8rem;">Joined</span>' : (isAdmin ? '' : `<button class="btn btn-primary" style="padding:0.2rem 0.6rem; font-size:0.7rem;" onclick="joinCommunity(${c.id})">Join</button>`);
                         
                         list.innerHTML += `
                             <div class="comm-item">
@@ -534,6 +527,7 @@ include '../includes/dashboard_header.php';
         }
         
         function joinCommunity(id) {
+            if (isAdmin) { alert('Admins cannot join communities.'); return; }
             const formData = new FormData();
             formData.append('community_id', id);
             fetch('../community/api.php?action=join', { method: 'POST', body: formData })
@@ -682,5 +676,4 @@ include '../includes/dashboard_header.php';
         // Init
         loadCommunities();
     </script>
-</body>
-</html>
+</div>

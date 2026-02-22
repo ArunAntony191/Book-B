@@ -24,8 +24,8 @@ try {
                l.credit_cost as listing_credits,
                u_lender.firstname as lender_fname, u_lender.lastname as lender_lname, u_lender.phone as lender_phone,
                u_borrower.firstname as borrower_fname, u_borrower.lastname as borrower_lname, u_borrower.phone as borrower_phone,
-               u_agent.firstname as agent_fname, u_agent.lastname as agent_lname, u_agent.phone as agent_phone,
-               u_ret_agent.firstname as ret_agent_fname, u_ret_agent.lastname as ret_agent_lname, u_ret_agent.phone as ret_agent_phone,
+               u_agent.firstname as agent_fname, u_agent.lastname as agent_lname, u_agent.phone as agent_phone, u_agent.average_rating as agent_rating,
+               u_ret_agent.firstname as ret_agent_fname, u_ret_agent.lastname as ret_agent_lname, u_ret_agent.phone as ret_agent_phone, u_ret_agent.average_rating as ret_agent_rating,
                lender_loc.service_start_lat as pickup_lat, lender_loc.service_start_lng as pickup_lng
         FROM transactions t
         JOIN listings l ON t.listing_id = l.id
@@ -58,7 +58,7 @@ $isReturnPhase = in_array($d['status'], ['returning', 'returned']);
 
 function getStatusLabel($status, $agentId, $method) {
     if ($status === 'approved' && $method === 'pickup') return 'Ready for Collection';
-    if ($status === 'approved' && $method === 'delivery') return $agentId ? 'Agent Assigned' : 'Finding Agent';
+    if ($status === 'approved' && $method === 'delivery') return $agentId ? 'Agent Accepted' : 'Finding Agent';
     
     switch ($status) {
         case 'requested': return 'Waiting for Owner';
@@ -224,16 +224,26 @@ function getStatusLabel($status, $agentId, $method) {
                             </div>
                         <?php else: 
                             $tokenBase = (int)($d['credit_cost'] ?? 10);
-                            $deliveryFee = ($d['delivery_method'] === 'delivery') ? 10 : 0;
-                            $finalTokens = $tokenBase + $deliveryFee;
+                            $deliveryFeeForward = ($d['delivery_method'] === 'delivery') ? 10 : 0;
+                            $returnFeeCredits = ($d['return_delivery_method'] === 'delivery') ? (int)($d['return_delivery_credits'] ?? 10) : 0;
+                            $finalTokens = $tokenBase + $deliveryFeeForward + $returnFeeCredits;
+                            $returnFeeINR = ($d['return_delivery_method'] === 'delivery') ? (int)($d['return_delivery_price'] ?? 50) : 0;
                         ?>
                             <div style="display: flex; align-items: flex-start; flex-direction: column; gap: 0.25rem;">
-                                <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
-                                    <i class='bx bxs-coin-stack'></i> Total Tokens: <?= $finalTokens ?>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
+                                        <i class='bx bxs-coin-stack'></i> Total Credits: <?= $finalTokens ?>
+                                    </div>
+                                    <?php if ($returnFeeINR > 0 && $isBorrower): ?>
+                                        <div class="price-tag" style="background:#fff7ed; color:#c2410c; border-color:#ffedd5;">
+                                            <i class='bx bx-money'></i> Return Fee: ₹<?= $returnFeeINR ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted); padding-left: 0.25rem;">
                                     (Base: <?= $tokenBase ?> 
-                                    <?php if($deliveryFee > 0): ?>+ Delivery: <?= $deliveryFee ?><?php endif; ?>)
+                                    <?php if($deliveryFeeForward > 0): ?>+ Delivery: <?= $deliveryFeeForward ?><?php endif; ?>
+                                    <?php if($returnFeeCredits > 0 && $isBorrower): ?>+ Return Deliv: <?= $returnFeeCredits ?><?php endif; ?>)
                                 </div>
                             </div>
                             <?php if ($d['quantity'] > 1): ?>
@@ -266,7 +276,7 @@ function getStatusLabel($status, $agentId, $method) {
                             <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($d['title']); ?></h2>
                             <p style="color: var(--text-muted); font-size: 1rem;">by <?php echo htmlspecialchars($d['author']); ?></p>
                             
-                            <div style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <div style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
                                 <div>
                                     <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.5rem;">Lender (Owner)</div>
                                     <div style="font-weight: 700; color: var(--text-main);"><?php echo $d['lender_fname'] . ' ' . $d['lender_lname']; ?></div>
@@ -277,6 +287,32 @@ function getStatusLabel($status, $agentId, $method) {
                                     <div style="font-weight: 700; color: var(--text-main);"><?php echo $d['borrower_fname'] . ' ' . $d['borrower_lname']; ?></div>
                                     <div style="color: var(--text-muted); font-size: 0.9rem;"><?php echo $d['borrower_phone']; ?></div>
                                 </div>
+                                <?php 
+                                    $currentAgentId = $isReturnPhase ? $d['return_agent_id'] : $d['delivery_agent_id'];
+                                    if ($currentAgentId): 
+                                        $aName = $isReturnPhase ? $d['ret_agent_fname'] . ' ' . $d['ret_agent_lname'] : $d['agent_fname'] . ' ' . $d['agent_lname'];
+                                        $aPhone = $isReturnPhase ? $d['ret_agent_phone'] : $d['agent_phone'];
+                                        $aRating = $isReturnPhase ? $d['ret_agent_rating'] : $d['agent_rating'];
+                                ?>
+                                <div>
+                                    <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.5rem;">Delivery Partner</div>
+                                    <div style="font-weight: 700; color: var(--text-main);"><?php echo $aName; ?></div>
+                                    <div style="color: var(--text-muted); font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                                        <i class='bx bx-phone' style="color: var(--primary);"></i> <?php echo $aPhone; ?>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; margin-top: 0.4rem;">
+                                        <a href="user_profile.php?id=<?php echo $currentAgentId; ?>" style="color: var(--primary); font-size: 0.75rem; font-weight: 700; text-decoration: none; padding: 0.3rem 0.6rem; background: var(--primary-soft); border-radius: 8px;">Show Rating</a>
+                                        <?php 
+                                            $hasHandedOver = $isReturnPhase ? !empty($d['return_borrower_confirm_at']) : !empty($d['lender_confirm_at']);
+                                            if ($hasHandedOver): 
+                                        ?>
+                                        <button onclick="openAgentReportModal(<?php echo $currentAgentId; ?>, '<?php echo addslashes($aName); ?>')" style="color: #ef4444; font-size: 0.75rem; font-weight: 700; border: none; background: #fee2e2; padding: 0.3rem 0.6rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                                            <i class='bx bx-flag'></i> Report
+                                        </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -439,6 +475,47 @@ function getStatusLabel($status, $agentId, $method) {
         </div>
     </div>
 
+    <!-- Report Agent Modal -->
+    <div id="agent-report-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header ext-header" style="border-bottom: none; padding-top: 2rem;">
+                <div style="width: 60px; height: 60px; background: #fee2e2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1rem;">
+                    <i class='bx bx-flag'></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.5rem; color: var(--text-main);">Report Delivery Agent</h2>
+                <p id="report-agent-name" style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;"></p>
+            </div>
+            <div class="modal-body" style="padding: 1rem 2rem 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Reason for Report</label>
+                    <select id="report-reason" class="form-control" style="appearance: none; background: #fff url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E') no-repeat right 0.75rem center; background-size: 0.65rem auto;">
+                        <option value="">Select a reason...</option>
+                        <option value="behavior">Unprofessional Behavior</option>
+                        <option value="late">Extremely Late Delivery</option>
+                        <option value="damaged">Items Damaged in Transit</option>
+                        <option value="misconduct">Safety or Misconduct Concern</option>
+                        <option value="other">Other Issue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Describe the Incident</label>
+                    <textarea id="report-description" class="form-control" rows="4" placeholder="Please provide details about what happened..."></textarea>
+                </div>
+                <div style="background: #fff7ed; border: 1px solid #fef3c7; padding: 1rem; border-radius: 12px; color: #9a3412; font-size: 0.85rem; line-height: 1.4; margin-bottom: 1rem;">
+                    <i class='bx bx-info-circle'></i> <strong>Note:</strong> False reports may result in penalties. Our team will investigate.
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 1.5rem 2rem 2rem; border-top: none; display: flex; flex-direction: column; gap: 0.75rem;">
+                <button onclick="submitAgentReport()" class="ext-btn-primary" style="background: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);">
+                    <i class='bx bx-flag'></i> Submit Report
+                </button>
+                <button onclick="closeAgentReportModal()" class="ext-btn-outline">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const d = <?php echo json_encode($d); ?>;
@@ -509,6 +586,58 @@ function getStatusLabel($status, $agentId, $method) {
                 }
             } catch (e) {
                 alert('Error sending request');
+            }
+        }
+
+        /* Agent Report Functions */
+        let currentReportedAgentId = 0;
+
+        function openAgentReportModal(agentId, name) {
+            currentReportedAgentId = agentId;
+            document.getElementById('report-agent-name').textContent = `Reporting: ${name}`;
+            document.getElementById('report-reason').value = '';
+            document.getElementById('report-description').value = '';
+            document.getElementById('agent-report-modal').style.display = 'flex';
+        }
+
+        function closeAgentReportModal() {
+            document.getElementById('agent-report-modal').style.display = 'none';
+        }
+
+        async function submitAgentReport() {
+            const reason = document.getElementById('report-reason').value;
+            const description = document.getElementById('report-description').value;
+
+            if (!reason) {
+                alert('Please select a reason for reporting');
+                return;
+            }
+            if (!description.trim()) {
+                alert('Please provide a description');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_report');
+            formData.append('reported_id', currentReportedAgentId);
+            formData.append('reason', reason);
+            formData.append('description', description);
+            formData.append('type', 'user');
+
+            try {
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Report submitted successfully. Our team will investigate.');
+                    closeAgentReportModal();
+                } else {
+                    alert(result.message || 'Failed to submit report');
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
             }
         }
     </script>

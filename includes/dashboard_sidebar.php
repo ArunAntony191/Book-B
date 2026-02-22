@@ -20,6 +20,7 @@ $total_notifs = $user_id ? getUnreadSystemNotificationsCount($user_id) : 0;
 $deals_notifs = $user_id ? getUnreadRequestsCount($user_id) : 0;
 $delivery_notifs = $user_id ? getUnreadDeliveryUpdatesCount($user_id) : 0;
 $sidebar_available_jobs_count = ($user_role == 'delivery_agent') ? getAvailableDeliveryJobsCount() : 0;
+$sidebar_active_jobs_count = ($user_role == 'delivery_agent') ? getActiveAgentJobsCount($user_id) : 0;
 $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 ?>
 
@@ -47,14 +48,19 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
     <?php if($user_role == 'delivery_agent'): ?>
     <div class="sidebar-section-title">Logistics</div>
     <a href="<?php echo APP_URL; ?>/pages/dashboard_delivery_agent.php" class="nav-item <?php echo $current_page == 'dashboard_delivery_agent.php' ? 'active' : ''; ?>"><i class='bx bx-grid-alt'></i> Agent Dashboard</a>
+    <a href="<?php echo APP_URL; ?>/pages/current_jobs.php" class="nav-item <?php echo $current_page == 'current_jobs.php' ? 'active' : ''; ?>">
+        <i class='bx bx-briefcase'></i> My Current Jobs
+        <?php if ($sidebar_active_jobs_count > 0): ?>
+            <span class="nav-badge active-jobs-badge"><?php echo $sidebar_active_jobs_count; ?></span>
+        <?php endif; ?>
+    </a>
     <a href="<?php echo APP_URL; ?>/pages/delivery_jobs.php" class="nav-item <?php echo $current_page == 'delivery_jobs.php' ? 'active' : ''; ?>">
         <i class='bx bx-radar'></i> Find New Jobs
         <?php if ($sidebar_available_jobs_count > 0): ?>
-            <span class="nav-badge"><?php echo $sidebar_available_jobs_count; ?></span>
+            <span class="nav-badge available-jobs-badge"><?php echo $sidebar_available_jobs_count; ?></span>
         <?php endif; ?>
     </a>
-    <a href="<?php echo APP_URL; ?>/pages/delivery_history.php" class="nav-item <?php echo $current_page == 'delivery_history.php' ? 'active' : ''; ?>"><i class='bx bx-history'></i> Delivery History</a>
-    <a href="<?php echo APP_URL; ?>/pages/credit_history.php" class="nav-item <?php echo $current_page == 'credit_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> My Earnings</a>
+    <a href="<?php echo APP_URL; ?>/pages/agent_history.php" class="nav-item <?php echo $current_page == 'agent_history.php' ? 'active' : ''; ?>"><i class='bx bx-wallet'></i> Wallet & History</a>
     <a href="<?php echo APP_URL; ?>/pages/agent_reports.php" class="nav-item <?php echo $current_page == 'agent_reports.php' ? 'active' : ''; ?>"><i class='bx bx-file'></i> Performance Reports</a>
     <?php endif; ?>
 
@@ -105,13 +111,13 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
         <a href="<?php echo APP_URL; ?>/pages/deals.php" class="nav-item <?php echo $current_page == 'deals.php' ? 'active' : ''; ?>">
             <i class='bx bx-git-compare'></i> My Deals
             <?php if ($deals_notifs > 0): ?>
-                <span class="nav-badge"><?php echo $deals_notifs; ?></span>
+                <span class="nav-badge deals-badge"><?php echo $deals_notifs; ?></span>
             <?php endif; ?>
         </a>
         <a href="<?php echo APP_URL; ?>/pages/track_deliveries.php" class="nav-item <?php echo $current_page == 'track_deliveries.php' ? 'active' : ''; ?>">
             <i class='bx bx-package'></i> Delivery Details
             <?php if ($delivery_notifs > 0): ?>
-                <span class="nav-badge"><?php echo $delivery_notifs; ?></span>
+                <span class="nav-badge delivery-badge"><?php echo $delivery_notifs; ?></span>
             <?php endif; ?>
         </a>
     <?php endif; ?>
@@ -124,7 +130,9 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
             <span class="nav-badge notif-badge"><?php echo $total_notifs; ?></span>
         <?php endif; ?>
     </a>
+    <?php if($user_role !== 'admin'): ?>
     <a href="<?php echo APP_URL; ?>/pages/profile.php" class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>"><i class='bx bx-user-circle'></i> Edit Profile</a>
+    <?php endif; ?>
     <a href="<?php echo APP_URL; ?>/pages/settings.php" class="nav-item <?php echo $current_page == 'settings.php' ? 'active' : ''; ?>"><i class='bx bx-cog'></i> Settings</a>
     <a href="<?php echo APP_URL; ?>/actions/logout.php" class="nav-item" style="color: #ef4444;"><i class='bx bx-log-out'></i> Logout</a>
 
@@ -169,6 +177,74 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
                 }
             } else if (notifBadge) {
                 notifBadge.remove();
+            }
+
+            // 3. Update Deals Badge
+            const dealsBadge = document.querySelector('.deals-badge');
+            const dealsLink = document.querySelector('a[href*="deals.php"]');
+            
+            if (data.deals > 0) {
+                if (dealsBadge) {
+                    dealsBadge.textContent = data.deals;
+                } else if (dealsLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge deals-badge';
+                    newBadge.textContent = data.deals;
+                    dealsLink.appendChild(newBadge);
+                }
+            } else if (dealsBadge) {
+                dealsBadge.remove();
+            }
+
+            // 4. Update Delivery Badge
+            const deliveryBadge = document.querySelector('.delivery-badge');
+            const deliveryLink = document.querySelector('a[href*="track_deliveries.php"]');
+            
+            if (data.delivery > 0) {
+                if (deliveryBadge) {
+                    deliveryBadge.textContent = data.delivery;
+                } else if (deliveryLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge delivery-badge';
+                    newBadge.textContent = data.delivery;
+                    deliveryLink.appendChild(newBadge);
+                }
+            } else if (deliveryBadge) {
+                deliveryBadge.remove();
+            }
+
+            // 5. Update Active Jobs Badge
+            const activeJobsBadge = document.querySelector('.active-jobs-badge');
+            const activeJobsLink = document.querySelector('a[href*="current_jobs.php"]');
+            
+            if (data.active_jobs > 0) {
+                if (activeJobsBadge) {
+                    activeJobsBadge.textContent = data.active_jobs;
+                } else if (activeJobsLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge active-jobs-badge';
+                    newBadge.textContent = data.active_jobs;
+                    activeJobsLink.appendChild(newBadge);
+                }
+            } else if (activeJobsBadge) {
+                activeJobsBadge.remove();
+            }
+
+            // 6. Update Available Jobs Badge
+            const availableJobsBadge = document.querySelector('.available-jobs-badge');
+            const availableJobsLink = document.querySelector('a[href*="delivery_jobs.php"]');
+            
+            if (data.available_jobs > 0) {
+                if (availableJobsBadge) {
+                    availableJobsBadge.textContent = data.available_jobs;
+                } else if (availableJobsLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge available-jobs-badge';
+                    newBadge.textContent = data.available_jobs;
+                    availableJobsLink.appendChild(newBadge);
+                }
+            } else if (availableJobsBadge) {
+                availableJobsBadge.remove();
             }
         } catch (err) {
             console.error("Sidebar unread refresh failed", err);

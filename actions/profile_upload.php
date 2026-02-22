@@ -12,6 +12,33 @@ if (!isset($_SESSION['user_id'])) {
 
 $userId = $_SESSION['user_id'];
 
+// --- Handle Removal ---
+if (isset($_POST['action']) && $_POST['action'] === 'remove') {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get old picture to delete
+        $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $oldPic = $stmt->fetchColumn();
+        
+        if ($oldPic && file_exists('../' . $oldPic)) {
+            unlink('../' . $oldPic);
+        }
+        
+        $stmt = $pdo->prepare("UPDATE users SET profile_picture = NULL WHERE id = ?");
+        $stmt->execute([$userId]);
+        
+        $_SESSION['profile_picture'] = null;
+        
+        echo json_encode(['success' => true, 'message' => 'Profile picture removed']);
+        exit;
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
 // Check if file was uploaded
 if (!isset($_FILES['profile_picture']) || $_FILES['profile_picture']['error'] !== UPLOAD_ERR_OK) {
     echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error']);
@@ -54,6 +81,15 @@ if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
 try {
     $pdo = getDBConnection();
     $relativePath = 'images/profiles/' . $filename;
+    
+    // Get old picture to delete BEFORE updating
+    $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $oldPic = $stmt->fetchColumn();
+    
+    if ($oldPic && file_exists('../' . $oldPic)) {
+        @unlink('../' . $oldPic);
+    }
     
     $stmt = $pdo->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
     $stmt->execute([$relativePath, $userId]);

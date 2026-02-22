@@ -30,16 +30,7 @@ try {
     $totalCredits = 0;
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Credit Management | Admin</title>
-    <link rel="stylesheet" href="assets/css/style.css?v=1.2">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-</head>
-<body>
-    <div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
         <main class="main-content">
             <div class="section-header">
@@ -74,7 +65,7 @@ try {
                                 <strong><?php echo htmlspecialchars($t['firstname'] . ' ' . $t['lastname']); ?></strong><br>
                                 <small><?php echo htmlspecialchars($t['email']); ?></small>
                             </td>
-                            <td style="padding: 1rem;"><span style="text-transform: capitalize;"><?php echo str_replace('_', ' ', $t['transaction_type']); ?></span></td>
+                            <td style="padding: 1rem;"><span style="text-transform: capitalize;"><?php echo str_replace('_', ' ', $t['type']); ?></span></td>
                             <td style="padding: 1rem; text-align: center; color: <?php echo $t['amount'] > 0 ? '#10b981' : '#ef4444'; ?>; font-weight: 700;">
                                 <?php echo ($t['amount'] > 0 ? '+' : '') . $t['amount']; ?>
                             </td>
@@ -87,5 +78,3 @@ try {
             </div>
         </main>
     </div>
-</body>
-</html>

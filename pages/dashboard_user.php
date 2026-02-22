@@ -32,7 +32,7 @@ $userReviews = getUserReviews($userId, 5);
                 <?php if (!$hasMinTokens): ?>
                     <div style="background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
                         <i class='bx bx-error-circle'></i>
-                        Maintenance Required: Min. <?php echo MIN_TOKEN_LIMIT; ?> tokens needed to list/borrow.
+                        Maintenance Required: Min. <?php echo MIN_TOKEN_LIMIT; ?> credits needed to list/borrow.
                     </div>
                 <?php endif; ?>
                 <a href="add_listing.php" class="btn btn-primary <?php echo !$hasMinTokens ? 'disabled' : ''; ?>" <?php echo !$hasMinTokens ? 'style="opacity: 0.6; pointer-events: none;"' : ''; ?>>
@@ -195,7 +195,7 @@ $userReviews = getUserReviews($userId, 5);
                             <?php if ($item['listing_type'] === 'sell'): ?>
                                 ₹<?php echo number_format($item['price'], 2); ?>
                             <?php else: ?>
-                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> credits
                             <?php endif; ?>
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">
@@ -255,7 +255,7 @@ $userReviews = getUserReviews($userId, 5);
                             <?php if ($item['listing_type'] === 'sell'): ?>
                                 ₹<?php echo number_format($item['price'], 2); ?>
                             <?php else: ?>
-                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> tokens
+                                <i class='bx bx-wallet'></i> <?php echo $item['credit_cost'] ?: 10; ?> credits
                             <?php endif; ?>
                         </span>
                         <button class="btn btn-primary btn-sm" style="padding: 0.4rem 1rem;" onclick="event.stopPropagation(); window.location.href='book_details.php?id=<?php echo $item['id']; ?>'">

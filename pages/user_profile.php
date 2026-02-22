@@ -16,6 +16,19 @@ if (!$user) {
 }
 
 $reviews = getUserReviews($viewUserId, 20);
+
+// Calculate Mission Count for Agents
+$totalMissions = 0;
+if ($user['role'] === 'delivery_agent') {
+    $pdo = getDBConnection();
+    $stmt = $pdo->prepare("
+        SELECT 
+            (SELECT COUNT(*) FROM transactions WHERE delivery_agent_id = ? AND agent_confirm_delivery_at IS NOT NULL) +
+            (SELECT COUNT(*) FROM transactions WHERE return_agent_id = ? AND return_agent_confirm_at IS NOT NULL)
+    ");
+    $stmt->execute([$viewUserId, $viewUserId]);
+    $totalMissions = (int)$stmt->fetchColumn();
+}
 ?>
 <style>
         .profile-container {
@@ -120,6 +133,21 @@ $reviews = getUserReviews($viewUserId, 20);
             color: var(--text-muted);
             line-height: 1.6;
         }
+        .badge-elite {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+            color: #451a03;
+            border: 1px solid #d97706;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+            animation: glow 2s infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
+            to { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+        }
 </style>
     <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
@@ -137,6 +165,9 @@ $reviews = getUserReviews($viewUserId, 20);
                     <div class="profile-info">
                         <h1><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></h1>
                         <span class="badge badge-primary"><?php echo ucfirst($user['role']); ?></span>
+                        <?php if ($user['role'] === 'delivery_agent' && $user['credits'] >= MAX_TOKEN_LIMIT): ?>
+                            <span class="badge badge-elite"><i class='bx bxs-crown'></i> Elite Agent</span>
+                        <?php endif; ?>
                         <p style="margin-top: 1rem; color: var(--text-muted);">
                            Member since <?php echo date('M Y', strtotime($user['created_at'])); ?>
                         </p>
@@ -153,8 +184,8 @@ $reviews = getUserReviews($viewUserId, 20);
                         <span class="stat-label">Trust Score</span>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-value"><?php echo $user['total_lends'] + $user['total_borrows']; ?></span>
-                        <span class="stat-label">Total Deals</span>
+                        <span class="stat-value"><?php echo $user['role'] === 'delivery_agent' ? $totalMissions : ($user['total_lends'] + $user['total_borrows']); ?></span>
+                        <span class="stat-label"><?php echo $user['role'] === 'delivery_agent' ? 'Missions Completed' : 'Total Deals'; ?></span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value"><?php echo $user['reputation_score']; ?></span>

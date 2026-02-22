@@ -412,8 +412,18 @@ if (isset($userData)) {
                             <div class="avatar-edit-btn" title="Update Profile Picture" onclick="document.getElementById('profile-picture-input').click()">
                                 <i class='bx bx-camera'></i>
                             </div>
+                            <?php if (!empty($user['profile_picture'])): ?>
+                            <div class="avatar-edit-btn" title="Remove Profile Picture" onclick="removeProfilePicture()" style="right: auto; left: -5px; color: #ef4444; display: none;">
+                                <i class='bx bx-trash'></i>
+                            </div>
+                            <?php endif; ?>
                         </div>
-                        <h1 style="margin-bottom: 0.5rem; font-weight: 900;">Profile Settings</h1>
+                        <div id="no-photo-container" style="margin-top: 0.5rem; <?php echo empty($user['profile_picture']) ? 'display: none;' : ''; ?>">
+                            <button type="button" onclick="removeProfilePicture()" style="background: none; border: none; color: #ef4444; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
+                                <i class='bx bx-trash' style="font-size: 0.9rem;"></i> No profile photo
+                            </button>
+                        </div>
+                        <h1 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-weight: 900;">Profile Settings</h1>
                         <div style="display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1rem;">
                             <span class="status-pill role"><i class='bx bxs-user-badge'></i> <?php echo ucfirst($user['role']); ?></span>
                             <?php if ($user['role'] === 'delivery_agent'): ?>
@@ -926,6 +936,9 @@ if (isset($userData)) {
                     const avatarDisplay = document.getElementById('profile-avatar-display');
                     avatarDisplay.innerHTML = `<img src="<?php echo APP_URL; ?>/${result.profile_picture}?t=${Date.now()}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">`;
                     
+                    // Show "No profile photo" button
+                    document.getElementById('no-photo-container').style.display = 'block';
+                    
                     showToast('Profile picture updated successfully!', 'success');
                 } else {
                     showToast('Error: ' + result.error, 'error');
@@ -935,6 +948,36 @@ if (isset($userData)) {
                 showToast('Failed to upload profile picture', 'error');
             }
         });
+
+        async function removeProfilePicture() {
+            if (!confirm('Are you sure you want to remove your profile picture?')) return;
+            
+            const formData = new FormData();
+            formData.append('action', 'remove');
+            
+            try {
+                const response = await fetch('../actions/profile_upload.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update avatar to initials
+                    const initials = "<?php echo strtoupper($user['firstname'][0] . $user['lastname'][0]); ?>";
+                    document.getElementById('profile-avatar-display').innerHTML = initials;
+                    
+                    // Hide "No profile photo" button
+                    document.getElementById('no-photo-container').style.display = 'none';
+                    
+                    showToast('Profile picture removed', 'success');
+                } else {
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showToast('Failed to remove profile picture', 'error');
+            }
+        }
     </script>
 </body>
 </html>

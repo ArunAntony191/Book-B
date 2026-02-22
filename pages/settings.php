@@ -410,6 +410,7 @@ include '../includes/dashboard_header.php'; ?>
                 <?php endif; ?>
 
                 <!-- Danger Zone -->
+                <?php if ($settingsUser['role'] !== 'admin'): ?>
                 <div class="settings-section" style="margin-top: 4rem; padding-top: 2rem; border-top: 2px dashed #fee2e2;">
                     <div class="section-header" style="border-bottom-color: #fee2e2;">
                         <i class='bx bx-error' style="color: #ef4444;"></i>
@@ -437,6 +438,7 @@ include '../includes/dashboard_header.php'; ?>
                         </form>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </main>

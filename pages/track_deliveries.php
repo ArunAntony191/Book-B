@@ -10,7 +10,7 @@ if (!$userId) {
 }
 
 // Mark notifications as read
-markNotificationsAsReadByType($userId, ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed']);
+// markNotificationsAsReadByType($userId, ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed']);
 
 $deliveries = getUserDeliveries($userId);
 
@@ -48,7 +48,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         case 'requested': return 'Waiting for Owner';
         case 'approved': 
             if ($deliveryMethod === 'pickup') return 'Awaiting Pickup';
-            return $agentId ? 'Agent Assigned' : 'Finding Agent';
+            return $agentId ? 'Agent Accepted' : 'Finding Agent';
         case 'active': 
             if ($deliveryMethod === 'pickup') return 'Ready for Pickup';
             return 'In Transit';
@@ -363,6 +363,43 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         </div>
     </div>
 
+    <!-- Report Agent Modal -->
+    <div id="agent-report-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header" style="margin-bottom: 1.5rem; text-align: center;">
+                <div style="width: 60px; height: 60px; background: #fee2e2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1rem;">
+                    <i class='bx bx-flag'></i>
+                </div>
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Report Delivery Agent</h2>
+                <p id="report-agent-name" style="color: #64748b; font-size: 0.9rem; margin-top: 0.25rem;"></p>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label">Reason for Report</label>
+                    <select id="report-reason" class="form-control" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0; appearance: none; background: #fff url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E') no-repeat right 0.75rem center; background-size: 0.65rem auto;">
+                        <option value="">Select a reason...</option>
+                        <option value="behavior">Unprofessional Behavior</option>
+                        <option value="late">Extremely Late Delivery</option>
+                        <option value="damaged">Items Damaged in Transit</option>
+                        <option value="misconduct">Safety or Misconduct Concern</option>
+                        <option value="other">Other Issue</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label">Describe the Incident</label>
+                    <textarea id="report-description" class="form-control" rows="4" placeholder="Please provide details about what happened..." style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0;"></textarea>
+                </div>
+                <div style="background: #fff7ed; border: 1px solid #ffedd5; padding: 1rem; border-radius: 12px; color: #9a3412; font-size: 0.8rem; line-height: 1.4; margin-bottom: 1.5rem;">
+                    <i class='bx bx-info-circle'></i> <strong>Note:</strong> False reports may result in penalties to your own account. Our admin team will investigate this report.
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.75rem;">
+                <button onclick="closeAgentReportModal()" class="btn-action btn-outline" style="background: #f1f5f9; border: none; flex: 1; margin-top: 0;">Cancel</button>
+                <button onclick="submitAgentReport()" class="btn-action" style="background: #ef4444; color: white; border: none; flex: 1; margin-top: 0; font-weight: 800;">Submit Report</button>
+            </div>
+        </div>
+    </div>
+
     <?php
     function renderDeliveryCard($d, $forceLeg = null) {
         global $userId, $returnStatuses;
@@ -437,17 +474,35 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 </div>
             <?php else: 
                 $tokenBase = (int)($d['credit_cost'] ?? 10);
-                $deliveryFee = ($d['delivery_method'] === 'delivery') ? 10 : 0;
-                $finalTokens = $tokenBase + $deliveryFee;
+                $deliveryFeeForward = ($d['delivery_method'] === 'delivery') ? 10 : 0;
+                $returnFeeCredits = ($d['return_delivery_method'] === 'delivery') ? (int)($d['return_delivery_credits'] ?? 10) : 0;
+                
+                // Only show return fees to the borrower (the returner)
+                $finalTokens = $tokenBase + $deliveryFeeForward + ($isBorrower ? $returnFeeCredits : 0);
+                $returnFeeINR = ($isBorrower && $d['return_delivery_method'] === 'delivery') ? (int)($d['return_delivery_price'] ?? 50) : 0;
             ?>
-                <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
-                    <i class='bx bxs-coin-stack'></i> Total Tokens: <?= $finalTokens ?>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
+                        <i class='bx bxs-coin-stack'></i> Total Credits: <?= $finalTokens ?>
+                    </div>
+                    <?php if ($returnFeeINR > 0): ?>
+                        <div class="price-tag" style="background:#fff7ed; color:#c2410c; border-color:#ffedd5;">
+                            <i class='bx bx-money'></i> Return Fee: ₹<?= $returnFeeINR ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($d['quantity'] > 1): ?>
+                    <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0;">
+                        <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
-                <?php if ($d['quantity'] > 1): ?>
-                <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
-                    <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
+                
+                <div style="font-size: 0.6rem; color: #94a3b8; margin: -0.5rem 0 1rem 0.25rem;">
+                    (Base: <?= $tokenBase ?> 
+                    <?php if($deliveryFeeForward > 0): ?> + Deliv: <?= $deliveryFeeForward ?><?php endif; ?>
+                    <?php if($returnFeeCredits > 0 && $isBorrower): ?> + Return: <?= $returnFeeCredits ?><?php endif; ?>)
                 </div>
-                <?php endif; ?>
             <?php endif; ?>
 
             <div class="status-badge <?= $badgeClass ?>"><?= $label ?></div>
@@ -461,17 +516,54 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <h2 class="book-title"><?= htmlspecialchars($d['title']) ?></h2>
 
                     <div class="info-grid">
-                        <div class="info-item">
-                            <i class='bx bx-map-pin'></i>
-                            <div>
-                                <span class="info-label"><?= $isReturn ? ($isBorrower ? 'Return to (Lender)' : 'Your Collection Address') : ($isBorrower ? 'Your Delivery Address' : 'Recipient Address') ?></span>
-                                <?= htmlspecialchars($isReturn || $isPickup ? $d['pickup_location'] : $d['order_address']) ?>
+                            <div class="info-item">
+                                <i class='bx bx-map-pin'></i>
+                                <div>
+                                    <span class="info-label"><?php 
+                                        if ($isPickup) {
+                                            echo $isBorrower ? 'Pickup Location (Lender Address)' : 'Your Pickup Address';
+                                        } else {
+                                            echo $isReturn ? ($isBorrower ? 'Return to (Lender)' : 'Your Collection Address') : ($isBorrower ? 'Your Delivery Address' : 'Recipient Address');
+                                        }
+                                    ?></span>
+                                    <?= htmlspecialchars($isReturn || $isPickup ? $d['pickup_location'] : $d['order_address']) ?>
+                                </div>
                             </div>
+                            <?php if ($agentId): 
+                                $aPhone = $isReturn ? ($d['ret_agent_phone'] ?? '') : ($d['agent_phone'] ?? '');
+                                $aRating = $isReturn ? ($d['ret_agent_rating'] ?? 0) : ($d['agent_rating'] ?? 0);
+                            ?>
+                            <div class="info-item" style="border-top: 1px dashed #e2e8f0; padding-top: 0.75rem; margin-top: 0.25rem; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                                    <i class='bx bx-user-circle' style="color: var(--primary); font-size: 1.1rem; margin-top: 2px;"></i>
+                                    <div>
+                                        <span class="info-label">Delivery Partner</span>
+                                        <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.4rem;">
+                                            <?= htmlspecialchars($agentName) ?>
+                                        </div>
+                                        <div style="color: #64748b; font-size: 0.85rem; margin-top: 2px;">
+                                            <i class='bx bx-phone' style="font-size: 0.9rem;"></i> <?= htmlspecialchars($aPhone) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <a href="user_profile.php?id=<?= $agentId ?>" style="color: var(--primary); font-size: 0.65rem; font-weight: 800; text-decoration: none; padding: 0.4rem 0.75rem; background: var(--primary-soft); border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Show Rating</a>
+                                    <?php 
+                                        $hasHandedOver = $isReturn ? !empty($d['return_borrower_confirm_at']) : !empty($d['lender_confirm_at']);
+                                        if ($hasHandedOver): 
+                                    ?>
+                                    <button onclick="openAgentReportModal(<?= $agentId ?>, '<?= addslashes($agentName) ?>')" style="color: #ef4444; font-size: 0.65rem; font-weight: 800; border: none; background: #fee2e2; padding: 0.4rem 0.75rem; border-radius: 10px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.3rem;">
+                                        <i class='bx bx-flag'></i> Report
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
                         </div>
-                    </div>
                 </div>
             </div>
 
+            <?php if (!$isPickup): ?>
             <div class="tracking-steps">
                 <?php if($isReturn): ?>
                     <div class="step <?= $stepIdx >= 0 ? 'completed' : '' ?>"><div class="step-dot"></div><span class="step-label">Return Request</span></div>
@@ -485,6 +577,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <div class="step <?= $stepIdx >= 4 ? 'completed' : ($stepIdx==3?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Delivered</span></div>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
 
             <div class="verification-box">
                 <div class="v-title"><i class='bx bx-shield-check'></i> <?= $isPickup ? '2-PARTY' : '3-PARTY' ?> VERIFICATION</div>
@@ -524,7 +617,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <?php endif; ?>
 
                 <?php if($status !== 'cancelled'): ?>
-                    <?php if($needHandover && $status !== 'requested'): ?>
+                    <?php if($needHandover && $status !== 'requested' && ($isPickup || !empty($agentId))): ?>
                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_handover', <?= $d['id'] ?>)">
                             <i class='bx bx-check-circle'></i> Confirm Handover<?= $isPickup ? '' : ' to Agent' ?>
                         </button>
@@ -535,12 +628,24 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                             <i class='bx bx-check-circle'></i> Confirm Receipt (Return)
                         </button>
                     <?php endif; ?>
+
+                    <?php if($status === 'requested' && empty($agentId)): ?>
+                        <?php if($isBorrower): ?>
+                            <button class="btn-action btn-outline" style="border-color: #fee2e2; color: #dc2626; background: #fffafb;" onclick="handleVerify('cancel_order', <?= $d['id'] ?>)">
+                                <i class='bx bx-x-circle'></i> Cancel Request
+                            </button>
+                        <?php else: ?>
+                            <button class="btn-action btn-outline" style="border-color: #fee2e2; color: #dc2626; background: #fffafb;" onclick="handleVerify('cancel_order', <?= $d['id'] ?>)">
+                                <i class='bx bx-block'></i> Decline Request
+                            </button>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if($showRateAgent): ?>
                     <button class="btn-action" style="background: #fbbf24; color: #78350f; border: none; margin-top: 0;" 
                             onclick="openFeedbackModal(<?= $d['id'] ?>, <?= $agentId ?>, '<?= addslashes($agentName) ?>')">
-                        <i class='bx bx-star'></i> Rate Agent: <?= htmlspecialchars($agentName) ?>
+                        <i class='bx bx-star'></i> Rate Agent
                     </button>
                 <?php endif; ?>
             </div>
@@ -611,9 +716,13 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             const labels = {
                 'confirm_handover': 'confirm you handed over the book?',
                 'confirm_receipt': 'confirm you received the book?',
-                'request_return_delivery': 'initiate the return process for this book?'
+                'request_return_delivery': 'initiate the return process for this book?',
+                'cancel_order': 'cancel this request/order? This will abort the transaction.'
             };
-            const label = labels[action] || 'confirm this action?';
+            let label = labels[action] || 'confirm this action?';
+            if (action === 'request_return_delivery') {
+                label = 'initiate the return process? This will deduct 10 credits and incur a 50 INR delivery fee (payable to agent). Credits will be refunded upon on-time return.';
+            }
             if(!confirm('Are you sure you want to ' + label)) return;
 
             const formData = new FormData();
@@ -747,8 +856,60 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 } else {
                     alert(data.message || 'Failed to send request');
                 }
-            } catch(e) {
+            } catch (e) {
                 alert('Error sending request');
+            }
+        }
+
+        /* Agent Report Functions */
+        let currentReportedAgentId = 0;
+
+        function openAgentReportModal(agentId, name) {
+            currentReportedAgentId = agentId;
+            document.getElementById('report-agent-name').textContent = `Reporting: ${name}`;
+            document.getElementById('report-reason').value = '';
+            document.getElementById('report-description').value = '';
+            document.getElementById('agent-report-modal').style.display = 'flex';
+        }
+
+        function closeAgentReportModal() {
+            document.getElementById('agent-report-modal').style.display = 'none';
+        }
+
+        async function submitAgentReport() {
+            const reason = document.getElementById('report-reason').value;
+            const description = document.getElementById('report-description').value;
+
+            if (!reason) {
+                alert('Please select a reason for reporting');
+                return;
+            }
+            if (!description.trim()) {
+                alert('Please provide a description');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_report');
+            formData.append('reported_id', currentReportedAgentId);
+            formData.append('reason', reason);
+            formData.append('description', description);
+            formData.append('type', 'user'); // Agents are users
+
+            try {
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Report submitted successfully. Our team will investigate.');
+                    closeAgentReportModal();
+                } else {
+                    alert(result.message || 'Failed to submit report');
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
             }
         }
         // Handle URL tab parameter

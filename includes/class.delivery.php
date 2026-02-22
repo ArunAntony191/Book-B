@@ -64,7 +64,15 @@ class DeliveryManager {
         
         try {
             // Check transaction state with row lock to prevent race conditions
-            $stmt = $this->pdo->prepare("SELECT status, delivery_agent_id, return_delivery_method, return_agent_id FROM transactions WHERE id = ? FOR UPDATE");
+            // Joins to get lender/borrower IDs and book title for notifications
+            $stmt = $this->pdo->prepare("
+                SELECT t.status, t.delivery_agent_id, t.return_delivery_method, t.return_agent_id,
+                       t.lender_id, t.borrower_id, b.title
+                FROM transactions t
+                JOIN listings l ON t.listing_id = l.id
+                JOIN books b ON l.book_id = b.id
+                WHERE t.id = ? FOR UPDATE
+            ");
             $stmt->execute([$transactionId]);
             $tx = $stmt->fetch();
 
@@ -73,19 +81,35 @@ class DeliveryManager {
                 throw new Exception("Transaction not found.");
             }
 
+            $jobAccepted = false;
+            $msgPart = "";
+
             // Case 1: Standard pickup (Approved status, no agent)
             if ($tx['status'] === 'approved' && !$tx['delivery_agent_id']) {
                 $sql = "UPDATE transactions SET delivery_agent_id = ? WHERE id = ?";
                 $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
-                $this->pdo->commit();
-                return true;
+                $jobAccepted = true;
+                $msgPart = "delivery assignment";
             } 
             
             // Case 2: Return leg (Returning status OR approved for return phase)
-            if ($tx['return_delivery_method'] === 'delivery' && !$tx['return_agent_id']) {
+            elseif ($tx['return_delivery_method'] === 'delivery' && !$tx['return_agent_id']) {
                 $sql = "UPDATE transactions SET return_agent_id = ?, status = 'returning' WHERE id = ?";
                 $this->pdo->prepare($sql)->execute([$agentId, $transactionId]);
+                $jobAccepted = true;
+                $msgPart = "return mission";
+            }
+
+            if ($jobAccepted) {
                 $this->pdo->commit();
+                
+                // Notify both parties
+                $lenderMsg = "An agent has accepted the {$msgPart} for your book '{$tx['title']}'.";
+                $borrowerMsg = "An agent has accepted the {$msgPart} for '{$tx['title']}'.";
+                
+                createNotification($tx['lender_id'], 'delivery_assigned', $lenderMsg, $transactionId);
+                createNotification($tx['borrower_id'], 'delivery_assigned', $borrowerMsg, $transactionId);
+                
                 return true;
             }
 
@@ -129,6 +153,10 @@ class DeliveryManager {
             if ($currentStatus === 'returning' || $currentStatus === 'delivered') {
                 $this->pdo->prepare("UPDATE transactions SET status = 'returning' WHERE id = ?")->execute([$transactionId]);
             }
+
+            // Notify parties
+            createNotification($tx['lender_id'], 'delivery_update', "The agent has picked up '{$tx['title']}' from the borrower and is heading to you!", $transactionId);
+            createNotification($tx['borrower_id'], 'delivery_update', "You have handed over '{$tx['title']}' to the agent.", $transactionId);
         }
         elseif ($newStatus === 'delivered') { // Agent marking as delivered (Standard Leg)
             if (!$tx['agent_confirm_delivery_at']) {
@@ -290,7 +318,13 @@ class DeliveryManager {
             if ($onTime) {
                 // Refund credit cost to borrower
                 $refundAmount = (int)($tx['credit_cost'] ?? 10);
-                addCredits($tx['borrower_id'], $refundAmount, 'refund', "Punctual Return Reward: '{$tx['title']}'", $transactionId);
+                
+                // REGAIN LOGIC: Also refund delivery credits (10 for forward, if it was delivery)
+                $deliveryCredits = ($tx['delivery_method'] === 'delivery') ? 10 : 0;
+                $returnDeliveryCredits = (int)($tx['return_delivery_credits'] ?? 0);
+                $totalRefund = $refundAmount + $deliveryCredits + $returnDeliveryCredits;
+
+                addCredits($tx['borrower_id'], $totalRefund, 'refund', "Punctual Return Reward & Delivery Regain: '{$tx['title']}'", $transactionId);
 
                 // Update punctuality stats
                 $stmt = $this->pdo->prepare("UPDATE users SET punctuality_streak = punctuality_streak + 1, total_on_time_returns = total_on_time_returns + 1 WHERE id = ?");

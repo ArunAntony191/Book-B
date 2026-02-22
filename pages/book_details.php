@@ -443,9 +443,13 @@ if ($userId) {
                             </span>
                         </div>
 
-                        <!-- Action Buttons -->
-                        <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                            <?php if ($book['user_id'] == $userId): ?>
+                            <?php if ($currentUser && $currentUser['role'] === 'admin'): ?>
+                                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
+                                    <i class='bx bx-shield-quarter' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
+                                    <p style="font-weight: 700; color: var(--text-main); margin: 0;">Admin View Only</p>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Admins cannot buy or borrow books.</p>
+                                </div>
+                            <?php elseif ($book['user_id'] == $userId): ?>
                                 <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
                                     <i class='bx bx-user-check' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
                                     <p style="font-weight: 700; color: var(--text-main); margin: 0;">This is your listing</p>
@@ -459,10 +463,10 @@ if ($userId) {
                                 <?php if (!$hasMinTokens && $userId): ?>
                                     <div class="token-warning">
                                         <i class='bx bx-error-circle' style="font-size: 1.2rem;"></i>
-                                        <span>Min. <?php echo MIN_TOKEN_LIMIT; ?> tokens required to request books. (You have <?php echo $userTokens; ?>)</span>
+                                        <span>Min. <?php echo MIN_TOKEN_LIMIT; ?> credits required to request books. (You have <?php echo $userTokens; ?>)</span>
                                     </div>
                                     <button class="btn btn-primary w-full disabled" style="justify-content: center; padding: 0.8rem; opacity: 0.6; cursor: not-allowed;" disabled>
-                                        Insufficient Tokens
+                                        Insufficient Credits
                                     </button>
                                 <?php elseif ($book['listing_type'] === 'borrow'): ?>
                                     <button onclick="openRequestModal('borrow')" class="btn btn-primary w-full" style="justify-content: center; padding: 0.8rem;">
@@ -624,6 +628,18 @@ if ($userId) {
                 </div>
             </div>
 
+            <div id="discount-section" style="margin-bottom: 1.5rem; display: none;">
+                <div style="background: #f0fdf4; border: 1px solid #dcfce7; padding: 1rem; border-radius: var(--radius-md); color: #166534;">
+                    <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-bottom: 0;">
+                        <input type="checkbox" id="use-discount" onchange="updateTotalCost()">
+                        <span>
+                            <strong>Use 100 Credits for 20% Discount</strong>
+                            <span style="display: block; font-size: 0.75rem; opacity: 0.8;">Available balance: <?php echo $userTokens; ?> Credits</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Token Summary -->
             <div class="credit-summary">
                 <?php if ($currentUser): ?>
@@ -637,12 +653,12 @@ if ($userId) {
                 <?php endif; ?>
                 <div id="delivery-fee-row" class="credit-row" style="display: none;">
                     <span>Delivery Fee</span>
-                    <span>+10 Tokens</span>
+                    <span>+10 Credits</span>
                 </div>
                 <div class="credit-row credit-total">
                     <span id="total-label">Total to Spend</span>
                     <span id="base-cost" style="display:none;"><?php echo $book['credit_cost'] ?? 10; ?></span>
-                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span><span id="cost-unit"> Tokens</span></span>
+                    <span><span id="total-cost"><?php echo $book['credit_cost'] ?? 10; ?></span><span id="cost-unit"> Credits</span></span>
                 </div>
             </div>
 
@@ -804,8 +820,8 @@ if ($userId) {
                 document.getElementById('btn-submit-request').innerText = 'Send Request';
                 paySec.style.display = 'none';
                 document.getElementById('total-label').innerText = 'Total to Spend';
-                document.getElementById('cost-unit').style.display = '';
                 document.getElementById('total-cost').innerText = '<?php echo $book['credit_cost'] ?? 10; ?>';
+                document.getElementById('cost-unit').innerText = ' Credits';
                 document.getElementById('base-cost').innerText = '<?php echo $book['credit_cost'] ?? 10; ?>';
 
             } else if (type === 'sell') {
@@ -819,6 +835,11 @@ if ($userId) {
                 document.getElementById('total-label').innerText = 'Total Price';
                 document.getElementById('cost-unit').style.display = 'none';
                 
+                // Show discount option if user has > 200 tokens
+                const userCredits = <?php echo $userTokens; ?>;
+                const discountSec = document.getElementById('discount-section');
+                if (discountSec) discountSec.style.display = userCredits > 200 ? 'block' : 'none';
+
                 updateTotalCost();
             }
             updatePaymentMethodUI();
@@ -869,10 +890,18 @@ if ($userId) {
 
             // Re-use toggleDeliveryMap logic to recalculate final total (includes delivery if checked)
             const wantDelivery = document.getElementById('want-delivery').checked;
+            const useDiscount = document.getElementById('use-discount')?.checked || false;
+            
             const deliveryFee = wantDelivery ? 50 : 0;
+            let finalPrice = subtotal;
+
+            if (useDiscount) {
+                finalPrice = subtotal * 0.8; // 20% discount
+            }
+
             const totalCostEl = document.getElementById('total-cost');
             if (totalCostEl) {
-                totalCostEl.innerText = `₹${subtotal + deliveryFee}`;
+                totalCostEl.innerText = `₹${Math.round(finalPrice + deliveryFee)}`;
             }
         }
 
@@ -903,8 +932,8 @@ if ($userId) {
                 deliveryFee = isChecked ? 50 : 0; // ₹50 delivery fee for purchases
                 deliveryText = '+ ₹50 Delivery';
             } else {
-                deliveryFee = isChecked ? 10 : 0; // 10 Tokens for borrow delivery
-                deliveryText = '+ 10 Tokens';
+                deliveryFee = isChecked ? 10 : 0; // 10 Credits for borrow delivery
+                deliveryText = '+ 10 Credits & ₹50';
             }
 
             if (deliveryFeeRow) {
@@ -917,7 +946,17 @@ if ($userId) {
                 if (currentType === 'sell') {
                     totalCostEl.innerText = `₹${baseCost + deliveryFee}`;
                 } else {
-                    totalCostEl.innerText = baseCost + deliveryFee;
+                    if (isChecked) {
+                        totalCostEl.innerText = `${baseCost + deliveryFee} Credits & ₹50`;
+                        if (document.getElementById('cost-unit')) {
+                            document.getElementById('cost-unit').innerText = ''; // Clear unit since it's already in the string
+                        }
+                    } else {
+                        totalCostEl.innerText = baseCost + deliveryFee;
+                        if (document.getElementById('cost-unit')) {
+                            document.getElementById('cost-unit').innerText = ' Credits';
+                        }
+                    }
                 }
             }
 
@@ -1171,6 +1210,7 @@ if ($userId) {
             const lat = document.getElementById('order-lat').value;
             const lng = document.getElementById('order-lng').value;
             const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'online';
+            const useDiscount = document.getElementById('use-discount')?.checked ? 100 : 0;
             
             if (currentType === 'borrow' && !dueDate) {
                 showToast('Please select a return date!', 'warning');
@@ -1199,6 +1239,7 @@ if ($userId) {
                 formData.append('lng', lng);
                 formData.append('book_title', bookTitle);
                 formData.append('payment_method', 'cod');
+                formData.append('use_discount_credits', useDiscount);
 
                 fetch('../actions/request_action.php', {
                     method: 'POST',
@@ -1220,7 +1261,7 @@ if ($userId) {
                         showToast('Order placed successfully (Cash)', 'success');
                         setTimeout(() => {
                             if (data.transaction_id) {
-                                window.location.href = 'delivery_details.php?id=' + data.transaction_id;
+                                window.location.href = 'track_deliveries.php?id=' + data.transaction_id;
                             } else {
                                 window.location.href = 'track_deliveries.php';
                             }
@@ -1245,7 +1286,7 @@ if ($userId) {
                 fetch('../actions/payment_action.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `action=create_order&listing_id=${listingId}&delivery=${wantDelivery?1:0}&quantity=${qty}`
+                    body: `action=create_order&listing_id=${listingId}&delivery=${wantDelivery?1:0}&quantity=${qty}&use_discount_credits=${useDiscount}`
                 })
                 .then(res => {
                     return res.text().then(text => {
@@ -1270,7 +1311,7 @@ if ($userId) {
                             "order_id": data.order_id,
                             "handler": function (response){
                                 // Verify Payment
-                                verifyPayment(response, wantDelivery, address, landmark, lat, lng, dueDate);
+                                verifyPayment(response, wantDelivery, address, landmark, lat, lng, dueDate, useDiscount);
                             },
                             "prefill": {
                                 "name": data.name,
@@ -1325,6 +1366,7 @@ if ($userId) {
             params.append('lng', lng);
             params.append('quantity', quantity);
             params.append('request_message', reasons);
+            params.append('use_discount_credits', useDiscount);
 
             fetch('../actions/request_action.php', {
                 method: 'POST',
@@ -1350,13 +1392,14 @@ if ($userId) {
             });
         }
 
-        function verifyPayment(paymentResponse, delivery, address, landmark, lat, lng, dueDate) {
+        function verifyPayment(paymentResponse, delivery, address, landmark, lat, lng, dueDate, useDiscount) {
             const orderInfo = JSON.stringify({
                 delivery: delivery,
                 address: address,
                 landmark: landmark,
                 lat: lat,
-                lng: lng
+                lng: lng,
+                use_discount_credits: useDiscount
             });
 
             fetch('../actions/payment_action.php', {
@@ -1371,7 +1414,7 @@ if ($userId) {
                     document.getElementById('req-modal').style.display = 'none';
                     setTimeout(() => {
                         if (data.transaction_id) {
-                            window.location.href = 'delivery_details.php?id=' + data.transaction_id;
+                            window.location.href = 'track_deliveries.php?id=' + data.transaction_id;
                         } else {
                             location.reload();
                         }

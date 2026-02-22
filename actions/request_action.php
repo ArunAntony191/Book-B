@@ -142,13 +142,15 @@ try {
         }
 
         // Credit Discount Logic (for Purchases/Delivery)
-        $useDiscount = (int)($_POST['use_discount_credits'] ?? 0); // 50 or 75
-        $discountAmount = 0;
-        if ($useDiscount > 0) {
-            if ($userCredits < ($totalCost + $useDiscount)) {
-                throw new Exception("Insufficient credits to use this discount.");
+        $useDiscountCredits = (int)($_POST['use_discount_credits'] ?? 0); 
+        $discountAmountMonetary = 0;
+        if ($useDiscountCredits == 100) {
+            if ($userCredits <= 200) {
+                throw new Exception("Insufficient credits to use this discount. (Min 200 required)");
             }
-            $discountAmount = $useDiscount; // 1:1 ratio for now
+            // 20% discount on book subtotal
+            $subtotal = $quantity * ($listing['price'] ?? 0);
+            $discountAmountMonetary = $subtotal * 0.2;
         }
 
         // Prepare Transaction
@@ -192,13 +194,13 @@ try {
             $dueDate, ($wantDelivery ? 'delivery' : 'pickup'), 
             $orderAddress, $orderLandmark, $orderLat, $orderLng,
             $paymentMethod, $quantity, $requestMessage, ($listing['price'] ?? 0),
-            $discountAmount
+            $discountAmountMonetary
         ]);
         $transactionId = $pdo->lastInsertId();
 
-        // If Discount applied, deduct those credits now
-        if ($discountAmount > 0) {
-            deductCredits($userId, $discountAmount, 'spend', "Credit Discount for Order #{$transactionId}", $transactionId);
+        // If Discount applied, deduct 100 credits now
+        if ($discountAmountMonetary > 0) {
+            deductCredits($userId, 100, 'spend', "Used 100 credits for 20% discount on Order #{$transactionId}", $transactionId);
         }
 
         // If it's a purchase (small qty, instant approved), decrease quantity immediately
@@ -244,6 +246,9 @@ try {
         $transactionId = validateId($_POST['transaction_id'] ?? 0);
         if (!$transactionId) throw new Exception("Invalid Transaction ID.");
 
+        // Clear related notifications for the current user performing the action
+        markTxNotificationsRead($userId, $transactionId);
+
         if ($action === 'accept_request') {
             // ... (Logic from before, just wrapped with better validation context)
              $stmt = $pdo->prepare("SELECT t.*, t.quantity as order_qty, l.book_id, l.credit_cost, l.quantity as listing_qty, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ?");
@@ -275,9 +280,10 @@ try {
                      throw new Exception("Failed to process credits. Borrower might have insufficient funds.");
                  }
                  
-                 updateListingQuantity($transaction['listing_id'], -1);
-                 $pdo->prepare("UPDATE transactions SET status = 'approved' WHERE id = ?")->execute([$transactionId]);
-                 $pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$transaction['borrower_id']]);
+                  updateListingQuantity($transaction['listing_id'], -1);
+                  $deliveryPrice = ($transaction['delivery_method'] === 'delivery') ? 50 : 0;
+                  $pdo->prepare("UPDATE transactions SET status = 'approved', return_delivery_price = ? WHERE id = ?")->execute([$deliveryPrice, $transactionId]);
+                  $pdo->prepare("UPDATE users SET total_borrows = total_borrows + 1 WHERE id = ?")->execute([$transaction['borrower_id']]);
                  
                  $msg = "Your request for '{$transaction['title']}' has been ACCEPTED! {$totalDeduct} credits deducted.";
                  createNotification($transaction['borrower_id'], 'request_accepted', $msg, $transactionId);
@@ -463,21 +469,23 @@ try {
 
         } elseif ($action === 'request_return_delivery') {
              // ... Request Return Delivery Logic ...
-             $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? AND borrower_id = ?");
-             $stmt->execute([$transactionId, $userId]);
-             $tx = $stmt->fetch();
-             
-             if (!$tx) throw new Exception("Unauthorized or transaction not found.");
-             if ($tx['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
-             if ($tx['status'] === 'returning' || $tx['return_delivery_method'] === 'delivery') throw new Exception("Already requested.");
-             
-             if (!checkSufficientCredits($userId, 10)) throw new Exception("Insufficient credits (10 required).");
-             
-             deductCredits($userId, 10, 'spend', "Return delivery fee #{$transactionId}", $transactionId);
-             $stmt = $pdo->prepare("UPDATE transactions SET status = 'returning', return_delivery_method = 'delivery' WHERE id = ?");
-             $stmt->execute([$transactionId]);
-             
-             // Notify Lender...
+              $stmt = $pdo->prepare("SELECT t.*, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ? AND t.borrower_id = ?");
+              $stmt->execute([$transactionId, $userId]);
+              $tx = $stmt->fetch();
+              
+              if (!$tx) throw new Exception("Unauthorized or transaction not found.");
+              if ($tx['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
+              if ($tx['status'] === 'returning' || $tx['return_delivery_method'] === 'delivery') throw new Exception("Already requested.");
+              
+               if (!checkSufficientCredits($userId, 10)) throw new Exception("Insufficient credits (10 required).");
+               
+               deductCredits($userId, 10, 'spend', "Return delivery fee credit #{$transactionId}", $transactionId);
+               // Set the INR fee to 50 for the agent
+               $stmt = $pdo->prepare("UPDATE transactions SET status = 'returning', return_delivery_method = 'delivery', return_delivery_price = 50, return_delivery_credits = 10 WHERE id = ?");
+               $stmt->execute([$transactionId]);
+              
+              // Notify Lender
+              createNotification($tx['lender_id'], 'return_requested', "Borrower has requested return delivery for '{$tx['title']}'. An agent will be assigned soon.", $transactionId);
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Return delivery requested!']);
              exit;
@@ -494,6 +502,11 @@ try {
              // Check if cancellable (not delivered yet)
              if (in_array($tx['status'], ['delivered', 'returned', 'cancelled'])) {
                  throw new Exception("Cannot cancel order in status: " . $tx['status']);
+             }
+
+             // AGENT CONSTRAINT: No cancellation once an agent has accepted the job
+             if (!empty($tx['delivery_agent_id']) || !empty($tx['return_agent_id'])) {
+                 throw new Exception("Cannot cancel: A delivery partner has already accepted this mission.");
              }
              
              // RESTORE STOCK if it was deducted
@@ -527,8 +540,10 @@ try {
              $notifyUserId = ($userId == $tx['borrower_id']) ? $tx['lender_id'] : $tx['borrower_id'];
              createNotification($notifyUserId, 'order_cancelled', "Order #{$transactionId} was cancelled by user.", $transactionId);
              
-             // APPLY CANCELLATION PENALTY (5 tokens)
-             deductCredits($userId, 5, 'penalty', "Cancellation Penalty for Order #{$transactionId}", $transactionId);
+             // APPLY CANCELLATION PENALTY (5 tokens) (Waive if cancelled before approval)
+             if ($tx['status'] !== 'requested') {
+                 deductCredits($userId, 5, 'penalty', "Cancellation Penalty for Order #{$transactionId}", $transactionId);
+             }
              
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Order cancelled successfully. Stock updated if applicable.']);
@@ -560,10 +575,13 @@ try {
                  $stmt = $pdo->prepare("SELECT reporter_id, reported_id FROM reports WHERE id = ?");
                  $stmt->execute([$reportId]);
                  $report = $stmt->fetch();
-                 if ($report) {
-                     deductCredits($report['reported_id'], 20, 'report_penalty', 'Penalty for confirmed report', $reportId);
-                     updateTrustScore($report['reported_id'], -10, 'report_confirmed');
-                 }
+                  if ($report) {
+                      deductCredits($report['reported_id'], 20, 'report_penalty', 'Penalty for confirmed report', $reportId);
+                      updateTrustScore($report['reported_id'], -10, 'report_confirmed');
+                      
+                      // Log as official platform penalty
+                      recordPenalty($report['reported_id'], 'report_ref', 20, 10, 'Confirmed platform report violation', $reportId);
+                  }
              }
 
             if (resolveReport($reportId, $status)) echo json_encode(['success' => true, 'message' => 'Report resolved.']);
@@ -595,6 +613,8 @@ try {
                 $actualRemoved = $currentCredits - $newBalance;
                 
                 if (deductCredits($targetId, $absAmount, 'penalty', $reason)) {
+                    // Log as official platform penalty
+                    recordPenalty($targetId, 'manual_deduction', $absAmount, 0, $reason);
                     echo json_encode(['success' => true, 'message' => "Removed $actualRemoved tokens. New balance: $newBalance."]);
                 } else {
                     throw new Exception("Failed to remove tokens.");

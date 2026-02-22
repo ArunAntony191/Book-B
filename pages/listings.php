@@ -8,7 +8,8 @@ $pdo = getDBConnection();
 // Get filter/sort parameters
 $search = $_GET['search'] ?? '';
 $type = $_GET['type'] ?? 'all';
-$status = $_GET['status'] ?? 'all';
+$currentStockFilter = $_GET['stock'] ?? 'all';
+$status = $_GET['status'] ?? ($currentStockFilter === 'low' ? 'low_stock' : ($currentStockFilter === 'out' ? 'out_of_stock' : 'all'));
 $sort = $_GET['sort'] ?? 'newest';
 
 // Build Query
@@ -31,10 +32,13 @@ if ($type !== 'all') {
     $params[] = $type;
 }
 
+// Availability filter (unified)
 if ($status === 'in_stock') {
     $query .= " AND l.quantity > 0";
 } elseif ($status === 'out_of_stock') {
     $query .= " AND l.quantity <= 0";
+} elseif ($status === 'low_stock') {
+    $query .= " AND l.quantity < 3 AND l.quantity > 0";
 }
 
 // Sorting logic
@@ -259,6 +263,7 @@ $myListings = $stmt->fetchAll();
                     <select name="status" class="filter-select">
                         <option value="all" <?php echo $status === 'all' ? 'selected' : ''; ?>>All Status</option>
                         <option value="in_stock" <?php echo $status === 'in_stock' ? 'selected' : ''; ?>>In Stock</option>
+                        <option value="low_stock" <?php echo $status === 'low_stock' ? 'selected' : ''; ?>>Low Stock</option>
                         <option value="out_of_stock" <?php echo $status === 'out_of_stock' ? 'selected' : ''; ?>>Out of Stock</option>
                     </select>
                 </div>

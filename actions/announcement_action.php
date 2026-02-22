@@ -33,6 +33,23 @@ try {
                 $_SESSION['error'] = "Failed to post announcement.";
             }
         }
+    } elseif ($action === 'update') {
+        $id = $_POST['id'] ?? 0;
+        $title = trim($_POST['title'] ?? '');
+        $message = trim($_POST['message'] ?? '');
+        $link = trim($_POST['link'] ?? '');
+        $startDate = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
+        $endDate = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
+
+        if (empty($title) || empty($message)) {
+            $_SESSION['error'] = "Title and message are required.";
+        } else {
+            if (updateAnnouncement($id, $user_id, $title, $message, $link, $startDate, $endDate)) {
+                $_SESSION['success'] = "Announcement updated successfully!";
+            } else {
+                $_SESSION['error'] = "Failed to update announcement.";
+            }
+        }
     } elseif ($action === 'delete') {
         $id = $_POST['id'] ?? 0;
         if (deleteAnnouncement($id, $user_id)) {

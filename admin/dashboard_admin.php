@@ -26,7 +26,7 @@ try {
     $totalListings = $stmt->fetch()['total'];
     
     // Active transactions
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM transactions WHERE status IN ('active', 'approved')");
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM transactions WHERE status IN ('active', 'approved', 'returned')");
     $activeTransactions = $stmt->fetch()['total'];
     
     // Total credits in circulation
@@ -34,7 +34,7 @@ try {
     $totalCredits = $stmt->fetch()['total'] ?? 0;
     
     // Recent joins (last 7 days)
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAYS)");
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
     $recentJoins = $stmt->fetch()['total'];
     
     // Low trust users (< 30)
@@ -53,19 +53,6 @@ try {
     $stmt = $pdo->query("SELECT role, COUNT(*) as count FROM users GROUP BY role");
     $roleDistribution = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     
-    // Support Requests (Notifications with type='support')
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM notifications WHERE type = 'support' AND is_read = 0");
-    $pendingSupport = $stmt->fetch()['total'];
-    
-    // Recent support notifications
-    $stmt = $pdo->query("
-        SELECT n.*, u.firstname, u.lastname, u.email, n.reference_id as sender_id
-        FROM notifications n
-        JOIN users u ON n.reference_id = u.id 
-        WHERE n.type = 'support' 
-        ORDER BY n.created_at DESC LIMIT 5
-    ");
-    $recentSupport = $stmt->fetchAll();
     
 } catch (Exception $e) {
     error_log("Admin dashboard error: " . $e->getMessage());
@@ -97,43 +84,9 @@ try {
             </div>
         </div>
 
-        <!-- Support Requests Widget -->
-        <?php if ($pendingSupport > 0): ?>
-        <div class="settings-card" style="margin-bottom: 2rem; border: 2px solid var(--primary); background: var(--bg-card);">
-            <div class="section-header" style="border-bottom: none; margin-bottom: 0.5rem; padding-bottom: 0;">
-                <i class='bx bx-support' style="color: var(--primary);"></i>
-                <h2 style="margin: 0; font-size: 1.2rem;">Pending Support Requests (<?php echo $pendingSupport; ?>)</h2>
-            </div>
-            <div class="chat-list" style="margin-top: 1rem;">
-                <?php foreach ($recentSupport as $msg): ?>
-                    <div class="chat-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem 0; display: flex; align-items: flex-start; gap: 1rem;">
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($msg['firstname']); ?>&background=random" style="width: 40px; height: 40px; border-radius: 50%;">
-                        <div class="setting-info" style="flex: 1;">
-                            <h3 style="font-size: 0.95rem; margin: 0;"><?php echo htmlspecialchars($msg['firstname'] . ' ' . $msg['lastname']); ?> <span style="font-weight: 400; font-size: 0.8rem; color: var(--text-muted);">(<?php echo htmlspecialchars($msg['email']); ?>)</span></h3>
-                            <p style="margin: 0.25rem 0; font-size: 0.9rem; color: var(--text-body);">
-                                <?php 
-                                    $cleanMsg = $msg['message'];
-                                    // Remove various prefixes for a cleaner view
-                                    $cleanMsg = preg_replace('/^SUPPORT REQUEST:\s*/i', '', $cleanMsg);
-                                    $cleanMsg = preg_replace('/^Support request from.*?: /i', '', $cleanMsg);
-                                    echo htmlspecialchars(trim($cleanMsg, '" ')); 
-                                ?>
-                            </p>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);"><?php echo date('M d, H:i', strtotime($n['created_at'] ?? $msg['created_at'])); ?></span>
-                        </div>
-                        <a href="chat/index.php?user_id=<?php echo $msg['sender_id']; ?>" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reply</a>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-            <div style="margin-top: 1rem; text-align: right;">
-                <a href="chat/index.php" style="font-size: 0.85rem; color: var(--primary); font-weight: 600;">View All Messages <i class='bx bx-right-arrow-alt'></i></a>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <!-- Platform Stats -->
         <div class="widgets-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-            <div class="widget-card" style="background: linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%); border: 2px solid #3b82f6;">
+            <div class="widget-card" style="background: linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%); border: 2px solid #3b82f6; cursor: pointer;" onclick="window.location.href='admin_users.php'">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-user'></i> Total Users</span>
                 </div>
@@ -145,7 +98,7 @@ try {
                 </div>
             </div>
 
-            <div class="widget-card" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 2px solid #10b981;">
+            <div class="widget-card" style="background: linear-gradient(135deg, #10b98115 0%, #10b98105 100%); border: 2px solid #10b981; cursor: pointer;" onclick="window.location.href='admin_listings.php'">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-book'></i> Total Books</span>
                 </div>
@@ -157,7 +110,7 @@ try {
                 </div>
             </div>
 
-            <div class="widget-card" style="background: linear-gradient(135deg, #f59e0b15 0%, #f59e0b05 100%); border: 2px solid #f59e0b;">
+            <div class="widget-card" style="background: linear-gradient(135deg, #f59e0b15 0%, #f59e0b05 100%); border: 2px solid #f59e0b; cursor: pointer;" onclick="window.location.href='active_deals.php'">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-transfer'></i> Active Deals</span>
                 </div>
@@ -169,7 +122,7 @@ try {
                 </div>
             </div>
 
-            <div class="widget-card gradient-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+            <div class="widget-card gradient-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; cursor: pointer;" onclick="window.location.href='admin_credits.php'">
                 <div class="widget-title" style="justify-content: center; color: rgba(255,255,255,0.9);">
                     <span><i class='bx bx-wallet'></i> Credits</span>
                 </div>
@@ -196,7 +149,7 @@ try {
             <?php endif; ?>
 
             <?php if ($overdueTransactions > 0): ?>
-            <div class="widget-card" style="background: linear-gradient(135deg, #dc262615 0%, #dc262605 100%); border: 2px solid #dc2626; cursor: pointer;" onclick="window.location.href='admin_transactions.php?filter=overdue'">
+            <div class="widget-card" style="background: linear-gradient(135deg, #dc262615 0%, #dc262605 100%); border: 2px solid #dc2626; cursor: pointer;" onclick="window.location.href='overdue_transactions.php'">
                 <div class="widget-title" style="justify-content: center;">
                     <span><i class='bx bx-time-five'></i> Overdue</span>
                 </div>
@@ -216,20 +169,30 @@ try {
                 <i class='bx bx-pie-chart-alt-2' style="color: var(--primary);"></i> User Distribution
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
-                <?php foreach ($roleDistribution as $role => $count): 
+                <?php 
+                $roleDisplay = [
+                    'user' => 'Users',
+                    'library' => 'Libraries',
+                    'bookstore' => 'Bookstores',
+                    'delivery_agent' => 'Delivery Agents'
+                ];
+                
+                foreach ($roleDistribution as $role => $count): 
+                    if ($role === 'admin') continue;
+                    
                     $roleColors = [
                         'user' => ['color' => '#3b82f6', 'icon' => 'bx-user'],
                         'library' => ['color' => '#10b981', 'icon' => 'bx-library'],
                         'bookstore' => ['color' => '#f59e0b', 'icon' => 'bx-store'],
-                        'delivery_agent' => ['color' => '#8b5cf6', 'icon' => 'bx-truck'],
-                        'admin' => ['color' => '#ef4444', 'icon' => 'bx-shield-alt-2']
+                        'delivery_agent' => ['color' => '#8b5cf6', 'icon' => 'bx-truck']
                     ];
                     $info = $roleColors[$role] ?? ['color' => '#6b7280', 'icon' => 'bx-user'];
+                    $displayName = $roleDisplay[$role] ?? ucfirst($role) . 's';
                 ?>
                 <div style="text-align: center; padding: 1rem; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                     <i class='bx <?php echo $info['icon']; ?>' style="font-size: 2rem; color: <?php echo $info['color']; ?>; margin-bottom: 0.5rem;"></i>
                     <div style="font-size: 1.8rem; font-weight: 800; color: <?php echo $info['color']; ?>;"><?php echo $count; ?></div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: capitalize;"><?php echo $role; ?>s</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo $displayName; ?></div>
                 </div>
                 <?php endforeach; ?>
             </div>

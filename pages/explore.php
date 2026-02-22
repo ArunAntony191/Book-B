@@ -13,8 +13,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         'role'     => $_GET['role'] ?? '',
         'type'     => $_GET['type'] ?? '',
         'category' => $_GET['category'] ?? '',
-        'min_rating' => $_GET['min_rating'] ?? '',
-        'show_all' => true
+        'min_rating' => $_GET['min_rating'] ?? ''
     ];
     
     if (isset($_GET['sw_lat'], $_GET['ne_lat'], $_GET['sw_lng'], $_GET['ne_lng'])) {
@@ -46,7 +45,6 @@ $filters = [
     'min_rating' => isset($_GET['min_rating']) && $_GET['min_rating'] !== '' ? (float)$_GET['min_rating'] : null
 ];
 
-$filters['show_all'] = true;
 $results = searchListingsAdvanced($filters);
 
 // Separate Rare Books for Spotlight - sync with current filters
@@ -733,8 +731,8 @@ $rareResults = getRareBooks(10, $filters);
                                     `<div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: #d1fae5; padding: 0.5rem 1rem; border-radius: 10px; text-align: center; margin-bottom: 15px;">FREE</div>`
                                 }
                                 <div style="display: grid; gap: 0.75rem;">
-                                    <a href="book_details.php?id=${m.id}" class="icon-btn" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">View Details</a>
-                                    <a href="chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>
+                                    <a href="book_details.php?id=${m.id}" class="icon-btn" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none; color: white !important;">View Details</a>
+                                    <a href="../chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>
                                 </div>
                             </div>
                         `, { className: 'premium-popup' });
