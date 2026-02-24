@@ -155,8 +155,8 @@ $userReviews = getUserReviews($userId, 5);
         </div>
 
         <!-- Quick Actions -->
-        <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="background: var(--section-bg); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 <i class='bx bx-zap' style="color: #f59e0b;"></i> Quick Actions
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
@@ -177,7 +177,7 @@ $userReviews = getUserReviews($userId, 5);
 
         <!-- Recent Activity -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 <i class='bx bx-history' style="color: var(--primary);"></i>
                 Recent Activity
             </h2>
@@ -193,9 +193,9 @@ $userReviews = getUserReviews($userId, 5);
         ?>
 
         <?php if (count($recentDeals) > 0): ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm);">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm);">
             <table style="width: 100%; border-collapse: collapse;">
-                <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                <thead style="background: var(--bg-body); border-bottom: 1px solid var(--border-color);">
                     <tr>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Book</th>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Borrower</th>
@@ -207,15 +207,15 @@ $userReviews = getUserReviews($userId, 5);
                 <tbody>
                     <?php foreach ($recentDeals as $deal): 
                         $statusColors = [
-                            'requested' => ['bg' => '#fef3c7', 'text' => '#f59e0b', 'label' => 'Pending'],
-                            'approved' => ['bg' => '#dbeafe', 'text' => '#3b82f6', 'label' => 'Approved'],
-                            'active' => ['bg' => '#d1fae5', 'text' => '#10b981', 'label' => 'Active'],
-                            'returned' => ['bg' => '#e0e7ff', 'text' => '#6366f1', 'label' => 'Returned'],
-                            'cancelled' => ['bg' => '#fee2e2', 'text' => '#ef4444', 'label' => 'Cancelled']
+                            'requested' => ['bg' => 'var(--alert-warning-bg, #fef3c7)', 'text' => 'var(--warning)', 'label' => 'Pending'],
+                            'approved' => ['bg' => 'var(--alert-info-bg, #dbeafe)', 'text' => 'var(--info)', 'label' => 'Approved'],
+                            'active' => ['bg' => 'var(--alert-success-bg, #d1fae5)', 'text' => 'var(--success)', 'label' => 'Active'],
+                            'returned' => ['bg' => 'var(--alert-success-bg, #e0e7ff)', 'text' => 'var(--primary)', 'label' => 'Returned'],
+                            'cancelled' => ['bg' => 'var(--alert-danger-bg, #fee2e2)', 'text' => 'var(--danger)', 'label' => 'Cancelled']
                         ];
-                        $statusInfo = $statusColors[$deal['status']] ?? ['bg' => '#f3f4f6', 'text' => '#6b7280', 'label' => ucfirst($deal['status'])];
+                        $statusInfo = $statusColors[$deal['status']] ?? ['bg' => 'var(--bg-body)', 'text' => 'var(--text-muted)', 'label' => ucfirst($deal['status'])];
                     ?>
-                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-body)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 1.25rem;">
                             <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($deal['title']); ?></div>
                             <div style="font-size: 0.8rem; color: var(--text-muted);"><?php echo htmlspecialchars($deal['author']); ?></div>
@@ -238,7 +238,7 @@ $userReviews = getUserReviews($userId, 5);
             </table>
         </div>
         <?php else: ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
             <i class='bx bx-book-open' style="font-size: 4rem; color: var(--text-muted); opacity: 0.5;"></i>
             <p style="color: var(--text-muted); margin-top: 1rem; font-size: 1.1rem;">No borrowing activity yet</p>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">Start by adding books to your inventory</p>

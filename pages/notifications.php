@@ -30,7 +30,7 @@ $status = $_GET['status'] ?? 'all';
         .filter-pill {
             padding: 0.5rem 1rem;
             border-radius: 20px;
-            background: #f1f5f9;
+            background: var(--bg-body);
             color: var(--text-muted);
             font-size: 0.85rem;
             font-weight: 600;
@@ -42,7 +42,7 @@ $status = $_GET['status'] ?? 'all';
             align-items: center;
             gap: 0.5rem;
         }
-        .filter-pill:hover { background: #e2e8f0; }
+        .filter-pill:hover { background: var(--border-color); }
         .filter-pill.active {
             background: var(--primary);
             color: white;
@@ -96,8 +96,8 @@ $status = $_GET['status'] ?? 'all';
             opacity: 1;
         }
         .delete-notif-btn:hover {
-            background: #fee2e2;
-            border-color: #fca5a5;
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.2);
         }
     </style>
 </head>
@@ -142,7 +142,7 @@ $status = $_GET['status'] ?? 'all';
                     $countsByType = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
                     
                     $requestTypes = ['borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request'];
-                    $deliveryTypes = ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'];
+                    $deliveryTypes = ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed'];
                     $messageTypes = ['message'];
                     $creditTypes = ['credit_earned', 'credit_spent', 'credit_refund'];
                     $listingTypes = ['new_listing'];
@@ -203,7 +203,7 @@ $status = $_GET['status'] ?? 'all';
                 <a href="?filter=<?php echo $filter; ?>&status=unread" class="filter-pill <?php echo $status == 'unread' ? 'active' : ''; ?>">Unread Only</a>
             </div>
             
-            <div id="notif-list-container" style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; min-height: 200px;">
+            <div id="notif-list-container" style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; min-height: 200px;">
                 <?php
                 try {
                     $pdo = getDBConnection();
@@ -223,13 +223,13 @@ $status = $_GET['status'] ?? 'all';
                     if ($filter === 'requests') {
                         $conditions[] = "n.type IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'extension_request')";
                     } elseif ($filter === 'delivery') {
-                        $conditions[] = "n.type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')";
+                        $conditions[] = "n.type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed')";
                     } elseif ($filter === 'credits') {
                         $conditions[] = "n.type IN ('credit_earned', 'credit_spent', 'credit_refund')";
                     } elseif ($filter === 'listings') {
                         $conditions[] = "n.type IN ('new_listing')";
                     } elseif ($filter === 'support') {
-                        $conditions[] = "n.type NOT IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'extension_request')";
+                        $conditions[] = "n.type NOT IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined', 'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed', 'message', 'credit_earned', 'credit_spent', 'credit_refund', 'new_listing', 'extension_request')";
                     }
 
                     $whereClause = implode(" AND ", $conditions);
@@ -261,7 +261,7 @@ $status = $_GET['status'] ?? 'all';
                     
                     if (count($notifs) > 0) {
                         foreach ($notifs as $n) {
-                            $highlight = $n['is_read'] ? '' : 'background: #f0f9ff;';
+                            $highlight = $n['is_read'] ? '' : 'background: var(--bg-unread);';
                             $isExtension = $n['type'] === 'extension_request';
                             $isRequest = strpos($n['type'], '_request') !== false;
                             
@@ -285,35 +285,35 @@ $status = $_GET['status'] ?? 'all';
                             if (strpos($n['type'], 'request') !== false) {
                                 $icon = 'bx-git-pull-request';
                                 $iconColor = '#3b82f6';
-                                $bgType = '#eff6ff';
+                                $bgType = 'rgba(59, 130, 246, 0.1)';
                             } elseif (strpos($n['type'], 'delivery') !== false) {
                                 $icon = 'bx-package';
                                 $iconColor = '#f59e0b';
-                                $bgType = '#fffbeb';
+                                $bgType = 'rgba(245, 158, 11, 0.1)';
                             } elseif ($n['type'] === 'system') {
                                 $icon = 'bx-cog';
                                 $iconColor = '#64748b';
-                                $bgType = '#f1f5f9';
+                                $bgType = 'rgba(148, 163, 184, 0.1)';
                             } elseif (strpos($n['type'], 'credit') !== false) {
                                 $icon = 'bx-coin-stack';
                                 $iconColor = '#10b981';
-                                $bgType = '#ecfdf5';
+                                $bgType = 'rgba(16, 185, 129, 0.1)';
                             } elseif ($n['type'] === 'support') {
                                 $icon = 'bx-support';
                                 $iconColor = 'var(--primary)';
-                                $bgType = 'var(--primary-light)15';
+                                $bgType = 'rgba(88, 66, 227, 0.1)';
                             } elseif ($n['type'] === 'new_listing') {
                                 $icon = 'bx-book-add';
                                 $iconColor = '#8b5cf6';
-                                $bgType = '#f5f3ff';
+                                $bgType = 'rgba(139, 92, 246, 0.1)';
                             } elseif ($n['type'] === 'message') {
                                 $icon = 'bx-message-square-dots';
                                 $iconColor = '#6366f1';
-                                $bgType = '#eef2ff';
+                                $bgType = 'rgba(99, 102, 241, 0.1)';
                             } elseif ($n['type'] === 'support_reply') {
                                 $icon = 'bx-support';
                                 $iconColor = 'var(--primary)';
-                                $bgType = 'var(--primary-light)15';
+                                $bgType = 'rgba(88, 66, 227, 0.1)';
                             }
 
 
@@ -326,7 +326,7 @@ $status = $_GET['status'] ?? 'all';
                                 }
                             } elseif ($n['type'] === 'new_listing' && $n['reference_id']) {
                                 $link = "book_details.php?id=" . $n['reference_id'];
-                            } elseif (preg_match('/request|delivery|receipt|borrower_confirmed/', $n['type'])) {
+                            } elseif (preg_match('/request|delivery|receive|borrower_confirmed/', $n['type'])) {
                                 $link = "delivery_details.php?id=" . $n['reference_id'];
                             }
 
@@ -350,6 +350,11 @@ $status = $_GET['status'] ?? 'all';
                                             <div style='display: flex; justify-content: space-between; align-items: start; gap: 1rem;'>
                                                 <div style='font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem; line-height: 1.5; font-weight: 500;'>{$n['message']}</div>
                                                 <div style='display: flex; align-items: center; gap: 0.5rem;'>
+                                                    " . ($n['type'] === 'support' && ($_SESSION['role'] ?? '') === 'admin' ? "
+                                                        <button onclick=\"event.stopPropagation(); window.location.href='" . APP_URL . "/chat/index.php?user=" . $n['reference_id'] . "'\" class='btn btn-primary btn-sm' style='padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-right: 0.5rem;'>
+                                                            <i class='bx bx-message-square-dots'></i> Chat
+                                                        </button>
+                                                    " : "") . "
                                                     " . ($n['transaction_status'] && $n['transaction_status'] !== 'requested' && (strpos($n['type'], 'request') !== false || strpos($n['type'], 'delivery') !== false) ? "
                                                         <span class='badge badge-{$n['transaction_status']}' style='font-size: 0.7rem; text-transform: uppercase;'>{$n['transaction_status']}</span>
                                                     " : "") . "
@@ -383,6 +388,7 @@ $status = $_GET['status'] ?? 'all';
                                     </div>";
                                 }
                             }
+
                             
                             echo "</a></div>";
                         }
@@ -507,7 +513,7 @@ $status = $_GET['status'] ?? 'all';
                     
                     document.querySelectorAll('[id^="notif-container-"]').forEach(container => {
                         const el = container.querySelector('[id^="notif-"]');
-                        if (el) el.style.background = 'white';
+                        if (el) el.style.background = 'transparent';
                         container.setAttribute('data-unread', '0');
                         
                         // If we are in "Unread Only" view, remove them all with animation

@@ -74,13 +74,19 @@ if ($method === 'GET') {
             $activeJobsCount = getActiveAgentJobsCount($userId);
             $availableJobsCount = getAvailableDeliveryJobsCount();
 
+            $role = getUserRole($userId);
+            $roleRequestsCount = ($role === 'admin') ? getPendingRoleRequestsCount() : 0;
+            $reportsCount = ($role === 'admin') ? getPendingReportsCount() : 0;
+
             echo json_encode([
                 'messages' => $msgCount,
                 'notifications' => $notifCount,
                 'deals' => $dealsCount,
                 'delivery' => $deliveryCount,
                 'active_jobs' => $activeJobsCount,
-                'available_jobs' => $availableJobsCount
+                'available_jobs' => $availableJobsCount,
+                'role_requests' => $roleRequestsCount,
+                'reports' => $reportsCount
             ]);
         } else {
             echo json_encode(['messages' => 0, 'notifications' => 0]);

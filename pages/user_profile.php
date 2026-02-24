@@ -191,7 +191,63 @@ if ($user['role'] === 'delivery_agent') {
                         <span class="stat-value"><?php echo $user['reputation_score']; ?></span>
                         <span class="stat-label">Reputation</span>
                     </div>
+
+                    <?php if (($user['unpaid_fines'] ?? 0) > 0): ?>
+                    <div class="stat-card" style="border-color: #fee2e2; background: #fff1f2;">
+                        <span class="stat-value" style="color: #ef4444;">₹<?php echo number_format($user['unpaid_fines'], 2); ?></span>
+                        <span class="stat-label" style="color: #991b1b;">Pending Dues</span>
+                        
+                        <?php 
+                        $currentRole = $_SESSION['role'] ?? 'user';
+                        if (in_array($currentRole, ['admin', 'library', 'bookstore']) && $viewUserId != $userId): ?>
+                            <button id="btn-mark-paid" onclick="markPaidOffline(<?php echo $viewUserId; ?>, <?php echo $user['unpaid_fines']; ?>, this)" class="btn btn-sm" style="margin-top: 1rem; background: #10b981; color: white; border: none; width: 100%;">
+                                <i class='bx bx-check-double'></i> Mark Paid (Offline)
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
+
+                <script>
+                async function markPaidOffline(targetUserId, amount, btn) {
+                    if (!confirm(`Are you sure you want to mark ₹${amount} as paid in cash? This will clear all dues for this user.`)) return;
+                    
+                    try {
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Processing...";
+                        }
+
+                        const formData = new FormData();
+                        formData.append('action', 'clear_fines_offline');
+                        formData.append('target_user_id', targetUserId);
+
+                        const response = await fetch('../actions/request_action.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+
+                        if (result.success) {
+                            alert(result.message);
+                            location.reload();
+                        } else {
+                            alert(result.message || "Failed to clear dues.");
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Offline)";
+                            }
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("Network error.");
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Offline)";
+                        }
+                    }
+                }
+                </script>
 
                 <div class="reviews-section" style="margin-top: 2rem;">
                     <h2 style="font-weight: 800; margin-bottom: 2rem;">User Feedback</h2>

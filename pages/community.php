@@ -13,7 +13,7 @@ include '../includes/dashboard_header.php';
         
         /* Left Sidebar: List */
         .comm-sidebar {
-            background: white;
+            background: var(--bg-card);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
@@ -31,19 +31,19 @@ include '../includes/dashboard_header.php';
         .comm-list { flex: 1; overflow-y: auto; }
         .comm-item {
             padding: 1rem 1.5rem;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--border-color);
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 1rem;
             transition: background 0.2s;
         }
-        .comm-item:hover, .comm-item.active { background: #f8fafc; }
-        .comm-img { width: 45px; height: 45px; border-radius: 12px; object-fit: cover; background: #e2e8f0; }
+        .comm-item:hover, .comm-item.active { background: var(--bg-body); }
+        .comm-img { width: 45px; height: 45px; border-radius: 12px; object-fit: cover; background: var(--bg-body); }
         
         /* Main Chat Area */
         .chat-area {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
             display: flex;
@@ -58,19 +58,19 @@ include '../includes/dashboard_header.php';
             align-items: center;
             gap: 1rem;
         }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8fafc; display: flex; flex-direction: column; gap: 1rem; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1.5rem; background: var(--bg-body); display: flex; flex-direction: column; gap: 1rem; }
         .chat-input-area {
             padding: 1rem;
             border-top: 1px solid var(--border-color);
             display: flex;
             gap: 1rem;
             align-items: center;
-            background: white;
+            background: var(--bg-card);
         }
         
         .message { max-width: 70%; padding: 0.8rem 1rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; position: relative; }
         .message.mine { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 2px; }
-        .message.theirs { align-self: flex-start; background: white; border: 1px solid var(--border-color); border-bottom-left-radius: 2px; }
+        .message.theirs { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border-color); border-bottom-left-radius: 2px; color: var(--text-main); }
         .msg-sender { font-size: 0.75rem; opacity: 0.8; margin-bottom: 0.3rem; display: block; font-weight: 600; }
         .message.mine .msg-sender { display: none; } /* Don't show name for own msgs */
         
@@ -95,28 +95,29 @@ include '../includes/dashboard_header.php';
             z-index: 1000;
         }
         .modal-content {
-            background: white;
+            background: var(--bg-card);
             padding: 2rem;
             border-radius: var(--radius-md);
-            width: 100%; width: 500px;
+            border: 1px solid var(--border-color);
+            width: 500px;
         }
         /* Tabs */
         .chat-tabs { display: flex; gap: 1rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border-color); margin-top: 1rem; }
         .chat-tab { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; color: var(--text-muted); font-size: 0.9rem; }
-        .chat-tab:hover { color: var(--primary); background: #f8fafc; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+        .chat-tab:hover { color: var(--primary); background: var(--bg-body); border-top-left-radius: 6px; border-top-right-radius: 6px; }
         .chat-tab.active { border-color: var(--primary); color: var(--primary); }
         
-        .tab-content { display: none; flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8fafc; }
+        .tab-content { display: none; flex: 1; overflow-y: auto; padding: 1.5rem; background: var(--bg-body); }
         .tab-content.active { display: flex; flex-direction: column; }
 
         /* Book Grid */
         .comm-book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
-        .comm-book-card { background: white; border-radius: 12px; padding: 0.8rem; border: 1px solid var(--border-color); transition: all 0.2s; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .comm-book-card { background: var(--bg-card); border-radius: 12px; padding: 0.8rem; border: 1px solid var(--border-color); transition: all 0.2s; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .comm-book-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
-        .comm-book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; margin-bottom: 0.75rem; background: #f1f5f9; }
+        .comm-book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; margin-bottom: 0.75rem; background: var(--bg-body); }
         .comm-book-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.3; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .comm-book-author { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-        .comm-book-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #e2e8f0; color: #475569; font-weight: 600; text-transform: uppercase; }
+        .comm-book-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: var(--bg-body); color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
 </style>
 <div class="dashboard-wrapper">
         <?php include '../includes/dashboard_sidebar.php'; ?>
@@ -137,7 +138,7 @@ include '../includes/dashboard_header.php';
                     <div class="comm-list" id="community-list" style="flex: 0.5; border-bottom: 1px solid var(--border-color);">
                         <!-- My Communities -->
                     </div>
-                    <div style="padding: 0.8rem 1.5rem; background: #f1f5f9; font-weight: 700; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                    <div style="padding: 0.8rem 1.5rem; background: var(--bg-body); font-weight: 700; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
                         Discover
                     </div>
                     <div class="comm-list" id="discover-list" style="flex: 1;">
@@ -245,7 +246,7 @@ include '../includes/dashboard_header.php';
             <p style="margin: 1.5rem 0; color: var(--text-muted);">This action cannot be undone. All messages and members will be removed.</p>
             <div style="display: flex; justify-content: flex-end; gap: 1rem;">
                 <button type="button" class="btn" onclick="document.getElementById('delete-modal').style.display='none'">Cancel</button>
-                <button type="button" class="btn" style="background: #dc2626; color: white;" onclick="confirmDelete()">Delete</button>
+                <button type="button" class="btn" style="background: #dc2626; color: white; border: none;" onclick="confirmDelete()">Delete</button>
             </div>
         </div>
     </div>

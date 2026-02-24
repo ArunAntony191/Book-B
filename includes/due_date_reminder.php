@@ -71,10 +71,11 @@ if (!empty($dueBooks)):
 /* Extend existing announcement styles for due date alert */
 .due-date-alert {
     border-color: rgba(245, 158, 11, 0.3);
-    background: rgba(255, 251, 235, 0.95); /* Light yellow tint */
+    background: rgba(245, 158, 11, 0.1); /* Light yellow tint */
+    color: var(--text-main);
 }
 .due-date-alert .ann-dismiss:hover {
-    background: #fef3c7;
+    background: rgba(245, 158, 11, 0.2);
     color: #d97706;
 }
 </style>

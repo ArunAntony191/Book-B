@@ -4,6 +4,7 @@
 :root {
     /* Primary Colors */
     --primary: #5842E3;
+    --primary-rgb: 88, 66, 227;
     --primary-dark: #4338ca;
     --primary-light: #6366f1;
 
@@ -26,12 +27,15 @@
     --text-body: #334155;
     --text-muted: #64748b;
     --bg-body: #f8fafc;
+    --bg-body-rgb: 248, 250, 252;
     --bg-card: #ffffff;
+    --bg-card-rgb: 255, 255, 255;
     --border-color: #e2e8f0;
     --bg-sidebar: #ffffff;
     --glass-bg: rgba(255, 255, 255, 0.95);
     --glass-border: rgba(226, 232, 240, 0.8);
     --section-bg: #f8fafc;
+    --bg-unread: #f0f9ff;
 
     /* Spacing */
     --radius-sm: 6px;
@@ -45,16 +49,20 @@
 }
 
 [data-theme="dark"] {
+    color-scheme: dark;
     --text-main: #f8fafc;
     --text-body: #cbd5e1;
     --text-muted: #94a3b8;
     --bg-body: #0f172a;
+    --bg-body-rgb: 15, 23, 42;
     --bg-card: #1e293b;
+    --bg-card-rgb: 30, 41, 59;
     --border-color: #334155;
     --bg-sidebar: #1e293b;
     --glass-bg: rgba(30, 41, 59, 0.95);
     --glass-border: rgba(51, 65, 85, 0.8);
     --section-bg: #1e293b;
+    --bg-unread: rgba(59, 130, 246, 0.1);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
 

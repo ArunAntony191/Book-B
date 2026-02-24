@@ -241,7 +241,7 @@ try {
         exit;
 
     // --- Interactions (Accept/Decline/Return etc) ---
-    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receipt', 'claim_job', 'cancel_job', 'request_return_delivery', 'cancel_order', 'confirm_cod_payment'])) {
+    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receive', 'claim_job', 'cancel_job', 'request_return_delivery', 'cancel_order', 'confirm_cod_payment'])) {
         
         $transactionId = validateId($_POST['transaction_id'] ?? 0);
         if (!$transactionId) throw new Exception("Invalid Transaction ID.");
@@ -410,7 +410,7 @@ try {
              
              $penalty = calculatePenalty($transactionId);
              $penaltyApplied = false;
-             if ($penalty['days'] > 0) {
+             if ($penalty['days'] > 0 && $userRole === 'library') {
                  applyPenalty($transactionId, $transaction['borrower_id']);
                  $penaltyApplied = true;
              } else {
@@ -419,6 +419,20 @@ try {
                  updateTrustScore($transaction['borrower_id'], 5, 'on_time_return');
                    addCredits($transaction['borrower_id'], 2, 'bonus', "On-time return bonus: {$transaction['title']}", $transactionId);
                  $pdo->prepare("UPDATE users SET total_lends = total_lends + 1 WHERE id = ?")->execute([$transaction['lender_id']]);
+             }
+
+             // Apply Damage Fine if specified (Only for Library)
+              $damageFine = (float)($_POST['damage_fine'] ?? 0);
+              $isPaid = false; // Always false; settlement moved to Library Fines dashboard
+
+              if ($damageFine > 0 && $userRole === 'library') {
+                  $damageReason = "Book damage fine for Order #{$transactionId}: '{$transaction['title']}'";
+                  applyDamageFine($transactionId, $transaction['borrower_id'], $damageFine, $damageReason, $isPaid);
+                 
+                 // If there was no late penalty, still notify about the damage fine
+                 if (!$penaltyApplied) {
+                      createNotification($transaction['borrower_id'], 'penalty', $damageReason, $transactionId);
+                 }
              }
              // Notify... (Simplified for brevity but logic stands)
              ob_clean();
@@ -442,13 +456,13 @@ try {
              echo json_encode(['success' => true, 'message' => 'Handover confirmed!']);
              exit;
 
-        } elseif ($action === 'confirm_receipt') {
+        } elseif ($action === 'confirm_receive') {
              $restock = isset($_POST['restock']) && $_POST['restock'] == '1';
              require_once '../includes/class.delivery.php';
              $dm = new DeliveryManager();
-             $dm->confirmReceipt($userId, $transactionId, $restock);
+             $dm->confirmReceive($userId, $transactionId, $restock);
              ob_clean();
-             echo json_encode(['success' => true, 'message' => 'Receipt confirmed!']);
+             echo json_encode(['success' => true, 'message' => 'Receive confirmed!']);
              exit;
 
         } elseif ($action === 'claim_job') {
@@ -556,8 +570,9 @@ try {
 
         if ($action === 'ban_user') {
             $targetId = validateId($_POST['user_id'] ?? 0);
+            $reason = $_POST['reason'] ?? null;
             if (!$targetId) throw new Exception("Invalid User ID.");
-            if (banUser($targetId)) echo json_encode(['success' => true, 'message' => 'User banned.']);
+            if (banUser($targetId, $reason)) echo json_encode(['success' => true, 'message' => 'User banned.']);
             else throw new Exception("Failed to ban user.");
 
         } elseif ($action === 'unban_user') {
@@ -667,6 +682,161 @@ try {
             echo json_encode(['success' => true, 'message' => 'Warning sent to the community.']);
         } else {
             throw new Exception("Failed to send warning.");
+        }
+
+    } elseif ($action === 'clear_fines_offline') {
+        $targetUserId = validateId($_POST['target_user_id'] ?? 0);
+        if (!$targetUserId) throw new Exception("Invalid User ID.");
+        
+        // Auth Check
+        if (!in_array($userRole, ['admin', 'library', 'bookstore'])) {
+            throw new Exception("Unauthorized. Only librarians or store owners can mark dues as paid.");
+        }
+        
+        if (clearFinesOffline($targetUserId, $userId)) {
+             echo json_encode(['success' => true, 'message' => 'Fines cleared successfully!']);
+        } else {
+             throw new Exception("No outstanding fines found for this user.");
+        }
+
+    } elseif ($action === 'apply_damage_fine_post') {
+        if ($userRole !== 'library') {
+            throw new Exception("Unauthorized. Only libraries can apply damage fines.");
+        }
+        $transactionId = validateId($_POST['transaction_id'] ?? 0);
+        $amount = (float)($_POST['amount'] ?? 0);
+        $reason = trim($_POST['reason'] ?? '');
+        $isPaid = false; // Always false; settlement moved to Library Fines dashboard
+
+        if (!$transactionId || $amount <= 0 || !$reason) {
+            throw new Exception("Invalid parameters. Message and amount required.");
+        }
+
+        $stmt = $pdo->prepare("SELECT t.*, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+
+        if (!$tx || $tx['lender_id'] != $userId) {
+            throw new Exception("Unauthorized. Only the owner can apply a damage fine.");
+        }
+
+        if ($tx['status'] !== 'returned') {
+            throw new Exception("Fines can only be applied to returned books.");
+        }
+
+        $fineReason = "Post-return damage fine for Order #{$transactionId} ('{$tx['title']}'): $reason";
+        if (applyDamageFine($transactionId, $tx['borrower_id'], $amount, $fineReason, $isPaid)) {
+             createNotification($tx['borrower_id'], 'penalty', $fineReason, $transactionId);
+             echo json_encode(['success' => true, 'message' => 'Damage fine applied successfully!']);
+        } else {
+             throw new Exception("Failed to apply fine database error.");
+        }
+
+    } elseif ($action === 'mark_transaction_paid_offline') {
+        $transactionId = validateId($_POST['transaction_id'] ?? 0);
+        if (!$transactionId) throw new Exception("Invalid transaction ID.");
+
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+
+        if (!$tx || $tx['lender_id'] != $userId) {
+            throw new Exception("Unauthorized. Only the seller/lender can mark as paid.");
+        }
+
+        if ($tx['payment_status'] === 'paid') {
+            throw new Exception("Transaction already marked as paid.");
+        }
+
+        $stmt = $pdo->prepare("UPDATE transactions SET payment_status = 'paid', payment_method = 'cash (offline)', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+        if ($stmt->execute([$transactionId])) {
+            createNotification($tx['borrower_id'], 'payment_success', "Your payment for Order #{$transactionId} has been confirmed offline.", $transactionId);
+            echo json_encode(['success' => true, 'message' => 'Transaction marked as paid!']);
+        } else {
+            throw new Exception("Failed to update payment status.");
+        }
+
+    } elseif ($action === 'settle_transaction_fine') {
+        $transactionId = validateId($_POST['transaction_id'] ?? 0);
+        if (!$transactionId) throw new Exception("Invalid transaction ID.");
+
+        $stmt = $pdo->prepare("SELECT * FROM penalties WHERE transaction_id = ? AND penalty_type = 'damage_fine' AND status = 'pending'");
+        $stmt->execute([$transactionId]);
+        $penalties = $stmt->fetchAll();
+
+        if (empty($penalties)) throw new Exception("No pending damage fine found for this transaction.");
+
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+
+        if ($userRole !== 'library') {
+            throw new Exception("Unauthorized. Only libraries can settle fines.");
+        }
+
+        if (!$tx || $tx['lender_id'] != $userId) {
+            throw new Exception("Unauthorized. Only the lender can settle this fine.");
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $targetUserId = $penalties[0]['user_id'];
+            foreach ($penalties as $penalty) {
+                $newReason = $penalty['reason'] . " (Paid Offline in Cash)";
+                $stmt = $pdo->prepare("UPDATE penalties SET status = 'applied', reason = ? WHERE id = ?");
+                $stmt->execute([$newReason, $penalty['id']]);
+            }
+
+            // Sync user's unpaid_fines after settlement to ensure accuracy
+            syncUserUnpaidFines($targetUserId);
+
+            $pdo->commit();
+            createNotification($tx['borrower_id'], 'penalty', "Your damage fine for Order #{$transactionId} has been cleared (Paid Offline).", $transactionId);
+            echo json_encode(['success' => true, 'message' => 'Fine marked as paid and balance synchronized!']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+    } elseif ($action === 'cancel_transaction_fine') {
+        $transactionId = validateId($_POST['transaction_id'] ?? 0);
+        if (!$transactionId) throw new Exception("Invalid transaction ID.");
+
+        $stmt = $pdo->prepare("SELECT * FROM penalties WHERE transaction_id = ? AND penalty_type = 'damage_fine' AND status = 'pending'");
+        $stmt->execute([$transactionId]);
+        $penalties = $stmt->fetchAll();
+
+        if (empty($penalties)) throw new Exception("No pending damage fine found to cancel.");
+
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $tx = $stmt->fetch();
+
+        if ($userRole !== 'library') {
+            throw new Exception("Unauthorized. Only libraries can cancel fines.");
+        }
+
+        if (!$tx || $tx['lender_id'] != $userId) {
+            throw new Exception("Unauthorized. Only the library that applied the fine can cancel it.");
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $targetUserId = $penalties[0]['user_id'];
+            
+            // Delete the pending penalty records
+            $stmt = $pdo->prepare("DELETE FROM penalties WHERE transaction_id = ? AND penalty_type = 'damage_fine' AND status = 'pending'");
+            $stmt->execute([$transactionId]);
+
+            // Sync user's unpaid_fines after cancellation
+            syncUserUnpaidFines($targetUserId);
+
+            $pdo->commit();
+            createNotification($tx['borrower_id'], 'penalty', "A pending damage fine for Order #{$transactionId} has been cancelled by the library.", $transactionId);
+            echo json_encode(['success' => true, 'message' => 'Fine cancelled and balance reverted!']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
         }
 
     } elseif ($action === 'update_availability') {

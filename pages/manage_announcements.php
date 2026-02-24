@@ -25,7 +25,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
         </div>
 
         <?php if (isset($_SESSION['success'])): ?>
-            <div class="alert alert-success" style="padding: 1rem; background: #d1fae5; color: #065f46; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid #10b981;">
+            <div class="alert alert-success" style="padding: 1rem; background: var(--alert-success-bg); color: var(--alert-success-text); border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid var(--alert-success-border);">
                 <i class='bx bx-check-circle'></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
             </div>
         <?php endif; ?>
@@ -38,7 +38,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
 
         <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; align-items: start;">
             <!-- Post Announcement Form -->
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+            <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
                 <h3 id="form-title" style="margin-bottom: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
                     <i class='bx bx-pencil' style="color: var(--primary);"></i> Post New Announcement
                 </h3>
@@ -49,20 +49,20 @@ $my_announcements = getAnnouncementsByUser($user_id);
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">Announcement Heading</label>
                         <input type="text" name="title" id="input-title" placeholder="e.g., Famous Author Visiting Tomorrow!" required 
-                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit;">
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit; background: var(--bg-body); color: var(--text-main);">
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">Message</label>
                         <textarea name="message" id="input-message" rows="4" placeholder="Describe your announcement in detail..." required 
-                                  style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit; resize: vertical;"></textarea>
+                                  style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit; resize: vertical; background: var(--bg-body); color: var(--text-main);"></textarea>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                         <div class="form-group">
                             <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">Start Date (Optional)</label>
                             <input type="date" name="start_date" id="input-start-date" 
-                                   style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit;">
+                                   style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit; background: var(--bg-body); color: var(--text-main);">
                         </div>
                         <div class="form-group">
                             <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">End Date (Auto-expiry)</label>
@@ -74,7 +74,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
                     <div class="form-group" style="margin-bottom: 1.5rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">Action Link (Optional)</label>
                         <input type="url" name="link" id="input-link" placeholder="https://example.com/details" 
-                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit;">
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: inherit; background: var(--bg-body); color: var(--text-main);">
                         <small style="color: var(--text-muted); font-size: 0.75rem;">Link to a website for more details.</small>
                     </div>
 
@@ -82,7 +82,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
                         <button type="submit" id="submit-btn" class="btn btn-primary" style="flex: 1; justify-content: center; padding: 0.8rem;">
                             <i class='bx bx-paper-plane'></i> Publish Announcement
                         </button>
-                        <button type="button" id="cancel-btn" onclick="cancelEdit()" class="btn" style="display: none; background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border-color);">
+                        <button type="button" id="cancel-btn" onclick="cancelEdit()" class="btn" style="display: none; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color);">
                             Cancel
                         </button>
                     </div>
@@ -90,7 +90,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
             </div>
 
             <!-- Existing Announcements List -->
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+            <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
                 <h3 style="margin-bottom: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
                     <i class='bx bx-list-ul' style="color: var(--primary);"></i> Your Previous Announcements
                 </h3>
@@ -132,7 +132,7 @@ $my_announcements = getAnnouncementsByUser($user_id);
                                         <?php endif; ?>
                                     </div>
                                     <?php if ($a['start_date'] || $a['end_date']): ?>
-                                        <div style="background: #f8fafc; padding: 0.5rem; border-radius: 4px; border: 1px dashed var(--border-color); display: flex; align-items: center; gap: 0.5rem;">
+                                        <div style="background: var(--bg-body); padding: 0.5rem; border-radius: 4px; border: 1px dashed var(--border-color); display: flex; align-items: center; gap: 0.5rem;">
                                             <i class='bx bx-time-five'></i>
                                             <span>Active: <strong><?php echo $a['start_date'] ? date('M d, Y', strtotime($a['start_date'])) : 'Infinity'; ?></strong> to <strong><?php echo $a['end_date'] ? date('M d, Y', strtotime($a['end_date'])) : 'Infinity'; ?></strong></span>
                                         </div>

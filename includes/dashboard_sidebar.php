@@ -21,6 +21,8 @@ $deals_notifs = $user_id ? getUnreadRequestsCount($user_id) : 0;
 $delivery_notifs = $user_id ? getUnreadDeliveryUpdatesCount($user_id) : 0;
 $sidebar_available_jobs_count = ($user_role == 'delivery_agent') ? getAvailableDeliveryJobsCount() : 0;
 $sidebar_active_jobs_count = ($user_role == 'delivery_agent') ? getActiveAgentJobsCount($user_id) : 0;
+$sidebar_role_requests_count = ($user_role == 'admin') ? getPendingRoleRequestsCount() : 0;
+$sidebar_reports_count = ($user_role == 'admin') ? getPendingReportsCount() : 0;
 $theme_mode = $_SESSION['theme_mode'] ?? 'light';
 ?>
 
@@ -85,8 +87,18 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
     <div class="sidebar-section-title">Admin Controls</div>
     <a href="<?php echo APP_URL; ?>/admin/admin_users.php" class="nav-item <?php echo $current_page == 'admin_users.php' ? 'active' : ''; ?>"><i class='bx bx-group'></i> Manage Users</a>
     <a href="<?php echo APP_URL; ?>/admin/admin_listings.php" class="nav-item <?php echo $current_page == 'admin_listings.php' ? 'active' : ''; ?>"><i class='bx bx-book'></i> Manage Listings</a>
-    <a href="<?php echo APP_URL; ?>/admin/role_requests.php" class="nav-item <?php echo $current_page == 'role_requests.php' ? 'active' : ''; ?>"><i class='bx bx-git-branch'></i> Role Requests</a>
-    <a href="<?php echo APP_URL; ?>/admin/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>"><i class='bx bx-flag'></i> Reports</a>
+    <a href="<?php echo APP_URL; ?>/admin/role_requests.php" class="nav-item <?php echo $current_page == 'role_requests.php' ? 'active' : ''; ?>">
+        <i class='bx bx-git-branch'></i> Role Requests
+        <?php if ($sidebar_role_requests_count > 0): ?>
+            <span class="nav-badge role-requests-badge"><?php echo $sidebar_role_requests_count; ?></span>
+        <?php endif; ?>
+    </a>
+    <a href="<?php echo APP_URL; ?>/admin/admin_reports.php" class="nav-item <?php echo $current_page == 'admin_reports.php' ? 'active' : ''; ?>">
+        <i class='bx bx-flag'></i> Reports
+        <?php if ($sidebar_reports_count > 0): ?>
+            <span class="nav-badge reports-badge"><?php echo $sidebar_reports_count; ?></span>
+        <?php endif; ?>
+    </a>
     <?php endif; ?>
 
     <?php if(!in_array($user_role, ['delivery_agent', 'admin'])): ?>
@@ -95,6 +107,9 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
         <a href="<?php echo APP_URL; ?>/pages/wishlist.php" class="nav-item <?php echo $current_page == 'wishlist.php' ? 'active' : ''; ?>"><i class='bx bx-book-heart'></i> Wishlist</a>
         <?php if(in_array($user_role, ['library', 'bookstore'])): ?>
             <a href="<?php echo APP_URL; ?>/pages/business_reports.php" class="nav-item <?php echo $current_page == 'business_reports.php' ? 'active' : ''; ?>"><i class='bx bx-line-chart'></i> Business Reports</a>
+            <?php if ($user_role == 'library'): ?>
+                <a href="<?php echo APP_URL; ?>/pages/library_fines.php" class="nav-item <?php echo $current_page == 'library_fines.php' ? 'active' : ''; ?>"><i class='bx bx-coin-stack'></i> Manage Fines</a>
+            <?php endif; ?>
             <?php if($user_role == 'bookstore'): ?>
                 <a href="<?php echo APP_URL; ?>/pages/manage_announcements.php" class="nav-item <?php echo $current_page == 'manage_announcements.php' ? 'active' : ''; ?>"><i class='bx bxs-megaphone'></i> Manage Announcements</a>
             <?php endif; ?>
@@ -245,6 +260,40 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
                 }
             } else if (availableJobsBadge) {
                 availableJobsBadge.remove();
+            }
+
+            // 7. Update Role Requests Badge
+            const roleReqBadge = document.querySelector('.role-requests-badge');
+            const roleReqLink = document.querySelector('a[href*="role_requests.php"]');
+            
+            if (data.role_requests > 0) {
+                if (roleReqBadge) {
+                    roleReqBadge.textContent = data.role_requests;
+                } else if (roleReqLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge role-requests-badge';
+                    newBadge.textContent = data.role_requests;
+                    roleReqLink.appendChild(newBadge);
+                }
+            } else if (roleReqBadge) {
+                roleReqBadge.remove();
+            }
+
+            // 8. Update Reports Badge
+            const reportsBadge = document.querySelector('.reports-badge');
+            const reportsLink = document.querySelector('a[href*="admin_reports.php"]');
+            
+            if (data.reports > 0) {
+                if (reportsBadge) {
+                    reportsBadge.textContent = data.reports;
+                } else if (reportsLink) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'nav-badge reports-badge';
+                    newBadge.textContent = data.reports;
+                    reportsLink.appendChild(newBadge);
+                }
+            } else if (reportsBadge) {
+                reportsBadge.remove();
             }
         } catch (err) {
             console.error("Sidebar unread refresh failed", err);

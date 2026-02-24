@@ -395,7 +395,7 @@ function getStatusLabel($status, $agentId, $method) {
 
                             <?php if (!$isReturnPhase): ?>
                                 <?php if (($d['status'] === 'delivered' || ($d['delivery_method'] === 'pickup' && in_array($d['status'], ['approved', 'active']))) && $isBorrower && empty($d['borrower_confirm_at'])): ?>
-                                    <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt</button>
+                                    <button onclick="handleAction('confirm_receive')" class="btn btn-primary">Confirm Receive</button>
                                 <?php elseif ($d['status'] === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
                                     <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
                                         <i class='bx bx-undo'></i> Return Book
@@ -413,7 +413,7 @@ function getStatusLabel($status, $agentId, $method) {
                                     <button onclick="handleAction('confirm_handover')" class="btn btn-primary">Confirm Handover (Return)</button>
                                 <?php endif; ?>
                                 <?php if ($d['status'] === 'returned' && $isLender && empty($d['return_lender_confirm_at'])): ?>
-                                    <button onclick="handleAction('confirm_receipt')" class="btn btn-primary">Confirm Receipt (Return)</button>
+                                    <button onclick="handleAction('confirm_receive')" class="btn btn-primary">Confirm Receive (Return)</button>
                                 <?php endif; ?>
                             <?php endif; ?>
                         <?php endif; ?>

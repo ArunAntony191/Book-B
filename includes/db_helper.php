@@ -114,7 +114,7 @@ function getUserById($userId) {
                    address, landmark, district, city, pincode, state, 
                    theme_mode, email_notifications, notify_new_listings,
                    service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
-                   profile_picture, favorite_category, available_earnings, pending_earnings
+                   profile_picture, favorite_category, available_earnings, pending_earnings, unpaid_fines
             FROM users 
             WHERE id = ?
         ");
@@ -375,7 +375,9 @@ function getUserDeals($userId) {
             SELECT t.*, b.title, b.author, b.cover_image, 
                    u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
                    l.listing_type, l.price as listing_price,
-                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed
+                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed,
+                   (SELECT status FROM penalties WHERE transaction_id = t.id AND penalty_type = 'damage_fine' LIMIT 1) as damage_fine_status,
+                   (SELECT monetary_penalty FROM penalties WHERE transaction_id = t.id AND penalty_type = 'damage_fine' LIMIT 1) as damage_fine_amount
             FROM transactions t
             JOIN listings l ON t.listing_id = l.id
             JOIN books b ON l.book_id = b.id
@@ -532,7 +534,7 @@ function approveExtension($transactionId) {
         $newDate = $stmt->fetchColumn();
 
         if ($newDate) {
-            $stmt = $pdo->prepare("UPDATE transactions SET due_date = ?, pending_due_date = NULL WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE transactions SET due_date = ?, pending_due_date = NULL, is_extended = 1 WHERE id = ?");
             $stmt->execute([$newDate, $transactionId]);
             $pdo->commit();
             return true;
@@ -1021,7 +1023,7 @@ function calculatePenalty($transactionId) {
         
         // Get transaction details
         $stmt = $pdo->prepare("
-            SELECT borrower_id, due_date, return_date 
+            SELECT borrower_id, due_date, return_date, is_extended 
             FROM transactions 
             WHERE id = ?
         ");
@@ -1029,7 +1031,7 @@ function calculatePenalty($transactionId) {
         $transaction = $stmt->fetch();
         
         if (!$transaction || !$transaction['due_date']) {
-            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0, 'monetary_penalty' => 0];
         }
         
         $dueDate = new DateTime($transaction['due_date']);
@@ -1043,10 +1045,17 @@ function calculatePenalty($transactionId) {
         $creditPenalty = $daysOverdue * 5; // 5 credits per day
         $trustPenalty = min($daysOverdue * 2, 20); // 2 points per day, max 20
         
+        // Real Money Fine: ₹10 per day if no extension was taken
+        $monetaryPenalty = 0;
+        if (empty($transaction['is_extended'])) {
+            $monetaryPenalty = $daysOverdue * 10;
+        }
+        
         return [
             'days' => $daysOverdue,
             'credit_penalty' => $creditPenalty,
-            'trust_penalty' => $trustPenalty
+            'trust_penalty' => $trustPenalty,
+            'monetary_penalty' => $monetaryPenalty
         ];
         
     } catch (Exception $e) {
@@ -1058,20 +1067,22 @@ function calculatePenalty($transactionId) {
 /**
  * Record a penalty in the platform audit log
  */
-function recordPenalty($userId, $type, $amount, $trustPenalty, $reason, $transactionId = null) {
+function recordPenalty($userId, $type, $amount, $trustPenalty, $reason, $transactionId = null, $monetaryPenalty = 0, $status = 'applied') {
     try {
         $pdo = getDBConnection();
         $stmt = $pdo->prepare("
-            INSERT INTO penalties (user_id, penalty_type, amount, trust_penalty, reason, transaction_id)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO penalties (user_id, penalty_type, amount, trust_penalty, monetary_penalty, reason, transaction_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
         return $stmt->execute([
             $userId,
             $type,
             $amount,
             $trustPenalty,
+            $monetaryPenalty,
             $reason,
-            $transactionId
+            $transactionId,
+            $status
         ]);
     } catch (Exception $e) {
         error_log("Record penalty error: " . $e->getMessage());
@@ -1091,15 +1102,24 @@ function applyPenalty($transactionId, $userId) {
             $pdo->beginTransaction();
             
             $reason = "Late return penalty: {$penalty['days']} days overdue";
+            if ($penalty['monetary_penalty'] > 0) {
+                $reason .= " (Includes ₹{$penalty['monetary_penalty']} fine for no extension)";
+            }
             
             // Record penalty using the new centralized helper
-            recordPenalty($userId, 'late_return', $penalty['credit_penalty'], $penalty['trust_penalty'], $reason, $transactionId);
+            recordPenalty($userId, 'late_return', $penalty['credit_penalty'], $penalty['trust_penalty'], $reason, $transactionId, $penalty['monetary_penalty']);
             
             // Deduct credits
             deductCredits($userId, $penalty['credit_penalty'], 'penalty', $reason, $transactionId);
             
             // Update trust score
             updateTrustScore($userId, -$penalty['trust_penalty'], 'late_return');
+
+            // Apply monetary fine to user account
+            if ($penalty['monetary_penalty'] > 0) {
+                $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = unpaid_fines + ? WHERE id = ?");
+                $stmt->execute([$penalty['monetary_penalty'], $userId]);
+            }
             
             // Update late returns count
             $stmt = $pdo->prepare("UPDATE users SET late_returns = late_returns + 1 WHERE id = ?");
@@ -1113,6 +1133,123 @@ function applyPenalty($transactionId, $userId) {
     } catch (Exception $e) {
         if (isset($pdo)) $pdo->rollBack();
         error_log("Apply penalty error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Apply a fine for book damage
+ */
+function applyDamageFine($transactionId, $userId, $amount, $reason, $isPaid = false) {
+    try {
+        $pdo = getDBConnection();
+
+        // Prevent duplicate damage fines for same transaction
+        $checkStmt = $pdo->prepare("SELECT id FROM penalties WHERE transaction_id = ? AND penalty_type = 'damage_fine'");
+        $checkStmt->execute([$transactionId]);
+        if ($checkStmt->fetch()) {
+            error_log("Attempted to apply duplicate damage fine for transaction #$transactionId");
+            return false;
+        }
+
+        $pdo->beginTransaction();
+        
+        $status = $isPaid ? 'applied' : 'pending';
+        $finalReason = $isPaid ? $reason . " (Paid Offline in Cash)" : $reason;
+
+        // Record penalty
+        recordPenalty($userId, 'damage_fine', 0, 0, $finalReason, $transactionId, $amount, $status);
+        
+        // Apply monetary fine to user account ONLY if NOT paid instantly
+        if (!$isPaid) {
+            $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = unpaid_fines + ? WHERE id = ?");
+            $stmt->execute([$amount, $userId]);
+        }
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Apply damage fine error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Re-calculate and sync user's unpaid_fines from the penalties table.
+ * Useful for fixing issues caused by duplicate entries or race conditions.
+ */
+function syncUserUnpaidFines($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE users u
+            SET u.unpaid_fines = COALESCE((
+                SELECT SUM(monetary_penalty) 
+                FROM penalties 
+                WHERE user_id = ? AND status = 'pending'
+            ), 0)
+            WHERE u.id = ?
+        ");
+        return $stmt->execute([$userId, $userId]);
+    } catch (Exception $e) {
+        error_log("Sync user fines error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get all pending penalties for a user with book information if available
+ */
+function getUserPendingPenalties($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT p.*, b.title as book_title
+            FROM penalties p
+            LEFT JOIN transactions t ON p.transaction_id = t.id
+            LEFT JOIN listings l ON t.listing_id = l.id
+            LEFT JOIN books b ON l.book_id = b.id
+            WHERE p.user_id = ? AND p.status = 'pending'
+            ORDER BY p.created_at DESC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log("Get user pending penalties error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Clear a user's outstanding fines (offline payment)
+ */
+function clearFinesOffline($userId, $clearedBy) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // Fetch current fines
+        $stmt = $pdo->prepare("SELECT unpaid_fines FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $amount = (float)$stmt->fetchColumn();
+        
+        if ($amount > 0) {
+            // Reset fines
+            $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = 0 WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            // Mark penalties as applied
+            $stmt = $pdo->prepare("UPDATE penalties SET status = 'applied', reason = CONCAT(reason, ' (Paid Offline to user #', ?, ')') WHERE user_id = ? AND status = 'pending'");
+            $stmt->execute([$clearedBy, $userId]);
+            
+            $pdo->commit();
+            return true;
+        }
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Clear fines offline error: " . $e->getMessage());
         return false;
     }
 }
@@ -1219,19 +1356,25 @@ function getUserReviews($userId, $limit = 10) {
 /**
  * Ban a user
  */
-function banUser($userId) {
+function banUser($userId, $reason = null) {
     try {
         $pdo = getDBConnection();
         $pdo->beginTransaction();
 
-        // 1. Set is_banned flag
-        $stmt = $pdo->prepare("UPDATE users SET is_banned = 1 WHERE id = ?");
-        $stmt->execute([$userId]);
+        // 1. Set is_banned flag and save reason
+        $stmt = $pdo->prepare("UPDATE users SET is_banned = 1, ban_reason = ? WHERE id = ?");
+        $stmt->execute([$reason, $userId]);
 
         // 2. Clear any active sessions (handled by login check usually, but good to flag)
         
         // 3. Send notification
-        createNotification($userId, 'system', 'Your account has been suspended due to policy violations. Contact admin for appeal.');
+        $notifMsg = 'Your account has been suspended due to policy violations.';
+        if ($reason) {
+            $notifMsg .= " Reason: " . $reason;
+        }
+        $notifMsg .= ' Contact admin for appeal.';
+        
+        createNotification($userId, 'system', $notifMsg);
 
         $pdo->commit();
         return true;
@@ -1394,7 +1537,7 @@ function getUserStatsEnhanced($userId) {
         // Get user data
         $stmt = $pdo->prepare("
             SELECT credits, available_earnings, trust_score, average_rating, total_ratings, 
-                   total_lends, total_borrows, late_returns
+                   total_lends, total_borrows, late_returns, unpaid_fines
             FROM users 
             WHERE id = ?
         ");
@@ -1433,6 +1576,7 @@ function getUserStatsEnhanced($userId) {
             'active_borrows' => $activeBorrows,
             'pending_requests' => $pendingRequests,
             'available_earnings' => $stats['available_earnings'] ?? 0,
+            'unpaid_fines' => $stats['unpaid_fines'] ?? 0.00,
             'trust_rating' => getTrustScoreRating($stats['trust_score'] ?? 50)
         ]);
         
@@ -1556,7 +1700,7 @@ function getUnreadDeliveryUpdatesCount($userId) {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM notifications 
             WHERE user_id = ? AND is_read = 0 
-            AND type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed')
+            AND type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed')
         ");
         $stmt->execute([$userId]);
         return (int)$stmt->fetchColumn();
@@ -1625,7 +1769,7 @@ function getUnreadSystemNotificationsCount($userId) {
             WHERE user_id = ? AND is_read = 0 
             AND type NOT IN (
                 'borrow_request', 'sell_request', 'request_accepted', 'request_declined',
-                'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed'
+                'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed'
             )
         ");
         $stmt->execute([$userId]);
@@ -2245,7 +2389,7 @@ function createNotification($userId, $type, $message, $referenceId = null) {
                     $actionText = 'View Update';
                     break;
                     
-                case 'receipt_confirmed':
+                case 'receive_confirmed':
                 case 'borrower_confirmed':
                     $subject = 'Delivery Confirmed';
                     $actionUrl = APP_URL . '/pages/deals.php';
@@ -2795,5 +2939,32 @@ function updateAnnouncement($announcementId, $userId, $title, $message, $link = 
     } catch (PDOException $e) {
         error_log("Update announcement error: " . $e->getMessage());
         return false;
+    }
+}
+/**
+ * Get count of pending role change requests
+ */
+function getPendingRoleRequestsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `role_change_requests` WHERE `status` = 'pending'");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get count of pending reports
+ */
+function getPendingReportsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `reports` WHERE `status` = 'pending'");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
     }
 }

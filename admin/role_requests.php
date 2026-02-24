@@ -50,15 +50,15 @@ $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('reject
         font-weight: 600;
         background: var(--section-bg);
     }
-    .requested-role { background: #e0e7ff; color: #4338ca; }
+    .requested-role { background: var(--alert-info-bg); color: var(--info); }
     .status-badge {
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 700;
     }
-    .status-approved { background: #dcfce7; color: #15803d; }
-    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .status-approved { background: var(--alert-success-bg); color: var(--alert-success-text); }
+    .status-rejected { background: var(--alert-danger-bg); color: var(--danger); }
     .action-btns { display: flex; gap: 0.5rem; }
     .btn-approve { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
     .btn-reject { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
@@ -72,7 +72,7 @@ $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('reject
                 <p>Manage user requests to change their account type</p>
 
                 <?php if ($success): ?>
-                    <div class="alert alert-success" style="padding: 1rem; background: #dcfce7; color: #15803d; border-radius: 8px; margin-bottom: 1rem;">
+                    <div class="alert alert-success" style="padding: 1rem; background: var(--alert-success-bg); color: var(--alert-success-text); border-radius: 8px; margin-bottom: 1rem; border: 1px solid var(--alert-success-border);">
                         <?php echo $success; ?>
                     </div>
                 <?php endif; ?>
@@ -107,11 +107,11 @@ $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('reject
                 <div style="margin-top: 4rem;">
                     <h2>Recent History</h2>
                     <?php if (empty($pastRequests)): ?>
-                        <p style="color: #64748b;">No past requests found.</p>
+                        <p style="color: var(--text-muted);">No past requests found.</p>
                     <?php else: ?>
-                        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;">
+                        <div style="background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-color); overflow: hidden;">
                             <table style="width: 100%; border-collapse: collapse;">
-                                <thead style="background: #f8fafc;">
+                                <thead style="background: var(--bg-body);">
                                     <tr>
                                         <th style="padding: 1rem; text-align: left;">User</th>
                                         <th style="padding: 1rem; text-align: left;">Change</th>
@@ -121,12 +121,12 @@ $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('reject
                                 </thead>
                                 <tbody>
                                     <?php foreach ($pastRequests as $req): ?>
-                                        <tr style="border-top: 1px solid #e2e8f0;">
+                                        <tr style="border-top: 1px solid var(--border-color);">
                                             <td style="padding: 1rem;">
-                                                <strong><?php echo htmlspecialchars($req['firstname']); ?></strong><br>
-                                                <span style="font-size: 0.8rem; color: #64748b;"><?php echo htmlspecialchars($req['email']); ?></span>
+                                                <strong style="color: var(--text-main);"><?php echo htmlspecialchars($req['firstname']); ?></strong><br>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);"><?php echo htmlspecialchars($req['email']); ?></span>
                                             </td>
-                                            <td style="padding: 1rem;">
+                                            <td style="padding: 1rem; color: var(--text-body);">
                                                 <?php echo ucfirst($req['current_role']); ?> &rarr; <?php echo ucfirst($req['requested_role']); ?>
                                             </td>
                                             <td style="padding: 1rem;">
@@ -134,7 +134,7 @@ $pastRequests = array_merge(getRoleRequests('approved'), getRoleRequests('reject
                                                     <?php echo ucfirst($req['status']); ?>
                                                 </span>
                                             </td>
-                                            <td style="padding: 1rem; color: #64748b; font-size: 0.85rem;">
+                                            <td style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">
                                                 <?php echo date('M d, Y', strtotime($req['updated_at'])); ?>
                                             </td>
                                         </tr>

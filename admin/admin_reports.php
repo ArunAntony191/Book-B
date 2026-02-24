@@ -21,7 +21,7 @@ $reports = getReports('pending');
             </div>
 
             <?php if (empty($reports)): ?>
-            <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 2rem; padding: 5rem; text-align: center;">
+            <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 2rem; padding: 5rem; text-align: center;">
                 <i class='bx bx-check-shield' style="font-size: 5rem; color: #10b981; opacity: 0.3;"></i>
                 <h3 style="margin-top: 2rem; color: var(--text-muted);">No active reports</h3>
                 <p style="color: var(--text-muted); margin-top: 0.5rem;">All systems are nominal.</p>
@@ -29,10 +29,10 @@ $reports = getReports('pending');
             <?php else: ?>
             <div style="display: grid; gap: 1.5rem; margin-top: 2rem;">
                 <?php foreach ($reports as $r): ?>
-                <div style="background: white; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <div style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                         <div>
-                            <span style="font-size: 0.8rem; font-weight: 700; color: #ef4444; background: #ef444415; padding: 0.25rem 0.5rem; border-radius: 4px; text-transform: uppercase;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--danger); background: var(--alert-danger-bg); padding: 0.25rem 0.5rem; border-radius: 4px; text-transform: uppercase;">
                                 <?php echo htmlspecialchars($r['reason']); ?>
                             </span>
                             <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
@@ -49,14 +49,14 @@ $reports = getReports('pending');
                         </div>
                     </div>
                     
-                    <div style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); font-size: 0.95rem; color: var(--text-main); margin-bottom: 1.5rem;">
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: var(--radius-md); font-size: 0.95rem; color: var(--text-main); margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
                         "<?php echo nl2br(htmlspecialchars($r['description'])); ?>"
                     </div>
 
                     <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                         <button onclick="resolveReport(<?php echo $r['id']; ?>, 'dismissed')" class="btn btn-outline btn-sm">Dismiss Report</button>
                         <?php if ($r['type'] === 'community'): ?>
-                            <button onclick="warnCommunity(<?php echo $r['reported_community_id']; ?>, '<?php echo addslashes($r['reason']); ?>')" class="btn btn-sm" style="background: #f59e0b; color: white; border: none;">Warn Community</button>
+                            <button onclick="warnCommunity(<?php echo $r['id']; ?>, <?php echo $r['reported_community_id']; ?>, '<?php echo addslashes($r['reason']); ?>')" class="btn btn-sm" style="background: #f59e0b; color: white; border: none;">Warn Community</button>
                             <button onclick="deleteCommunityAndResolve(<?php echo $r['id']; ?>, <?php echo $r['reported_community_id']; ?>, '<?php echo addslashes($r['reason']); ?>')" class="btn btn-danger btn-sm" style="background: #ef4444; color: white; border: none;">Delete Community & Resolve</button>
                         <?php else: ?>
                             <button onclick="banAndResolve(<?php echo $r['id']; ?>, <?php echo $r['reported_uid']; ?>)" class="btn btn-danger btn-sm" style="background: #ef4444; color: white; border: none;">Ban User & Resolve</button>
@@ -138,7 +138,7 @@ $reports = getReports('pending');
         }
     }
 
-    async function warnCommunity(communityId, reason) {
+    async function warnCommunity(reportId, communityId, reason) {
         if (!confirm('Send an official warning to this community group for: ' + reason + '?')) return;
         
         try {
@@ -151,7 +151,7 @@ $reports = getReports('pending');
             const result = await response.json();
             
             if (result.success) {
-                alert('Warning sent successfully.');
+                await resolveReport(reportId, 'resolved');
             } else {
                 alert(result.message);
             }

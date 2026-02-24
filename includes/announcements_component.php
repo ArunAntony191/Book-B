@@ -47,7 +47,7 @@ foreach ($announcements as $ann):
 <style>
 /* Modern Announcement Banner Styles */
 .announcement-modern {
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--glass-bg);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(124, 58, 237, 0.2);
     border-radius: 16px;
@@ -107,16 +107,16 @@ foreach ($announcements as $ann):
 
 .ann-store-name {
     font-weight: 800;
-    color: #1e1b4b;
+    color: var(--text-main);
 }
 
 .ann-headline {
     font-weight: 800;
-    color: #4338ca;
+    color: var(--primary);
 }
 
 .ann-description {
-    color: #475569;
+    color: var(--text-muted);
 }
 
 .ann-action-link {
@@ -138,7 +138,7 @@ foreach ($announcements as $ann):
 }
 
 .ann-dismiss {
-    background: #f1f5f9;
+    background: var(--bg-body);
     border: none;
     color: #64748b;
     width: 32px;

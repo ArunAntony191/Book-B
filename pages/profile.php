@@ -107,10 +107,7 @@ if (isset($userData)) {
         }
 
         .avatar-edit-btn {
-            position: absolute;
-            bottom: -5px;
-            right: -5px;
-            background: white;
+            background: var(--bg-card);
             width: 38px;
             height: 38px;
             border-radius: 12px;
@@ -119,7 +116,7 @@ if (isset($userData)) {
             justify-content: center;
             color: var(--primary);
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-color);
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -132,10 +129,10 @@ if (isset($userData)) {
         }
 
         .form-section {
-            background: var(--section-bg);
+            background: var(--bg-card);
             border-radius: 20px;
             padding: 2rem;
-            border: 1px solid #eef2f6;
+            border: 1px solid var(--border-color);
         }
 
         .section-header {
@@ -144,11 +141,11 @@ if (isset($userData)) {
             gap: 0.75rem;
             margin-bottom: 1.5rem;
             padding-bottom: 0.75rem;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .section-header i {
-            background: white;
+            background: var(--bg-body);
             padding: 0.5rem;
             border-radius: 10px;
             color: var(--primary);
@@ -158,7 +155,7 @@ if (isset($userData)) {
         .section-header h2 {
             font-size: 1.1rem;
             font-weight: 700;
-            color: #1e293b;
+            color: var(--text-main);
             margin: 0;
         }
 
@@ -177,13 +174,14 @@ if (isset($userData)) {
         }
 
         .form-input {
-            background: white;
-            border: 1.5px solid #e2e8f0;
+            background: var(--bg-body);
+            border: 1.5px solid var(--border-color);
             border-radius: 12px;
             padding: 0.85rem 1rem;
             transition: all 0.2s;
             font-weight: 500;
             width: 100%;
+            color: var(--text-main);
         }
 
         .form-input:focus {
@@ -202,10 +200,10 @@ if (isset($userData)) {
         .cat-pill {
             padding: 0.6rem 1.25rem;
             border-radius: 14px;
-            background: white;
-            color: #64748b;
+            background: var(--bg-body);
+            color: var(--text-muted);
             cursor: pointer;
-            border: 1.5px solid #e2e8f0;
+            border: 1.5px solid var(--border-color);
             font-size: 0.9rem;
             font-weight: 600;
             user-select: none;
@@ -282,7 +280,7 @@ if (isset($userData)) {
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             z-index: 2000;
@@ -333,13 +331,13 @@ if (isset($userData)) {
         .btn-save:active { transform: translateY(0); }
 
         .btn-discard {
-            background: rgba(241, 245, 249, 0.8);
-            color: #64748b;
+            background: var(--bg-body);
+            color: var(--text-muted);
             padding: 1.25rem;
             border-radius: 16px;
             font-weight: 700;
             font-size: 1.1rem;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-color);
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
@@ -371,8 +369,8 @@ if (isset($userData)) {
             border-radius: 50px;
             font-size: 0.85rem;
             font-weight: 700;
-            background: white;
-            border: 1px solid #eef2f6;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
         }
         .status-pill.online { color: #10b981; }
         .status-pill.role { color: #6366f1; }
@@ -384,7 +382,7 @@ if (isset($userData)) {
 
         /* Custom Marker pulse */
         .pulsing-marker { position: relative; }
-        .pin { width: 14px; height: 14px; background: var(--primary); border: 2.5px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .pin { width: 14px; height: 14px; background: var(--primary); border: 2.5px solid var(--bg-body); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .pulse { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; position: absolute; top: -8.5px; left: -8.5px; opacity: 0.3; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(0.5); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
 
@@ -432,8 +430,8 @@ if (isset($userData)) {
                         </div>
                     </div>
 
-                    <?php if ($success): ?>
-                        <div style="background: #f0fdf4; color: #16a34a; padding: 1rem; border-radius: 16px; margin-bottom: 2rem; border: 1px solid #dcfce7; display: flex; align-items: center; gap: 0.75rem; font-weight: 600;">
+                        <?php if ($success): ?>
+                        <div style="background: rgba(34, 197, 94, 0.1); color: #16a34a; padding: 1rem; border-radius: 16px; margin-bottom: 2rem; border: 1px solid rgba(34, 197, 94, 0.2); display: flex; align-items: center; gap: 0.75rem; font-weight: 600;">
                             <i class='bx bxs-check-circle' style="font-size: 1.2rem;"></i> <?php echo $success; ?>
                         </div>
                     <?php endif; ?>

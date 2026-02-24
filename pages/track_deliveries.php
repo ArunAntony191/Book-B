@@ -10,7 +10,7 @@ if (!$userId) {
 }
 
 // Mark notifications as read
-// markNotificationsAsReadByType($userId, ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receipt_confirmed', 'borrower_confirmed']);
+// markNotificationsAsReadByType($userId, ['delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed']);
 
 $deliveries = getUserDeliveries($userId);
 
@@ -85,7 +85,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
 
         .main-content {
             display: block;
-            background: #f8fafc;
+            background: var(--bg-body);
             min-height: 100vh;
             padding-bottom: 5rem;
         }
@@ -102,15 +102,15 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         }
 
         .page-header { margin-bottom: 2.5rem; }
-        .page-header h1 { font-size: 1.75rem; font-weight: 950; color: #0f172a; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
-        .page-header p { color: #64748b; font-weight: 500; }
+        .page-header h1 { font-size: 1.75rem; font-weight: 950; color: var(--text-main); margin-bottom: 0.5rem; letter-spacing: -0.5px; }
+        .page-header p { color: var(--text-muted); font-weight: 500; }
 
         /* Tabs */
         .tabs-header {
             display: flex; gap: 0.35rem; margin-bottom: 3rem;
-            background: #f1f5f9; padding: 0.5rem; border-radius: 20px;
+            background: var(--bg-body); padding: 0.5rem; border-radius: 20px;
             width: 100%; overflow-x: auto; 
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-color);
             -ms-overflow-style: auto; /* Show scrollbar on IE/Edge */
         }
         .tabs-header::-webkit-scrollbar { 
@@ -122,17 +122,17 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             border-radius: 10px;
         }
         .tab-btn {
-            padding: 0.6rem 0.85rem; font-weight: 700; color: #64748b;
+            padding: 0.6rem 0.85rem; font-weight: 700; color: var(--text-muted);
             cursor: pointer; transition: all 0.2s; border-radius: 16px;
             background: none; border: none; font-size: 0.75rem;
             white-space: nowrap; flex: none; text-align: center;
         }
         .tab-btn span { opacity: 0.6; font-size: 0.7rem; margin-left: 3px; }
-        .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .tab-btn.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
 
         /* Card Layout */
         .delivery-card {
-            background: white; border-radius: 24px; border: 1px solid #eef2f6;
+            background: var(--bg-card); border-radius: 24px; border: 1px solid var(--border-color);
             padding: 1.5rem; margin-bottom: 2rem; position: relative;
             box-shadow: 0 2px 20px rgba(0,0,0,0.02); overflow: hidden;
         }
@@ -147,7 +147,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         .status-badge.approved { background: var(--success-soft); color: var(--success-dark); border-color: #dcfce7; }
         .status-badge.active { background: var(--warning-soft); color: var(--warning-dark); border-color: #ffedd5; }
         .status-badge.delivered { background: var(--success-soft); color: var(--success-dark); border-color: #dcfce7; }
-        .status-badge.cancelled { background: #f1f5f9; color: #475569; border-color: #cbd5e1; text-decoration: line-through; }
+        .status-badge.cancelled { background: var(--bg-body); color: var(--text-muted); border-color: var(--border-color); text-decoration: line-through; }
 
         /* Premium Extension Modal Styles */
         .modal-overlay {
@@ -163,12 +163,13 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             z-index: 9999;
         }
         .modal-card {
-            background: white; 
+            background: var(--bg-card); 
             border-radius: 20px; 
             width: 90%;
             max-width: 480px;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
             overflow: hidden;
+            border: 1px solid var(--border-color);
             animation: modalFadeIn 0.3s ease-out;
         }
         @keyframes modalFadeIn {
@@ -183,7 +184,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             margin: 0 auto 1.25rem;
         }
         .ext-info-box {
-            background: #fffbeb; border: 1px solid #fef3c7;
+            background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);
             padding: 1rem; border-radius: 12px; display: flex;
             align-items: flex-start; gap: 0.75rem; margin-top: 1.25rem;
         }
@@ -192,7 +193,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         .ext-info-title { font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 0.2rem; }
         .ext-info-text { color: #a16207; font-size: 0.8rem; line-height: 1.4; }
         .ext-modal-footer {
-            padding: 1.5rem; background: #f8fafc;
+            padding: 1.5rem; background: var(--bg-body);
             display: flex; flex-direction: column; gap: 0.75rem;
         }
         .ext-btn-primary {
@@ -204,26 +205,27 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         }
         .ext-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3); }
         .ext-btn-outline {
-            background: white; color: var(--slate-dark);
-            border: 1px solid #e2e8f0; padding: 0.875rem;
+            background: var(--bg-card); color: var(--text-main);
+            border: 1px solid var(--border-color); padding: 0.875rem;
             border-radius: 12px; font-weight: 600;
             display: flex; align-items: center; justify-content: center;
             gap: 0.5rem; transition: all 0.3s; cursor: pointer;
         }
-        .ext-btn-outline:hover { background: #f1f5f9; }
+        .ext-btn-outline:hover { background: var(--bg-body); }
         
         .form-group { margin-bottom: 1.25rem; }
-        .form-label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: #1e293b; font-size: 0.85rem; }
+        .form-label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main); font-size: 0.85rem; }
         .form-control {
-            width: 100%; border: 2px solid #e2e8f0; border-radius: 12px;
+            width: 100%; border: 2px solid var(--border-color); border-radius: 12px;
             padding: 0.8rem; font-family: inherit; outline: none; transition: border-color 0.3s;
+            background: var(--bg-body); color: var(--text-main);
         }
         .form-control:focus { border-color: var(--primary); }
         .status-badge.returning { background: var(--danger-soft); color: var(--danger-dark); border-color: #ffe4e6; }
         .status-badge.returned { background: var(--slate-soft); color: var(--slate-dark); border-color: #e2e8f0; }
 
         .price-tag {
-            background: #fffbeb; color: #92400e; border: 1px solid #fef3c7;
+            background: rgba(245, 158, 11, 0.1); color: #92400e; border: 1px solid rgba(245, 158, 11, 0.3);
             padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.7rem;
             font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;
             margin-bottom: 1rem;
@@ -236,10 +238,10 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         .book-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 14px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
         
         .order-id { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.4rem; }
-        .book-title { font-size: 1.35rem; font-weight: 900; color: #0f172a; line-height: 1.2; margin-bottom: 1rem; }
+        .book-title { font-size: 1.35rem; font-weight: 900; color: var(--text-main); line-height: 1.2; margin-bottom: 1rem; }
 
         .info-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
-        .info-item { display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.9rem; color: #475569; }
+        .info-item { display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.9rem; color: var(--text-body); }
         .info-item i { color: var(--primary); font-size: 1.1rem; margin-top: 2px; }
         .info-label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 2px; }
 
@@ -250,28 +252,28 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         }
         .tracking-steps::before {
             content: ''; position: absolute; top: 12px; left: 0;
-            width: 100%; height: 2px; background: #f1f5f9; z-index: 1;
+            width: 100%; height: 2px; background: var(--border-color); z-index: 1;
         }
         .step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; flex: 1; }
-        .step-dot { width: 24px; height: 24px; background: white; border: 2.5px solid #f1f5f9; border-radius: 50%; transition: all 0.3s; }
-        .step-label { font-size: 0.6rem; font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
+        .step-dot { width: 24px; height: 24px; background: var(--bg-card); border: 2.5px solid var(--border-color); border-radius: 50%; transition: all 0.3s; }
+        .step-label { font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
         
         .step.completed .step-dot { background: var(--primary); border-color: var(--primary); }
         .step.completed .step-label { color: var(--primary); }
-        .step.active .step-dot { background: white; border-color: var(--primary); border-width: 6px; }
-        .step.active .step-label { color: #0f172a; }
+        .step.active .step-dot { background: var(--bg-card); border-color: var(--primary); border-width: 6px; }
+        .step.active .step-label { color: var(--text-main); }
 
         .verification-box {
-            background: #f8fafc; border-radius: 16px; padding: 1.25rem;
-            margin: 2.5rem auto 0 auto; border: 1px solid #f1f5f9;
+            background: var(--bg-body); border-radius: 16px; padding: 1.25rem;
+            margin: 2.5rem auto 0 auto; border: 1px solid var(--border-color);
             max-width: 600px;
         }
         .v-title { font-size: 0.65rem; font-weight: 900; color: #94a3b8; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; }
         .v-badges { display: flex; gap: 1rem; }
         .v-badge {
-            flex: 1; display: flex; align-items: center; gap: 0.6rem; background: white;
+            flex: 1; display: flex; align-items: center; gap: 0.6rem; background: var(--bg-card);
             padding: 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700;
-            color: #94a3b8; border: 1px solid #eef2f6;
+            color: var(--text-muted); border: 1px solid var(--border-color);
         }
         .v-badge.confirmed { color: var(--success-dark); border-color: #bbf7d0; background: #f0fdf4; }
 
@@ -353,11 +355,11 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 </div>
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label class="form-label">Optional Comment</label>
-                    <textarea id="feedback-comment" class="form-control" rows="3" placeholder="How was the delivery person?" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0;"></textarea>
+                    <textarea id="feedback-comment" class="form-control" rows="3" placeholder="How was the delivery person?" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid var(--border-color);"></textarea>
                 </div>
             </div>
             <div class="modal-footer" style="display: flex; gap: 0.75rem;">
-                <button onclick="closeFeedbackModal()" class="btn-action btn-outline" style="background: #f1f5f9; border: none; flex: 1; margin-top: 0;">Cancel</button>
+                <button onclick="closeFeedbackModal()" class="btn-action btn-outline" style="background: var(--bg-body); border: none; flex: 1; margin-top: 0;">Cancel</button>
                 <button onclick="submitFeedback()" class="btn-action btn-primary" style="flex: 1; margin-top: 0;">Submit Review</button>
             </div>
         </div>
@@ -376,7 +378,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             <div class="modal-body">
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label class="form-label">Reason for Report</label>
-                    <select id="report-reason" class="form-control" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0; appearance: none; background: #fff url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E') no-repeat right 0.75rem center; background-size: 0.65rem auto;">
+                    <select id="report-reason" class="form-control" style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid var(--border-color); appearance: none; background: var(--bg-body) url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E') no-repeat right 0.75rem center; background-size: 0.65rem auto;">
                         <option value="">Select a reason...</option>
                         <option value="behavior">Unprofessional Behavior</option>
                         <option value="late">Extremely Late Delivery</option>
@@ -387,14 +389,14 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 </div>
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label class="form-label">Describe the Incident</label>
-                    <textarea id="report-description" class="form-control" rows="4" placeholder="Please provide details about what happened..." style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid #e2e8f0;"></textarea>
+                    <textarea id="report-description" class="form-control" rows="4" placeholder="Please provide details about what happened..." style="width: 100%; padding: 0.75rem; border-radius: 12px; border: 1px solid var(--border-color);"></textarea>
                 </div>
                 <div style="background: #fff7ed; border: 1px solid #ffedd5; padding: 1rem; border-radius: 12px; color: #9a3412; font-size: 0.8rem; line-height: 1.4; margin-bottom: 1.5rem;">
                     <i class='bx bx-info-circle'></i> <strong>Note:</strong> False reports may result in penalties to your own account. Our admin team will investigate this report.
                 </div>
             </div>
             <div class="modal-footer" style="display: flex; gap: 0.75rem;">
-                <button onclick="closeAgentReportModal()" class="btn-action btn-outline" style="background: #f1f5f9; border: none; flex: 1; margin-top: 0;">Cancel</button>
+                <button onclick="closeAgentReportModal()" class="btn-action btn-outline" style="background: var(--bg-body); border: none; flex: 1; margin-top: 0;">Cancel</button>
                 <button onclick="submitAgentReport()" class="btn-action" style="background: #ef4444; color: white; border: none; flex: 1; margin-top: 0; font-weight: 800;">Submit Report</button>
             </div>
         </div>
@@ -469,7 +471,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 $finalTotal = $itemTotal + $deliveryFee - $discount;
             ?>
                 <div class="price-tag"><i class='bx bx-check-shield'></i> Total ₹<?= number_format($finalTotal, 2) ?></div>
-                <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0; margin-left: 0.5rem;">
+                <div class="price-tag" style="background:var(--bg-body); color:var(--text-muted); border-color:var(--border-color); margin-left: 0.5rem;">
                     <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
                 </div>
             <?php else: 
@@ -482,7 +484,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 $returnFeeINR = ($isBorrower && $d['return_delivery_method'] === 'delivery') ? (int)($d['return_delivery_price'] ?? 50) : 0;
             ?>
                 <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                    <div class="price-tag" style="background:#eff6ff; color:#1e40af; border-color:#dbeafe;">
+                    <div class="price-tag" style="background:rgba(59, 130, 246, 0.1); color:#1e40af; border-color:rgba(59, 130, 246, 0.2);">
                         <i class='bx bxs-coin-stack'></i> Total Credits: <?= $finalTokens ?>
                     </div>
                     <?php if ($returnFeeINR > 0): ?>
@@ -492,7 +494,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <?php endif; ?>
                     
                     <?php if ($d['quantity'] > 1): ?>
-                    <div class="price-tag" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0;">
+                    <div class="price-tag" style="background:var(--bg-body); color:var(--text-muted); border-color:var(--border-color);">
                         <i class='bx bx-layer'></i> Qty: <?= $d['quantity'] ?>
                     </div>
                     <?php endif; ?>
@@ -538,10 +540,10 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                                     <i class='bx bx-user-circle' style="color: var(--primary); font-size: 1.1rem; margin-top: 2px;"></i>
                                     <div>
                                         <span class="info-label">Delivery Partner</span>
-                                        <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.4rem;">
+                                        <div style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
                                             <?= htmlspecialchars($agentName) ?>
                                         </div>
-                                        <div style="color: #64748b; font-size: 0.85rem; margin-top: 2px;">
+                                        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 2px;">
                                             <i class='bx bx-phone' style="font-size: 0.9rem;"></i> <?= htmlspecialchars($aPhone) ?>
                                         </div>
                                     </div>
@@ -600,17 +602,17 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
 
             <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
                 <?php if (($status === 'delivered' || ($isPickup && in_array($status, ['approved', 'active']))) && $isBorrower && empty($d['borrower_confirm_at'])): ?>
-                    <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
-                        <i class='bx bx-package'></i> Confirm Receipt
+                    <button class="btn-action btn-primary" onclick="handleVerify('confirm_receive', <?= $d['id'] ?>)">
+                        <i class='bx bx-package'></i> Confirm Receive
                     </button>
                 <?php endif; ?>
 
                 <?php if ($status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%;">
-                        <button class="btn-action btn-outline" style="background:#f1f5f9; border:none; margin-top:0;" onclick="handleVerify('request_return_delivery', <?= $d['id'] ?>)">
+                        <button class="btn-action btn-outline" style="background:var(--bg-body); border:none; margin-top:0;" onclick="handleVerify('request_return_delivery', <?= $d['id'] ?>)">
                             <i class='bx bx-undo'></i> Return Book
                         </button>
-                        <button class="btn-action btn-outline" style="background:#f1f5f9; border:none; margin-top:0;" onclick="openExtendModal(<?= $d['id'] ?>, '<?= $d['due_date'] ?>', <?= $d['lender_id'] ?>)">
+                        <button class="btn-action btn-outline" style="background:var(--bg-body); border:none; margin-top:0;" onclick="openExtendModal(<?= $d['id'] ?>, '<?= $d['due_date'] ?>', <?= $d['lender_id'] ?>)">
                             <i class='bx bx-calendar-plus'></i> Extend Date
                         </button>
                     </div>
@@ -624,8 +626,8 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <?php endif; ?>
 
                     <?php if($isReturn && $status !== 'returned' && $needReceipt): ?>
-                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_receipt', <?= $d['id'] ?>)">
-                            <i class='bx bx-check-circle'></i> Confirm Receipt (Return)
+                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_receive', <?= $d['id'] ?>)">
+                            <i class='bx bx-check-circle'></i> Confirm Receive (Return)
                         </button>
                     <?php endif; ?>
 
@@ -661,7 +663,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <div class="ext-icon-wrapper">
                     <i class='bx bx-calendar-plus'></i>
                 </div>
-                <h2 style="font-weight: 950; font-size: 1.4rem; color: #0f172a; margin: 0;">Extend Return Date</h2>
+                <h2 style="font-weight: 950; font-size: 1.4rem; color: var(--text-main); margin: 0;">Extend Return Date</h2>
                 <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.4rem;">Request a later return date from the owner.</p>
             </div>
             <div class="modal-body" style="padding: 1rem 1.75rem 1.75rem;">
@@ -715,7 +717,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
         async function handleVerify(action, txId) {
             const labels = {
                 'confirm_handover': 'confirm you handed over the book?',
-                'confirm_receipt': 'confirm you received the book?',
+                'confirm_receive': 'confirm you received the book?',
                 'request_return_delivery': 'initiate the return process for this book?',
                 'cancel_order': 'cancel this request/order? This will abort the transaction.'
             };

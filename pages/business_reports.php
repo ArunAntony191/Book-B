@@ -22,7 +22,7 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
             margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);
         }
         .filter-form {
-            background: white; padding: 1.5rem; border-radius: var(--radius-lg);
+            background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg);
             border: 1px solid var(--border-color); display: flex; gap: 1rem; align-items: flex-end;
             margin-bottom: 2rem;
         }
@@ -32,14 +32,14 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
 
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
         .stat-card {
-            background: white; padding: 1.5rem; border-radius: var(--radius-lg);
+            background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg);
             border: 1px solid var(--border-color); text-align: center;
         }
         .stat-value { font-size: 2rem; font-weight: 800; margin: 0.5rem 0; color: var(--text-main); }
         .stat-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
         
-        .report-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-color); }
-        .report-table th { background: #f8fafc; padding: 1rem; text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+        .report-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-color); }
+        .report-table th { background: var(--bg-body); padding: 1rem; text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
         .report-table td { padding: 1.2rem 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
         
         .print-btn { background: #64748b; color: white; display: flex; align-items: center; gap: 0.5rem; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
@@ -117,14 +117,14 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
 
             <!-- Charts Grid -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                <div style="background: white; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <div style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
                     <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; color: var(--text-main);"><i class='bx bx-stats'></i> Activity Volume</h3>
                     <div style="height: 300px; width: 100%;">
                         <canvas id="activityChart"></canvas>
                     </div>
                 </div>
 
-                <div style="background: white; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <div style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
                     <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; color: var(--text-main);"><i class='bx bx-pie-chart-alt'></i> Listing Split</h3>
                     <div style="height: 300px; width: 100%;">
                         <canvas id="typeChart"></canvas>
@@ -137,7 +137,7 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
             </div>
             
             <?php if (empty($report['activity'])): ?>
-                <div style="text-align: center; padding: 4rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                <div style="text-align: center; padding: 4rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
                     <p style="color: var(--text-muted);">No transactions found for the selected period.</p>
                 </div>
             <?php else: ?>
@@ -173,7 +173,7 @@ $report = getBusinessReportStats($userId, $startDate, $endDate);
                                 <div style="font-weight: 600;"><?php echo htmlspecialchars($row['borrower_name'] . ' ' . $row['borrower_lastname']); ?></div>
                             </td>
                             <td>
-                                <span style="padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background: #f1f5f9; color: var(--text-muted);">
+                                <span style="padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background: var(--bg-body); color: var(--text-muted);">
                                     <?php echo strtoupper($row['listing_type']); ?>
                                 </span>
                             </td>

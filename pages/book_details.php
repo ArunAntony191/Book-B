@@ -80,7 +80,7 @@ if ($userId) {
             aspect-ratio: 2/3;
         }
         .section-card {
-            background: white;
+            background: var(--bg-card);
             padding: 2rem;
             border-radius: var(--radius-lg);
             border: 1px solid var(--border-color);
@@ -95,7 +95,7 @@ if ($userId) {
         }
         /* Wishlist Button */
         .wishlist-btn {
-            background: white;
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
             width: 50px;
             height: 50px;
@@ -107,7 +107,7 @@ if ($userId) {
             transition: all 0.2s;
         }
         .wishlist-btn:hover { border-color: #ef4444; color: #ef4444; }
-        .wishlist-btn.active { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+        .wishlist-btn.active { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #ef4444; }
 
         /* Modal & Form Styles */
         .modal-overlay {
@@ -116,7 +116,7 @@ if ($userId) {
             display: none; align-items: center; justify-content: center; z-index: 1000;
         }
         .modal-card {
-            background: white; 
+            background: var(--bg-card); 
             border-radius: var(--radius-lg); 
             width: 500px;
             box-shadow: var(--shadow-xl);
@@ -152,7 +152,7 @@ if ($userId) {
         .modal-footer {
             padding: 1rem 2rem 2rem;
             flex-shrink: 0;
-            background: white;
+            background: var(--bg-card);
             border-top: 1px solid var(--border-color);
             display: flex;
             gap: 1rem;
@@ -167,7 +167,7 @@ if ($userId) {
             outline: none;
             transition: border-color 0.2s;
             box-sizing: border-box;
-            background: #fff;
+            background: var(--bg-body);
             color: var(--text-main);
         }
         .form-input:focus, .map-search-input:focus {
@@ -207,7 +207,7 @@ if ($userId) {
             border-radius: 50%;
             transition: background 0.2s;
         }
-        .locate-btn:hover { background: #f0f9ff; }
+        .locate-btn:hover { background: rgba(37, 99, 235, 0.1); }
         
         #delivery-map {
             height: 250px;
@@ -229,21 +229,21 @@ if ($userId) {
             align-items: center;
             gap: 1rem;
             padding: 1rem;
-            background: #f0fdf4;
+            background: rgba(34, 197, 94, 0.1);
             border: 1px solid #dcfce7;
             border-radius: var(--radius-md);
             margin-bottom: 1.5rem;
             color: #166534;
         }
         .delivery-banner.delivery-unavailable {
-            background: #fff1f2;
+            background: rgba(239, 68, 68, 0.1);
             border-color: #ffe4e6;
             color: #9f1239;
         }
 
         .credit-summary {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             padding: 1rem;
             margin-top: 1rem;
@@ -262,8 +262,8 @@ if ($userId) {
             color: var(--primary);
         }
         .token-warning {
-            background: #fef2f2;
-            border: 1px solid #fee2e2;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
             color: #991b1b;
             padding: 1rem;
             border-radius: var(--radius-md);
@@ -295,7 +295,7 @@ if ($userId) {
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-lg);
@@ -315,7 +315,7 @@ if ($userId) {
             transition: background 0.2s;
         }
         .map-suggestion-item:last-child { border-bottom: none; }
-        .map-suggestion-item:hover { background: #f8fafc; }
+        .map-suggestion-item:hover { background: var(--bg-body); }
         .map-suggestion-item i { color: var(--text-muted); font-size: 1.2rem; }
 
         /* Pulsing Marker */
@@ -378,13 +378,15 @@ if ($userId) {
                             <h1 style="font-size: 2.2rem; font-weight: 800; line-height: 1.2; margin-bottom: 0.5rem; color: var(--text-main);"><?php echo htmlspecialchars($book['title']); ?></h1>
                             <p style="font-size: 1.1rem; color: var(--text-muted);">by <span style="font-weight: 600; color: var(--primary);"><?php echo htmlspecialchars($book['author']); ?></span></p>
                         </div>
+                        <?php if ($book['user_id'] != $userId): ?>
                         <button class="wishlist-btn <?php echo $inWishlist ? 'active' : ''; ?>" onclick="toggleWishlist()">
                             <i class='bx <?php echo $inWishlist ? 'bxs-heart' : 'bx-heart'; ?>'></i>
                         </button>
+                        <?php endif; ?>
                     </div>
                     
                     <?php if ($book['is_rare']): ?>
-                    <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; position: relative; overflow: hidden;">
+                    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; position: relative; overflow: hidden;">
                         <div style="position: absolute; top: -10px; right: -10px; font-size: 4rem; opacity: 0.1; transform: rotate(15deg); color: #92400e;">
                             <i class='bx bxs-diamond'></i>
                         </div>
@@ -443,18 +445,12 @@ if ($userId) {
                             </span>
                         </div>
 
-                            <?php if ($currentUser && $currentUser['role'] === 'admin'): ?>
-                                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
-                                    <i class='bx bx-shield-quarter' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
-                                    <p style="font-weight: 700; color: var(--text-main); margin: 0;">Admin View Only</p>
-                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Admins cannot buy or borrow books.</p>
-                                </div>
-                            <?php elseif ($book['user_id'] == $userId): ?>
-                                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
+                            <?php if ($currentUser && ($currentUser['role'] === 'admin' || $book['user_id'] == $userId)): ?>
+                                <div style="background: rgba(79, 70, 229, 0.1); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
                                     <i class='bx bx-user-check' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
                                     <p style="font-weight: 700; color: var(--text-main); margin: 0;">This is your listing</p>
                                     <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">You cannot borrow or buy your own book.</p>
-                                    <a href="deals.php#listings" class="btn btn-primary w-full" style="margin-top: 1rem; justify-content: center;">
+                                    <a href="deals.php" class="btn btn-primary w-full" style="margin-top: 1rem; justify-content: center;">
                                         <i class='bx bx-cog'></i> Manage Listings
                                     </a>
                                 </div>
@@ -495,7 +491,7 @@ if ($userId) {
 
                         <div style="font-weight: 700; margin-bottom: 1rem;">Provider</div>
                         <a href="user_profile.php?id=<?php echo $book['user_id']; ?>" style="display:flex; align-items: center; gap: 1rem; margin-bottom: 1rem; text-decoration: none;">
-                            <div style="width:45px; height:45px; background: #e2e8f0; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-weight: 700; color: var(--text-muted); text-decoration: none;">
+                            <div style="width:45px; height:45px; background: var(--bg-body); border-radius: 50%; display:flex; align-items:center; justify-content:center; font-weight: 700; color: var(--text-muted); text-decoration: none;">
                                 <?php echo strtoupper(substr($book['firstname'], 0, 1)); ?>
                             </div>
                             <div>
@@ -527,7 +523,7 @@ if ($userId) {
         <div class="modal-body">
             
             <div id="date-group" style="margin-bottom: 1.5rem; display: none;">
-                <div style="background: #fff7ed; color: #c2410c; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.9rem; margin-bottom: 1rem; border: 1px solid #ffedd5;">
+                <div style="background: rgba(245, 158, 11, 0.1); color: #c2410c; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.9rem; margin-bottom: 1rem; border: 1px solid rgba(245, 158, 11, 0.2);">
                     <i class='bx bx-info-circle'></i> <strong>Important:</strong> Please discuss and agree on this due date with the owner via chat <u>before</u> submitting this request.
                 </div>
                 <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Return Date (Mandatory)</label>
@@ -545,7 +541,7 @@ if ($userId) {
             <div id="reason-group" style="margin-bottom: 1.5rem; display: none;">
                 <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Reason for Bulk Purchase</label>
                 <textarea id="req-reason" class="form-input" rows="3" placeholder="Please explain why you need this many copies..."></textarea>
-                <div style="background: #eff6ff; color: #1e40af; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-top: 0.5rem; border: 1px solid #dbeafe;">
+                <div style="background: rgba(59, 130, 246, 0.1); color: #1e40af; padding: 0.8rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-top: 0.5rem; border: 1px solid rgba(59, 130, 246, 0.2);">
                     <i class='bx bx-info-circle'></i> Bulk orders (>10) require approval from the owner. You will not be charged now.
                 </div>
             </div>

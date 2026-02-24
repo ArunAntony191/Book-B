@@ -53,7 +53,7 @@ try {
             </div>
 
             <!-- Search -->
-            <div style="background: white; padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+            <div style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
                 <form method="GET" style="display: flex; gap: 0.5rem; max-width: 600px;">
                     <input type="text" name="search" placeholder="Search by title, author, or owner..." value="<?php echo htmlspecialchars($search); ?>" class="form-input">
                     <button type="submit" class="btn btn-primary"><i class='bx bx-search'></i> Search</button>
@@ -64,9 +64,9 @@ try {
             </div>
 
             <!-- Listings Table -->
-            <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden;">
+            <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden;">
                 <table style="width: 100%; border-collapse: collapse;">
-                    <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                    <thead style="background: var(--bg-body); border-bottom: 1px solid var(--border-color);">
                         <tr>
                             <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Book</th>
                             <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Owner</th>
@@ -77,7 +77,7 @@ try {
                     </thead>
                     <tbody>
                         <?php foreach ($listings as $l): ?>
-                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-body)'" onmouseout="this.style.background='transparent'">
                             <td style="padding: 1.25rem;">
                                 <div style="display: flex; align-items: center; gap: 1rem;">
                                     <img src="<?php echo $l['cover_image'] ?: 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=100'; ?>" 

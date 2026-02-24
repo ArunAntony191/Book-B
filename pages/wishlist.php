@@ -35,7 +35,7 @@ $wishlist = $stmt->fetchAll();
             gap: 1.5rem;
         }
         .book-card {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
             overflow: hidden;
@@ -56,7 +56,7 @@ $wishlist = $stmt->fetchAll();
             top: 10px;
             right: 10px;
             z-index: 10;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(var(--bg-card-rgb), 0.9);
             border: 1px solid var(--border-color);
             padding: 4px 10px;
             border-radius: 20px;
@@ -70,7 +70,7 @@ $wishlist = $stmt->fetchAll();
             color: var(--text-muted);
         }
         .compare-btn-toggle:hover {
-            background: white;
+            background: var(--bg-card);
             border-color: var(--primary);
             color: var(--primary);
         }
@@ -91,7 +91,7 @@ $wishlist = $stmt->fetchAll();
         <?php include '../includes/dashboard_sidebar.php'; ?>
         
         <main class="main-content">
-            <h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 2rem;">My Wishlist</h1>
+            <h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 2rem; color: var(--text-main);">My Wishlist</h1>
             
             <?php if (count($wishlist) > 0): ?>
                 <div class="books-grid">
@@ -117,7 +117,7 @@ $wishlist = $stmt->fetchAll();
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <div style="text-align: center; padding: 4rem; background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <div style="text-align: center; padding: 4rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
                     <i class='bx bx-heart' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
                     <h3 style="color: var(--text-muted);">Your wishlist is empty.</h3>
                     <a href="explore.php" class="btn btn-primary" style="margin-top: 1rem;">Explore Books</a>
@@ -131,7 +131,7 @@ $wishlist = $stmt->fetchAll();
                 <span id="selected-count">0</span>/3 Selected
             </div>
             <button onclick="goToCompare()" class="btn btn-primary" style="padding: 0.5rem 1.5rem; border-radius: 25px;">Ready to Compare</button>
-            <button onclick="clearSelection()" style="background: none; border: none; color: #cbd5e1; cursor: pointer;"><i class='bx bx-x' style="font-size: 1.5rem;"></i></button>
+            <button onclick="clearSelection()" style="background: none; border: none; color: var(--text-muted); cursor: pointer;"><i class='bx bx-x' style="font-size: 1.5rem;"></i></button>
         </div>
 
         <script>

@@ -2762,3 +2762,538 @@
     [reason] => Admin adjustment
 )
 
+[2026-02-23 07:24:47] Request Action Hit: Array
+(
+    [reason] => Spam
+    [description] => fakr info
+    [action] => submit_report
+    [reported_community_id] => 4
+    [type] => community
+)
+
+[2026-02-23 07:25:28] Request Action Hit: Array
+(
+    [action] => warn_community
+    [community_id] => 4
+    [reason] => Spam
+)
+
+[2026-02-23 07:40:16] Request Action Hit: Array
+(
+    [action] => warn_community
+    [community_id] => 4
+    [reason] => Spam
+)
+
+[2026-02-23 07:45:01] Request Action Hit: Array
+(
+    [action] => warn_community
+    [community_id] => 4
+    [reason] => Spam
+)
+
+[2026-02-23 07:45:06] Request Action Hit: Array
+(
+    [action] => resolve_report
+    [report_id] => 4
+    [status] => resolved
+)
+
+[2026-02-24 04:31:18] Request Action Hit: Array
+(
+    [action] => confirm_receipt
+    [transaction_id] => 127
+)
+
+[2026-02-24 04:35:17] Request Action Hit: Array
+(
+    [action] => confirm_cod_payment
+    [transaction_id] => 109
+    [listing_id] => 28
+    [quantity] => 19
+)
+
+[2026-02-24 09:05:17] Exception: Stock no longer available. Only 11 left.
+[2026-02-24 04:57:42] Request Action Hit: Array
+(
+    [action] => adjust_tokens
+    [user_id] => 5
+    [amount] => 200
+    [reason] => Admin adjustment
+)
+
+[2026-02-24 07:12:52] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-24 07:14:07] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 129
+)
+
+[2026-02-24 07:14:13] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 129
+    [status] => active
+)
+
+[2026-02-24 07:14:16] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 129
+    [status] => delivered
+)
+
+[2026-02-24 07:14:27] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 129
+)
+
+[2026-02-24 07:14:36] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 129
+)
+
+[2026-02-24 07:26:49] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-24 07:27:35] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 130
+)
+
+[2026-02-24 07:28:51] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 130
+    [status] => active
+)
+
+[2026-02-24 07:28:54] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 130
+    [status] => delivered
+)
+
+[2026-02-24 07:29:06] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 130
+)
+
+[2026-02-24 07:29:22] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 130
+)
+
+[2026-02-24 07:35:40] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-24 07:35:48] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 28
+    [owner_id] => 42
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [book_title] => uuuu
+    [payment_method] => cod
+    [use_discount_credits] => 0
+)
+
+[2026-02-24 12:05:48] Create Request Action Triggered
+[2026-02-24 12:05:50] Notification Created
+[2026-02-24 07:36:06] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 131
+)
+
+[2026-02-24 07:36:35] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 131
+)
+
+[2026-02-24 07:36:42] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 131
+    [status] => active
+)
+
+[2026-02-24 07:36:47] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 131
+    [status] => delivered
+)
+
+[2026-02-24 07:36:59] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 131
+)
+
+[2026-02-24 07:59:23] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.52774696
+    [l_lng] => 76.82267798
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-02-24 08:00:06] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 132
+)
+
+[2026-02-24 08:00:19] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 132
+    [status] => active
+)
+
+[2026-02-24 08:00:48] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 132
+)
+
+[2026-02-24 08:00:54] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 132
+    [status] => delivered
+)
+
+[2026-02-24 08:01:26] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 132
+)
+
+[2026-02-24 08:06:12] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5079
+    [l_lng] => 76.6393
+    [b_lat] => 9.5275931
+    [b_lng] => 76.8216097
+)
+
+[2026-02-24 08:06:14] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 18
+    [owner_id] => 5
+    [delivery] => 1
+    [address] => Central Complex, Amal Jyothi College of Engineering, Amal Jyothi College of Engineering Skywalk, Koovapally, Kanjirappally, Kottayam, Kerala, 686518, India
+    [landmark] => ajc
+    [lat] => 9.5275931
+    [lng] => 76.8216097
+    [book_title] => jujustu Kaisen
+    [payment_method] => cod
+    [use_discount_credits] => 100
+)
+
+[2026-02-24 12:36:14] Create Request Action Triggered
+[2026-02-24 12:36:18] Notification Created
+[2026-02-24 18:49:32] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 34
+    [owner_id] => 27
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => Moving to Goa
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-24 23:19:32] Create Request Action Triggered
+[2026-02-24 23:19:36] Notification Created
+[2026-02-24 18:49:46] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:49:49] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:49:50] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:50:03] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:50:11] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:50:28] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:50:32] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 134
+)
+
+[2026-02-24 23:20:33] Exception: Already requested.
+[2026-02-24 18:50:37] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:50:44] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 134
+)
+
+[2026-02-24 18:59:23] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:24] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:25] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:25] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:26] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:26] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:27] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 18:59:32] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 30
+    [reason] => cover page 
+)
+
+[2026-02-24 19:01:06] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 55
+    [reason] => wqer
+)
+
+[2026-02-24 19:08:49] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 134
+    [amount] => 3
+    [reason] => ygh
+)
+
+[2026-02-24 19:14:39] Request Action Hit: Array
+(
+    [action] => settle_transaction_fine
+    [transaction_id] => 134
+)
+
+[2026-02-24 19:25:07] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 134
+    [restock] => 1
+)
+
+[2026-02-24 19:25:09] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 134
+    [restock] => 1
+)
+
+[2026-02-24 19:25:11] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 134
+    [restock] => 1
+)
+
+[2026-02-24 19:59:49] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 36
+    [owner_id] => 28
+    [type] => borrow
+    [due_date] => 2026-03-13
+    [book_title] => Geotechnical Characteristics of Soils and Rocks of India
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-25 00:29:49] Create Request Action Triggered
+[2026-02-25 00:29:53] Notification Created
+[2026-02-24 20:00:09] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:00:37] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:00:46] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:00:53] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:01:00] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:01:07] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:01:45] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 135
+    [amount] => 70
+    [reason] => hdfthrh
+)
+
+[2026-02-24 20:16:59] Request Action Hit: Array
+(
+    [action] => cancel_transaction_fine
+    [transaction_id] => 135
+)
+
+[2026-02-24 20:25:56] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 135
+    [amount] => 34
+    [reason] => goijn
+)
+
+[2026-02-24 20:39:02] Request Action Hit: Array
+(
+    [action] => settle_transaction_fine
+    [transaction_id] => 135
+)
+

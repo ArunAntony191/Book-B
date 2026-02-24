@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             border-radius: 18px;
             margin-top: 1.25rem;
-            border: 1.5px solid #e2e8f0;
+            border: 1.5px solid var(--border-color);
             z-index: 1;
         }
         .step-title {
@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .map-search-input:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+            box-shadow: 0 0 0 3px rgba(88, 66, 227, 0.1);
             outline: none;
         }
 
@@ -217,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-top: none;
             border-radius: 0 0 8px 8px;
@@ -237,13 +237,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 0.6rem;
         }
         .map-suggestion-item:last-child { border-bottom: none; }
-        .map-suggestion-item:hover { background: #f8fafc; color: var(--primary); }
+        .map-suggestion-item:hover { background: var(--bg-body); color: var(--primary); }
         .map-suggestion-item i { color: var(--text-muted); font-size: 1.1rem; }
         
         /* Pulsing Pin Marker */
         /* Pulsing Pin Marker */
         .pulsing-marker { position: relative; }
-        .pin { width: 14px; height: 14px; background: var(--primary); border: 2.5px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .pin { width: 14px; height: 14px; background: var(--primary); border: 2.5px solid var(--bg-body); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .pulse { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; position: absolute; top: -8.5px; left: -8.5px; opacity: 0.3; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(0.5); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
 
@@ -251,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         /* Accuracy Circle */
         .accuracy-circle {
             border: 2px solid var(--primary);
-            background: rgba(var(--primary-rgb), 0.1);
+            background: rgba(88, 66, 227, 0.1);
             border-radius: 50%;
             pointer-events: none;
         }
@@ -287,8 +287,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-bottom: 1px solid #f1f5f9;
             transition: background 0.2s;
         }
-        .suggestion-item:hover { background: #f8fafc; }
-        .suggestion-thumb { width: 45px; height: 65px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .suggestion-item:hover { background: var(--bg-body); }
+        .suggestion-thumb { width: 45px; height: 65px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); }
         
         .type-grid {
             display: grid;
@@ -305,8 +305,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: all 0.2s;
             position: relative;
         }
-        .type-card:hover { border-color: var(--primary-light); background: #f8fafc; }
-        .type-card.active { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
+        .type-card:hover { border-color: var(--primary-light); background: var(--bg-body); }
+        .type-card.active { border-color: var(--primary); background: rgba(88, 66, 227, 0.1); color: var(--primary); }
         .type-card i { font-size: 1.8rem; margin-bottom: 0.5rem; display: block; }
         .type-input { display: none; }
         
@@ -321,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: var(--section-bg);
             position: relative;
         }
-        .upload-zone:hover { border-color: var(--primary); background: #eff6ff; }
+        .upload-zone:hover { border-color: var(--primary); background: rgba(88, 66, 227, 0.1); }
         .upload-zone.has-image { border-style: solid; padding: 0; overflow: hidden; height: 300px; display: flex; align-items: center; justify-content: center; }
         .upload-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
         
@@ -330,7 +330,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .cat-pill {
             padding: 0.4rem 1rem;
             border-radius: 20px;
-            background: #f1f5f9;
+            background: var(--bg-body);
             color: var(--text-muted);
             cursor: pointer;
             border: 1px solid transparent;
@@ -338,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             user-select: none;
             transition: all 0.2s;
         }
-        .cat-pill:hover { background: #e2e8f0; }
+        .cat-pill:hover { background: var(--bg-card); border-color: var(--primary); }
         .cat-pill.selected { background: var(--primary); color: white; border-color: var(--primary); }
         .cat-checkbox { display: none; }
     </style>
@@ -351,14 +351,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p style="color: var(--text-muted); margin-bottom: 2rem;"><?php echo $editId ? 'Update your book details below.' : 'Share your books with the community — lend or sell.'; ?></p>
 
                 <?php if ($success): ?>
-                    <div style="background: #ecfdf5; color: #059669; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid #10b981;">
+                    <div style="background: rgba(16, 185, 129, 0.1); color: #059669; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid rgba(16, 185, 129, 0.2);">
                         <?php echo $success; ?>
                         <a href="dashboard_user.php" style="margin-left: 1rem; font-weight: 700; text-decoration: underline;">Go to Dashboard</a>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($error): ?>
-                    <div style="background: #fef2f2; color: #dc2626; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid #ef4444;">
+                    <div style="background: rgba(239, 68, 68, 0.1); color: #dc2626; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid rgba(239, 68, 68, 0.2);">
                         <?php echo $error; ?>
                     </div>
                 <?php endif; ?>
@@ -417,7 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <textarea name="description" id="input_description" class="form-input" rows="4" placeholder="Tell us about the book..." minlength="10" title="Description must be at least 10 characters long to provide enough detail."><?php echo htmlspecialchars($editData['description'] ?? ''); ?></textarea>
                             </div>
 
-                            <div class="form-group" style="background: #fffbeb; padding: 1.5rem; border-radius: 12px; border: 1px solid #fde68a;">
+                            <div class="form-group" style="background: rgba(245, 158, 11, 0.1); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.3);">
                                 <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 700; color: #92400e;">
                                     <input type="checkbox" name="is_rare" id="is_rare" style="width: 20px; height: 20px; cursor: pointer;" <?php echo ($editData['is_rare'] ?? 0) ? 'checked' : ''; ?> onchange="document.getElementById('rare-details-group').style.display = this.checked ? 'block' : 'none'">
                                     <span>💎 Rare / Collectible Book</span>
@@ -438,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <button type="button" class="locate-btn" onclick="useMyLocation()" title="Use my current location">
                                         <i class='bx bx-target-lock' style="font-size: 1.2rem;"></i>
                                     </button>
-                                    <button type="button" class="locate-btn" onclick="useHomeLocation()" title="Use my registered Home address" style="right: 3.5rem; background: #f0fdf4; color: #16a34a;">
+                                    <button type="button" class="locate-btn" onclick="useHomeLocation()" title="Use my registered Home address" style="right: 3.5rem; background: rgba(34, 197, 94, 0.1); color: #16a34a;">
                                         <i class='bx bx-home' style="font-size: 1.2rem;"></i>
                                     </button>
                                     <div id="search-suggestions-map" class="search-suggestions-map"></div>

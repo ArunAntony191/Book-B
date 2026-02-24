@@ -132,6 +132,21 @@ $userReviews = getUserReviews($userId, 5);
                 </div>
                 <div style="color: var(--text-muted); font-size: 0.8rem;">Awaiting response</div>
             </div>
+
+            <!-- Pending Dues Widget -->
+            <div class="widget-card" style="text-align: center; background: linear-gradient(135deg, #ef444415 0%, #ef444405 100%); border: 2px solid #ef4444; cursor: pointer;" onclick="openPaymentModal(<?php echo $stats['unpaid_fines'] ?? 0; ?>)">
+                <div class="widget-title" style="justify-content: center; color: #ef4444;">
+                    <span><i class='bx bx-money'></i> Pending Dues</span>
+                </div>
+                <div style="margin: 1rem 0;">
+                    <div style="font-size: 2.5rem; font-weight: 900; color: #ef4444;">
+                        ₹<?php echo number_format($stats['unpaid_fines'] ?? 0, 2); ?>
+                    </div>
+                </div>
+                <div style="color: #ef4444; font-size: 0.8rem; font-weight: 700;">
+                    <?php echo ($stats['unpaid_fines'] ?? 0) > 0 ? "Pay Now to avoid account suspension" : "No outstanding fines"; ?>
+                </div>
+            </div>
         </div>
 
 
@@ -158,13 +173,13 @@ $userReviews = getUserReviews($userId, 5);
         ?>
         <div class="book-grid">
             <?php if (empty($favoriteCategory)): ?>
-                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
                     <i class='bx bx-heart' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="color: var(--text-muted); margin-bottom: 1rem;">Set your interests to see personalized recommendations!</p>
                     <a href="profile.php" class="btn btn-primary btn-sm">Set Interests</a>
                 </div>
             <?php elseif (empty($listings)): ?>
-                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
                     <i class='bx bx-search' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="color: var(--text-muted);">No books matching your specific interests right now.</p>
                 </div>
@@ -177,7 +192,7 @@ $userReviews = getUserReviews($userId, 5);
                     <?php if ($isRare): ?>
                         <span class="rare-badge">RARE</span>
                     <?php endif; ?>
-                    <span style="position: absolute; top: 10px; right: 10px; background:white; padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Available</span>
+                    <span style="position: absolute; top: 10px; right: 10px; background: var(--bg-card); color: var(--text-main); padding: 4px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid var(--border-color);">Available</span>
                     <?php 
                         $cover = $item['cover_image'];
                         $fallback = 'https://images.unsplash.com/photo-1543004218-ee141104975a?auto=format&fit=crop&q=80&w=800';
@@ -223,7 +238,7 @@ $userReviews = getUserReviews($userId, 5);
         ?>
         <div class="book-grid">
             <?php if (empty($communityBooks)): ?>
-                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
                     <i class='bx bx-group' style="font-size: 3rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="color: var(--text-muted); margin-bottom: 1rem;">No books from your communities yet.</p>
                     <a href="community.php" class="btn btn-primary btn-sm">Join Communities</a>
@@ -316,6 +331,35 @@ $userReviews = getUserReviews($userId, 5);
         </div>
     </div>
 
+    <!-- Fine Payment Modal -->
+    <div id="paymentModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: #ef4444;">
+                    <i class='bx bx-money'></i> Clearance of Pending Dues
+                </h2>
+                <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <div style="font-size: 1.1rem; margin-bottom: 1.5rem; color: var(--text-body);">
+                    You have total outstanding fines of:
+                    <div style="font-size: 2.5rem; font-weight: 900; color: #ef4444; margin: 0.5rem 0;">
+                        ₹<span id="fine-amount-display">0.00</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">This fine was applied due to late returns without approved extensions.</p>
+                </div>
+                
+                <button id="pay-fine-btn" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem; background: #ef4444; border-color: #ef4444;" onclick="startFinePayment()">
+                    Pay with Razorpay
+                </button>
+                
+                <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <i class='bx bx-lock-alt'></i> Secure encrypted payment via Razorpay
+                </p>
+            </div>
+        </div>
+    </div>
+
     <script>
         function openReviewsModal() {
             document.getElementById('reviewsModal').classList.add('active');
@@ -331,7 +375,86 @@ $userReviews = getUserReviews($userId, 5);
         document.getElementById('reviewsModal').addEventListener('click', function(e) {
             if (e.target === this) closeReviewsModal();
         });
+
+        // Fine Payment Logic
+        function openPaymentModal(amount) {
+            if (amount <= 0) {
+                showToast('You have no pending dues!', 'success');
+                return;
+            }
+            document.getElementById('fine-amount-display').innerText = parseFloat(amount).toFixed(2);
+            document.getElementById('paymentModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        async function startFinePayment() {
+            const btn = document.getElementById('pay-fine-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+
+            try {
+                const response = await fetch('../actions/payment_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=create_fine_order`
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Exception(data.message);
+
+                const options = {
+                    key: data.key_id,
+                    amount: data.amount,
+                    currency: "INR",
+                    name: "BOOK-B Platform",
+                    description: "Clearance of Late Return Fines",
+                    order_id: data.order_id,
+                    handler: function (response) {
+                        verifyFinePayment(response);
+                    },
+                    prefill: {
+                        name: data.name,
+                        email: data.email
+                    },
+                    theme: { color: "#ef4444" }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                showToast(error.message || 'Payment initiation failed', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Pay with Razorpay';
+            }
+        }
+
+        async function verifyFinePayment(payment) {
+            try {
+                const response = await fetch('../actions/payment_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=verify_fine_payment&razorpay_payment_id=${payment.razorpay_payment_id}&razorpay_order_id=${payment.razorpay_order_id}&razorpay_signature=${payment.razorpay_signature}`
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Fines cleared successfully! Redirecting...', 'success');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Payment verification failed', 'error');
+            }
+        }
     </script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </div>
 
 <style>
@@ -366,7 +489,7 @@ $userReviews = getUserReviews($userId, 5);
 }
 .book-card.rare-card {
     border-color: #f59e0b;
-    background: #fffbeb;
+    background: rgba(245, 158, 11, 0.05);
 }
 .book-card.rare-card:hover {
     border-color: #d97706;

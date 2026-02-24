@@ -155,7 +155,7 @@ $userReviews = getUserReviews($userId, 5);
         </div>
 
         <!-- Quick Actions -->
-        <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+        <div style="background: var(--section-bg); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
             <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
                 <i class='bx bx-zap' style="color: #f59e0b;"></i> Quick Actions
             </h3>
@@ -193,9 +193,9 @@ $userReviews = getUserReviews($userId, 5);
         ?>
 
         <?php if (count($recentDeals) > 0): ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm);">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm);">
             <table style="width: 100%; border-collapse: collapse;">
-                <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                <thead style="background: var(--bg-body); border-bottom: 1px solid var(--border-color);">
                     <tr>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Book</th>
                         <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Customer</th>
@@ -207,15 +207,15 @@ $userReviews = getUserReviews($userId, 5);
                 <tbody>
                     <?php foreach ($recentDeals as $deal): 
                         $statusColors = [
-                            'requested' => ['bg' => '#fef3c7', 'text' => '#f59e0b', 'label' => 'Pending'],
-                            'approved' => ['bg' => '#dbeafe', 'text' => '#3b82f6', 'label' => 'Approved'],
-                            'active' => ['bg' => '#d1fae5', 'text' =>' #10b981', 'label' => 'Active'],
-                            'returned' => ['bg' => '#e0e7ff', 'text' => '#6366f1', 'label' => 'Completed'],
-                            'cancelled' => ['bg' => '#fee2e2', 'text' => '#ef4444', 'label' => 'Cancelled']
+                            'requested' => ['bg' => 'var(--alert-warning-bg, #fef3c7)', 'text' => 'var(--warning)', 'label' => 'Pending'],
+                            'approved' => ['bg' => 'var(--alert-info-bg, #dbeafe)', 'text' => 'var(--info)', 'label' => 'Approved'],
+                            'active' => ['bg' => 'var(--alert-success-bg, #d1fae5)', 'text' => 'var(--success)', 'label' => 'Active'],
+                            'returned' => ['bg' => 'var(--alert-success-bg, #e0e7ff)', 'text' => 'var(--primary)', 'label' => 'Completed'],
+                            'cancelled' => ['bg' => 'var(--alert-danger-bg, #fee2e2)', 'text' => 'var(--danger)', 'label' => 'Cancelled']
                         ];
-                        $statusInfo = $statusColors[$deal['status']] ?? ['bg' => '#f3f4f6', 'text' => '#6b7280', 'label' => ucfirst($deal['status'])];
+                        $statusInfo = $statusColors[$deal['status']] ?? ['bg' => 'var(--bg-body)', 'text' => 'var(--text-muted)', 'label' => ucfirst($deal['status'])];
                     ?>
-                    <tr onclick="window.location.href='track_deliveries.php'" style="border-bottom: 1px solid var(--border-color); transition: background 0.2s; cursor: pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <tr onclick="window.location.href='track_deliveries.php'" style="border-bottom: 1px solid var(--border-color); transition: background 0.2s; cursor: pointer;" onmouseover="this.style.background='var(--bg-body)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 1.25rem;">
                             <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($deal['title']); ?></div>
                             <div style="font-size: 0.8rem; color: var(--text-muted);"><?php echo htmlspecialchars($deal['author']); ?></div>
@@ -236,7 +236,7 @@ $userReviews = getUserReviews($userId, 5);
             </table>
         </div>
         <?php else: ?>
-        <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 3rem; text-align: center;">
             <i class='bx bx-store' style="font-size: 4rem; color: var(--text-muted); opacity: 0.5;"></i>
             <p style="color: var(--text-muted); margin-top: 1rem; font-size: 1.1rem;">No sales activity yet</p>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">Start by adding books to your inventory</p>
@@ -249,7 +249,7 @@ $userReviews = getUserReviews($userId, 5);
 <div id="reviewsModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.75rem; color: #1e293b;">
+            <h2 style="font-weight: 800; display: flex; align-items: center; gap: 0.75rem; color: var(--text-main);">
                 <i class='bx bxs-star' style="color: #fbbf24;"></i> Bookstore Reviews
             </h2>
             <button class="modal-close" onclick="closeReviewsModal()"><i class='bx bx-x'></i></button>
@@ -326,13 +326,13 @@ $userReviews = getUserReviews($userId, 5);
     }
 
     .modal-content {
-        background: rgba(255, 255, 255, 0.95);
+        background: var(--bg-card);
         width: 90%;
         max-width: 600px;
         max-height: 85vh;
         border-radius: 24px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-color);
         overflow: hidden;
         transform: scale(0.9) translateY(20px);
         transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -346,8 +346,8 @@ $userReviews = getUserReviews($userId, 5);
 
     .modal-header {
         padding: 1.5rem 2rem;
-        background: #fff;
-        border-bottom: 1px solid #f1f5f9;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -362,8 +362,8 @@ $userReviews = getUserReviews($userId, 5);
     }
 
     .modal-close {
-        background: #f1f5f9;
-        color: #64748b;
+        background: var(--bg-body);
+        color: var(--text-muted);
         border: none;
         width: 36px;
         height: 36px;
@@ -398,9 +398,9 @@ $userReviews = getUserReviews($userId, 5);
 
     .review-item {
         padding: 1.25rem;
-        background: #f8fafc;
+        background: var(--bg-body);
         border-radius: 18px;
-        border: 1px solid #f1f5f9;
+        border: 1px solid var(--border-color);
         transition: all 0.3s ease;
     }
 

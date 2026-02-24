@@ -62,7 +62,7 @@ try {
             </div>
 
             <!-- Filters and Search -->
-            <div style="background: white; padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
+            <div style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border-color);">
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
                     <div style="display: flex; gap: 0.75rem;">
                         <a href="?filter=all" class="btn btn-<?php echo $filter === 'all' ? 'primary' : 'outline'; ?> btn-sm">All Users</a>
@@ -81,9 +81,9 @@ try {
             </div>
 
             <!-- Users Table -->
-            <div style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden;">
+            <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden;">
                 <table style="width: 100%; border-collapse: collapse;">
-                    <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                    <thead style="background: var(--bg-body); border-bottom: 1px solid var(--border-color);">
                         <tr>
                             <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">User</th>
                             <th style="padding: 1rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Role</th>
@@ -97,13 +97,13 @@ try {
                         <?php foreach ($users as $u): 
                             $trustRating = getTrustScoreRating($u['trust_score']);
                         ?>
-                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-body)'" onmouseout="this.style.background='transparent'">
                             <td style="padding: 1.25rem;">
                                 <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($u['firstname'] . ' ' . $u['lastname']); ?></div>
                                 <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo htmlspecialchars($u['email']); ?></div>
                             </td>
                             <td style="padding: 1.25rem;">
-                                <span style="padding: 0.3rem 0.8rem; background: #e2e8f0; color: var(--text-main); border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;">
+                                <span style="padding: 0.3rem 0.8rem; background: var(--bg-body); color: var(--text-main); border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;">
                                     <?php echo $u['role']; ?>
                                 </span>
                             </td>
@@ -148,12 +148,23 @@ try {
 
     <script>
     async function toggleBan(userId, action) {
-        if (!confirm('Are you sure you want to ' + action + ' this user?')) return;
+        let reason = null;
+        if (action === 'ban') {
+            reason = prompt('Enter the reason why you are banning this user:');
+            if (reason === null) return; // Cancelled
+            if (reason.trim() === '') {
+                alert('A reason is required to ban a user.');
+                return;
+            }
+        } else {
+            if (!confirm('Are you sure you want to ' + action + ' this user?')) return;
+        }
         
         try {
             const formData = new FormData();
             formData.append('action', action + '_user');
             formData.append('user_id', userId);
+            if (reason) formData.append('reason', reason);
             
             const response = await fetch('../actions/request_action.php', {
                 method: 'POST',

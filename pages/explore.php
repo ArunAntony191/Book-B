@@ -219,7 +219,7 @@ $rareResults = getRareBooks(10, $filters);
 
         .rare-item-card {
             flex: 0 0 140px;
-            background: #fffbeb;
+            background: rgba(245, 158, 11, 0.05);
             padding: 0.75rem;
             border-radius: 14px;
             border: 2px solid #f59e0b;
@@ -275,7 +275,7 @@ $rareResults = getRareBooks(10, $filters);
 
         .result-card-premium.rare-result {
             border-color: #f59e0b;
-            background: #fffbeb;
+            background: rgba(245, 158, 11, 0.05);
         }
 
         .result-card-premium:hover {
@@ -616,7 +616,7 @@ $rareResults = getRareBooks(10, $filters);
                                             <?php if ($item['listing_type'] === 'sell'): ?>
                                                 <div class="price-display">₹<?php echo number_format($item['price'], 0); ?></div>
                                             <?php else: ?>
-                                                <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: #d1fae5; padding: 0.4rem 1rem; border-radius: 10px;">FREE</div>
+                                                <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 0.4rem 1rem; border-radius: 10px;">FREE</div>
                                             <?php endif; ?>
                                         </div>
                                     </div>
@@ -669,6 +669,7 @@ $rareResults = getRareBooks(10, $filters);
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
+        const currentUserId = <?php echo intval($userId); ?>;
         // Initialize map with persistence
         const savedLat = sessionStorage.getItem('map_lat');
         const savedLng = sessionStorage.getItem('map_lng');
@@ -732,7 +733,7 @@ $rareResults = getRareBooks(10, $filters);
                                 }
                                 <div style="display: grid; gap: 0.75rem;">
                                     <a href="book_details.php?id=${m.id}" class="icon-btn" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none; color: white !important;">View Details</a>
-                                    <a href="../chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>
+                                    ${m.user_id != currentUserId ? `<a href="../chat/index.php?user=${m.user_id}" class="icon-btn white" style="width: 100%; height: 40px; font-size: 0.9rem; text-decoration: none;">Chat Owner</a>` : ''}
                                 </div>
                             </div>
                         `, { className: 'premium-popup' });
@@ -749,8 +750,8 @@ $rareResults = getRareBooks(10, $filters);
                 card.onclick = () => window.location.href = `book_details.php?id=${m.id}`;
                 
                 let quantityOverlay = m.quantity <= 0 ? `
-                    <div style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: 20px;">
-                        <span style="background: #000; color: white; padding: 6px 18px; border-radius: 30px; font-weight: 900; font-size: 0.75rem;">TAKEN</span>
+                    <div style="position: absolute; inset: 0; background: rgba(var(--bg-body-rgb), 0.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: 20px;">
+                        <span style="background: var(--text-main); color: var(--bg-card); padding: 6px 18px; border-radius: 30px; font-weight: 900; font-size: 0.75rem;">TAKEN</span>
                     </div>
                 ` : '';
 

@@ -13,10 +13,35 @@ if (!$userId) {
 // markNotificationsAsReadByType($userId, ['borrow_request', 'sell_request', 'request_accepted', 'request_declined']);
 
 $deals = getUserDeals($userId);
+
+// Data Integrity Fix: Cleanup duplicate damage fine records and sync unpaid_fines balance
+try {
+    $pdo = getDBConnection();
+    // 1. Remove duplicate damage fine records (keeping the first one created)
+    $pdo->exec("
+        DELETE p1 FROM penalties p1 
+        INNER JOIN penalties p2 
+        ON p1.transaction_id = p2.transaction_id 
+        AND p1.penalty_type = 'damage_fine' 
+        AND p2.penalty_type = 'damage_fine'
+        AND p1.id > p2.id
+    ");
+    
+    // 2. Re-calculate user's total unpaid fines from the cleaned penalties table
+    syncUserUnpaidFines($userId);
+} catch (Exception $e) {
+    error_log("Maintenance error in deals.php: " . $e->getMessage());
+}
+
+// Re-fetch deals after cleanup to ensure UI is fresh
+$deals = getUserDeals($userId);
 $all_deals = $deals; // All deals
 $incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
 $outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
 $returns = array_filter($deals, fn($d) => in_array($d['status'], ['returning', 'returned']));
+
+// Fetch detailed pending penalties for the consolidation view
+$pendingPenalties = getUserPendingPenalties($userId);
 
 // Get user's listings
 try {
@@ -39,6 +64,11 @@ $payments = array_filter($all_deals, function($d) {
     if ($d['status'] === 'cancelled') return false;
     return $d['transaction_type'] === 'purchase' || (!empty($d['payment_status']) && $d['payment_status'] !== 'unpaid');
 });
+
+// Fetch current user's unpaid fines for consolidated view
+$stmt = $pdo->prepare("SELECT unpaid_fines FROM users WHERE id = ?");
+$stmt->execute([$userId]);
+$userUnpaidFines = (float)$stmt->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -109,7 +139,7 @@ $payments = array_filter($all_deals, function($d) {
             border-radius: 3px;
         }
         .tab-count {
-            background: #f1f5f9;
+            background: var(--bg-body);
             padding: 2px 8px;
             border-radius: 12px;
             font-size: 0.75rem;
@@ -121,7 +151,7 @@ $payments = array_filter($all_deals, function($d) {
         }
 
         .deal-card {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-lg);
             border: 1px solid var(--border-color);
             padding: 1.5rem;
@@ -232,7 +262,7 @@ $payments = array_filter($all_deals, function($d) {
             z-index: 9999;
         }
         .modal-card {
-            background: white; 
+            background: var(--bg-card); 
             border-radius: var(--radius-lg); 
             width: 450px;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
@@ -278,7 +308,7 @@ $payments = array_filter($all_deals, function($d) {
             z-index: 9999;
         }
         .modal-card {
-            background: white; 
+            background: var(--bg-card); 
             border-radius: var(--radius-lg); 
             width: 90%;
             max-width: 450px;
@@ -320,8 +350,8 @@ $payments = array_filter($all_deals, function($d) {
             margin: 0 auto 1.25rem;
         }
         .ext-info-box {
-            background: #fffbeb;
-            border: 1px solid #fef3c7;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
             padding: 1rem;
             border-radius: var(--radius-lg);
             display: flex;
@@ -355,7 +385,7 @@ $payments = array_filter($all_deals, function($d) {
         }
         .ext-modal-footer {
             padding: 1.5rem;
-            background: #f8fafc;
+            background: var(--bg-body);
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
@@ -381,7 +411,7 @@ $payments = array_filter($all_deals, function($d) {
             filter: brightness(1.1);
         }
         .ext-btn-outline {
-            background: white;
+            background: var(--bg-card);
             color: var(--text-main);
             border: 1px solid var(--border-color);
             padding: 0.875rem;
@@ -589,6 +619,21 @@ $payments = array_filter($all_deals, function($d) {
                                                 <i class='bx bx-package'></i> Restock
                                             </button>
                                         <?php endif; ?>
+                                        <?php if ($deal['status'] === 'returned' && $deal['transaction_type'] === 'borrow' && $deal['lender_id'] == $userId): ?>
+                                            <?php if (empty($deal['damage_fine_status'])): ?>
+                                                <button onclick="openPostReturnFineModal(<?php echo $deal['id']; ?>, '<?php echo addslashes($deal['title']); ?>')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                                                    <i class='bx bx-error-alt'></i> Apply Fine
+                                                </button>
+                                            <?php elseif ($deal['damage_fine_status'] === 'pending'): ?>
+                                                <span style="font-size: 0.75rem; font-weight: 700; color: #ef4444; background: #fff1f2; padding: 0.25rem 0.75rem; border-radius: 99px; border: 1px solid #fecdd3;">
+                                                    <i class='bx bx-time-five'></i> Fine Pending
+                                                </span>
+                                            <?php else: ?>
+                                                <span style="font-size: 0.75rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 0.25rem 0.75rem; border-radius: 99px; border: 1px solid #10b981;">
+                                                    <i class='bx bx-check'></i> Due Paid
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                         <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="btn btn-outline btn-sm">
                                             <i class='bx bx-star'></i> Rate Partner
                                         </button>
@@ -774,9 +819,26 @@ $payments = array_filter($all_deals, function($d) {
                             </div>
                             <div class="deal-actions">
                                 <span class="status-pill pill-<?php echo $deal['status']; ?>"><?php echo $deal['status']; ?></span>
-                                <button onclick="window.location.href='track_deliveries.php'" class="btn btn-outline btn-sm">
-                                    <i class='bx bx-radar'></i> Track Return
-                                </button>
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
+                                    <?php if ($deal['status'] === 'returned' && $deal['transaction_type'] === 'borrow' && $deal['lender_id'] == $userId && $user['role'] === 'library'): ?>
+                                        <?php if (empty($deal['damage_fine_status'])): ?>
+                                            <button onclick="openPostReturnFineModal(<?php echo $deal['id']; ?>, '<?php echo addslashes($deal['title']); ?>')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                                                <i class='bx bx-error-alt'></i> Apply Fine
+                                            </button>
+                                        <?php elseif ($deal['damage_fine_status'] === 'pending'): ?>
+                                            <span style="font-size: 0.75rem; font-weight: 700; color: #ef4444; background: #fff1f2; padding: 0.25rem 0.75rem; border-radius: 99px; border: 1px solid #fecdd3;">
+                                                <i class='bx bx-time-five'></i> Fine Pending
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="font-size: 0.75rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 0.25rem 0.75rem; border-radius: 99px; border: 1px solid #10b981;">
+                                                <i class='bx bx-check'></i> Due Paid
+                                            </span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                    <button onclick="window.location.href='track_deliveries.php'" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                                        <i class='bx bx-radar'></i> Track Return
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -808,21 +870,43 @@ $payments = array_filter($all_deals, function($d) {
                                 $total_due += ($amt * ($p['quantity'] ?: 1));
                             }
                         }
+                        
+                        // Consolidated Total including Penalty Fines
+                        $grand_total_due = $total_due + $userUnpaidFines;
 
-                        if ($total_due > 0): ?>
+                        if ($grand_total_due > 0): ?>
                             <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
                                 <div style="display: flex; align-items: center; gap: 1rem;">
                                     <div style="background: #fef3c7; color: #92400e; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
                                         <i class='bx bx-error-circle'></i>
                                     </div>
                                     <div>
-                                        <p style="margin: 0; font-weight: 700; color: #92400e; font-size: 1.1rem;">Pending Payments</p>
-                                        <p style="margin: 0.25rem 0 0 0; color: #a16207; font-size: 0.9rem;">You have unpaid purchase requests that need attention.</p>
+                                        <p style="margin: 0; font-weight: 700; color: #92400e; font-size: 1.1rem;">Pending Payments & Consolidation</p>
+                                        <div style="display: flex; gap: 1rem; margin-top: 0.25rem;">
+                                            <?php if ($total_due > 0): ?>
+                                                <span style="font-size: 0.8rem; color: #a16207;">Purchases: ₹<?php echo number_format($total_due, 2); ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($userUnpaidFines > 0): ?>
+                                                <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; background: #fff1f2; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid #fecdd3;">
+                                                    <span style="font-size: 0.8rem; color: #ef4444; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Pending Fines Breakdown:</span>
+                                                    <?php foreach ($pendingPenalties as $pen): ?>
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #b91c1c;">
+                                                            <span>
+                                                                <i class='bx bx-book' style="opacity: 0.7;"></i> 
+                                                                <strong><?php echo htmlspecialchars($pen['book_title'] ?: 'General Penalty'); ?></strong>
+                                                                <span style="font-size: 0.75rem; opacity: 0.8;">(Order #<?php echo $pen['transaction_id']; ?>)</span>
+                                                            </span>
+                                                            <strong style="margin-left: 1rem;">₹<?php echo number_format($pen['monetary_penalty'], 2); ?></strong>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                                 <div style="text-align: right;">
-                                    <p style="margin: 0; font-size: 0.85rem; color: #a16207; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Due</p>
-                                    <p style="margin: 0; font-size: 1.75rem; font-weight: 900; color: #92400e;">₹<?php echo number_format($total_due, 2); ?></p>
+                                    <p style="margin: 0; font-size: 0.85rem; color: #a16207; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Grand Total Due</p>
+                                    <p style="margin: 0; font-size: 1.75rem; font-weight: 900; color: #92400e;">₹<?php echo number_format($grand_total_due, 2); ?></p>
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -922,6 +1006,11 @@ $payments = array_filter($all_deals, function($d) {
                                         </div>
                                     </div>
                                     <div class="deal-actions">
+                                        <?php if ($s['payment_status'] !== 'paid'): ?>
+                                            <button onclick="markSalePaid(<?php echo $s['id']; ?>, this)" class="btn btn-sm" style="background: #10b981; color: white; border: none; font-size: 0.75rem; margin-bottom: 0.5rem; width: 100%;">
+                                                <i class='bx bx-check-double'></i> Mark Paid (Cash)
+                                            </button>
+                                        <?php endif; ?>
                                         <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">
                                             ID: <?php echo $s['razorpay_payment_id'] ?: 'N/A'; ?><br>
                                             TX: #<?php echo $s['id']; ?>
@@ -1134,15 +1223,69 @@ $payments = array_filter($all_deals, function($d) {
                         Choose <strong>Mark Only</strong> if you wish to inspect the book first.
                     </p>
                 </div>
+
+                <?php if ($user['role'] === 'library'): ?>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label class="form-label" style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class='bx bx-error-alt'></i> Damage Fine (Optional)
+                        </label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-muted);">₹</span>
+                            <input type="number" id="damage-fine-amt" class="form-control" placeholder="0.00" min="0" step="1" style="padding-left: 2rem; border-radius: 12px; border: 2px solid #fee2e2;">
+                        </div>
+                        <p style="font-size: 0.75rem; color: #ef4444; margin-top: 0.5rem;">Enter an amount only if the book is damaged. This will be added to user's dues.</p>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="modal-footer" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <button onclick="processReturn(true)" class="btn btn-primary" style="width: 100%;">
+                <button id="btn-confirm-return" onclick="processReturn(true, this)" class="btn btn-primary" style="width: 100%;">
                     <i class='bx bx-package'></i> Yes, Restock & Confirm
                 </button>
-                <button onclick="processReturn(false)" class="btn btn-outline" style="width: 100%;">
+                <button id="btn-mark-only" onclick="processReturn(false, this)" class="btn btn-outline" style="width: 100%;">
                     <i class='bx bx-check'></i> Mark as Returned Only
                 </button>
                 <button onclick="closeReturnModal()" class="btn btn-sm" style="border: none; background: transparent; color: var(--text-muted);">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post-Return Damage Fine Modal -->
+    <div id="post-return-fine-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 450px;">
+            <div class="modal-header" style="background: #fff1f2; border-bottom: 2px solid #fecdd3;">
+                <div style="background: #fee2e2; color: #e11d48; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem;">
+                    <i class='bx bx-error-alt'></i>
+                </div>
+                <h2 style="font-weight: 800; font-size: 1.25rem;">Apply Damage Fine</h2>
+                <p id="fine-book-title" style="color: #be123c; font-size: 0.9rem; font-weight: 600; margin-top: 0.25rem;"></p>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <input type="hidden" id="fine-tx-id">
+                <div class="form-group">
+                    <label class="form-label" style="font-weight: 700;">Fine Amount (₹)</label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-weight: 700; color: #64748b;">₹</span>
+                        <input type="number" id="post-fine-amt" class="form-control" placeholder="0.00" min="1" step="1" style="padding-left: 2rem; border-radius: 12px; border: 2px solid #fb7185;">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label class="form-label" style="font-weight: 700;">Damage Description / Reason</label>
+                    <textarea id="post-fine-reason" class="form-control" rows="3" placeholder="Describe the damage (e.g., torn pages, water damage)..." style="border-radius: 12px; border: 2px solid #e2e8f0; resize: none;"></textarea>
+                </div>
+                <div class="form-group" style="margin-top: 1rem; background: #fff1f2; padding: 1rem; border-radius: 12px; border: 1px solid #fecdd3;">
+                    <p style="font-size: 0.85rem; color: #be123c; margin: 0; font-weight: 600;">
+                        <i class='bx bx-info-circle'></i> Fines can be settled in the Library Fines dashboard after receipt of cash.
+                    </p>
+                </div>
+                <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 1rem; border-radius: 12px; margin-top: 1rem;">
+                    <p style="font-size: 0.8rem; color: #92400e; margin: 0;">
+                        <strong>Note:</strong> This fine will be added to the borrower's pending dues immediately. Please ensure the amount is fair according to the book's value.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 1rem 1.5rem 1.5rem; border-top: none;">
+                <button id="btn-apply-fine" onclick="submitPostReturnFine(this)" class="btn btn-primary" style="width: 100%; background: #e11d48; border-color: #e11d48;">Apply Fine</button>
+                <button onclick="closePostReturnFineModal()" class="btn btn-outline" style="width: 100%; margin-top: 0.5rem; border-color: #e2e8f0;">Cancel</button>
             </div>
         </div>
     </div>
@@ -1374,7 +1517,7 @@ $payments = array_filter($all_deals, function($d) {
         async function confirmRestock() {
             try {
                 const formData = new FormData();
-                formData.append('action', 'confirm_receipt');
+                formData.append('action', 'confirm_receive');
                 formData.append('transaction_id', currentRestockTxId);
                 formData.append('restock', '1');
 
@@ -1410,13 +1553,24 @@ $payments = array_filter($all_deals, function($d) {
             currentReturnTxId = 0;
         }
 
-        async function processReturn(shouldRestock) {
+        async function processReturn(shouldRestock, btnElement) {
             try {
+                // Single-click protection
+                if (btnElement) {
+                    btnElement.disabled = true;
+                    btnElement.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Processing...";
+                }
+
                 const formData = new FormData();
                 formData.append('action', 'mark_returned');
                 formData.append('transaction_id', currentReturnTxId);
                 if (shouldRestock) {
                     formData.append('restock', '1');
+                }
+
+                const fineAmt = document.getElementById('damage-fine-amt').value;
+                if (fineAmt > 0) {
+                    formData.append('damage_fine', fineAmt);
                 }
 
                 const response = await fetch('../actions/request_action.php', {
@@ -1629,6 +1783,105 @@ $payments = array_filter($all_deals, function($d) {
                 }
             } catch (error) {
                 showToast('Connection error', 'error');
+            }
+        }
+        let postFineTxId = 0;
+        function openPostReturnFineModal(txId, title) {
+            postFineTxId = txId;
+            document.getElementById('fine-book-title').innerText = title;
+            document.getElementById('post-fine-amt').value = '';
+            document.getElementById('post-fine-reason').value = '';
+            
+            document.getElementById('post-return-fine-modal').style.display = 'flex';
+        }
+
+
+        function closePostReturnFineModal() {
+            document.getElementById('post-return-fine-modal').style.display = 'none';
+        }
+
+        async function submitPostReturnFine(btnElement) {
+            const amt = document.getElementById('post-fine-amt').value;
+            const reason = document.getElementById('post-fine-reason').value;
+
+            if (!amt || amt <= 0) {
+                alert("Please enter a valid fine amount.");
+                return;
+            }
+            if (!reason) {
+                alert("Please provide a reason for the damage fine.");
+                return;
+            }
+
+            try {
+                // Disable button
+                if (btnElement) {
+                    btnElement.disabled = true;
+                    btnElement.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Applying...";
+                }
+
+                const formData = new FormData();
+                formData.append('action', 'apply_damage_fine_post');
+                formData.append('transaction_id', postFineTxId);
+                formData.append('amount', amt);
+                formData.append('reason', reason);
+
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    closePostReturnFineModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    alert(result.message || "Failed to apply fine.");
+                    if (btnElement) {
+                        btnElement.disabled = false;
+                        btnElement.innerHTML = "Apply Fine";
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred. Please try again.");
+                if (btnElement) {
+                    btnElement.disabled = false;
+                    btnElement.innerHTML = "Apply Fine";
+                }
+            }
+        }
+
+        async function markSalePaid(txId, btn) {
+            if (!confirm("Confirm that you have received the cash payment for this sale?")) return;
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Updating...";
+
+                const formData = new FormData();
+                formData.append('action', 'mark_transaction_paid_offline');
+                formData.append('transaction_id', txId);
+
+                const response = await fetch('../actions/request_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    alert(result.message || "Failed to update.");
+                    btn.disabled = false;
+                    btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Cash)";
+                }
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+                btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Cash)";
             }
         }
     </script>

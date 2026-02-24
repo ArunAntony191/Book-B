@@ -256,7 +256,7 @@ $additional_css = "
         padding: 0.75rem 1rem;
         border-radius: 12px;
         border: 1.5px solid var(--border-color);
-        background: transparent;
+        background: var(--bg-card);
         color: var(--text-main);
     }
 ";

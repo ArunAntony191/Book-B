@@ -251,7 +251,7 @@ class DeliveryManager {
         throw new Exception("Unauthorized or invalid transaction state.");
     }
 
-    public function confirmReceipt($userId, $transactionId, $restock = false) {
+    public function confirmReceive($userId, $transactionId, $restock = false) {
         $tx = $this->getTransaction($transactionId);
 
         // Case 1: Standard Leg (Borrower receiving)

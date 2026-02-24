@@ -32,7 +32,7 @@ $users = getRecentChats($userId);
             display: grid;
             grid-template-columns: 300px 1fr;
             height: calc(100vh - 140px); /* Adjust to fit within main-content padding */
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-lg);
             overflow: hidden;
             box-shadow: var(--shadow-lg);
@@ -51,7 +51,7 @@ $users = getRecentChats($userId);
             background-color: rgba(0,0,0,0.5);
         }
         .modal-content {
-            background-color: white;
+            background-color: var(--bg-card);
             margin: 15% auto;
             padding: 2rem;
             border-radius: var(--radius-lg);
@@ -75,7 +75,7 @@ $users = getRecentChats($userId);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            background: #f8fafc;
+            background: var(--bg-body);
             height: 100%;
             overflow: hidden;
         }
@@ -91,7 +91,7 @@ $users = getRecentChats($userId);
             transition: all 0.2s;
         }
         .user-item:hover {
-            background: #f1f5f9;
+            background: var(--bg-card);
         }
         .user-item.active {
             background: var(--primary-light);
@@ -102,7 +102,7 @@ $users = getRecentChats($userId);
             flex-direction: column;
             height: 100%;
             overflow: hidden;
-            background: white;
+            background: var(--bg-card);
         }
 
         #messages-container {
@@ -112,7 +112,7 @@ $users = getRecentChats($userId);
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            background: white;
+            background: var(--bg-card);
         }
         .message {
             max-width: 70%;
@@ -129,9 +129,10 @@ $users = getRecentChats($userId);
         }
         .message-received {
             align-self: flex-start;
-            background: #f1f5f9;
+            background: var(--bg-body);
             color: var(--text-main);
             border-bottom-left-radius: 0.2rem;
+            border: 1px solid var(--border-color);
         }
         .chat-input-area {
             padding: 1rem 1.5rem;
@@ -139,7 +140,7 @@ $users = getRecentChats($userId);
             display: flex;
             align-items: center;
             gap: 1rem;
-            background: white;
+            background: var(--bg-card);
         }
         .chat-header-actions {
             display: flex;
@@ -155,7 +156,7 @@ $users = getRecentChats($userId);
             display: none;
         }
         .clear-chat-btn:hover {
-            background: #fef2f2;
+            background: rgba(239, 68, 68, 0.1);
         }
         .attachment-btn {
             color: var(--text-muted);
@@ -169,7 +170,7 @@ $users = getRecentChats($userId);
         .search-area {
             padding: 1rem;
             border-bottom: 1px solid var(--border-color);
-            background: white;
+            background: var(--bg-card);
         }
         .search-input {
             width: 100%;
@@ -243,7 +244,7 @@ $users = getRecentChats($userId);
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            background: #f1f5f9;
+            background: var(--bg-body);
         }
         .date-divider {
             text-align: center;
@@ -263,7 +264,7 @@ $users = getRecentChats($userId);
         .date-divider span {
             position: relative;
             z-index: 2;
-            background: white;
+            background: var(--bg-card);
             padding: 0 1rem;
             font-size: 0.75rem;
             color: var(--text-muted);
@@ -286,7 +287,7 @@ $users = getRecentChats($userId);
         <main class="main-content">
             <div class="chat-layout">
                 <div class="users-sidebar">
-                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); font-weight: 700; background: white;">Messages</div>
+                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); font-weight: 700; background: var(--bg-card);">Messages</div>
                     <div class="search-area">
                         <div class="search-wrapper">
                             <input type="text" id="user-search" class="search-input" placeholder="Search for anyone...">
@@ -345,7 +346,7 @@ $users = getRecentChats($userId);
                         <input type="text" id="message-input" class="form-input" placeholder="Type your message..." disabled>
                         <button id="send-btn" class="btn btn-primary" onclick="sendMessage()" disabled>Send</button>
                     </div>
-                    <div id="image-preview-container" style="display: none; padding: 0.5rem 1.5rem; background: #f8fafc; border-top: 1px solid var(--border-color);">
+                    <div id="image-preview-container" style="display: none; padding: 0.5rem 1.5rem; background: var(--bg-body); border-top: 1px solid var(--border-color);">
                         <div style="position: relative; display: inline-block;">
                             <img id="image-preview" src="" style="height: 60px; border-radius: 8px;">
                             <i class='bx bx-x' style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; cursor: pointer;" onclick="cancelImage()"></i>
