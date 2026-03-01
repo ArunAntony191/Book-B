@@ -24,7 +24,7 @@ foreach ($announcements as $ann):
     <div class="ann-content">
         <div class="ann-badge-container">
             <span class="ann-badge">
-                <i class='bx bxs-megaphone'></i> Store Event
+                <i class='bx bxs-megaphone'></i> <?php echo ($ann['role'] === 'library' ? 'Library Event' : 'Store Event'); ?>
             </span>
         </div>
         <div class="ann-text">

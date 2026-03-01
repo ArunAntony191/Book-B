@@ -2862,7 +2862,7 @@ function getActiveAnnouncements() {
     try {
         $pdo = getDBConnection();
         $stmt = $pdo->prepare("
-            SELECT a.*, u.firstname, u.lastname
+            SELECT a.*, u.firstname, u.lastname, u.role
             FROM announcements a
             JOIN users u ON a.user_id = u.id
             WHERE a.status = 'active'

@@ -3,8 +3,8 @@ require_once '../includes/db_helper.php';
 require_once '../paths.php';
 include '../includes/dashboard_header.php';
 
-// Ensure only bookstore users can see this
-if ($user['role'] !== 'bookstore') {
+// Ensure only bookstore and library users can see this
+if ($user['role'] !== 'bookstore' && $user['role'] !== 'library') {
     header("Location: dashboard_user.php");
     exit();
 }

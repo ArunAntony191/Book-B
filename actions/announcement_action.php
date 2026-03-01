@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $user_id = $_SESSION['user_id'] ?? 0;
 $user_role = $_SESSION['role'] ?? '';
 
-if ($user_role !== 'bookstore') {
+if ($user_role !== 'bookstore' && $user_role !== 'library') {
     die("Unauthorized access.");
 }
 

@@ -110,6 +110,9 @@ $theme_mode = $_SESSION['theme_mode'] ?? 'light';
             <?php if ($user_role == 'library'): ?>
                 <a href="<?php echo APP_URL; ?>/pages/library_fines.php" class="nav-item <?php echo $current_page == 'library_fines.php' ? 'active' : ''; ?>"><i class='bx bx-coin-stack'></i> Manage Fines</a>
             <?php endif; ?>
+            <?php if ($user_role == 'library'): ?>
+                <a href="<?php echo APP_URL; ?>/pages/manage_announcements.php" class="nav-item <?php echo $current_page == 'manage_announcements.php' ? 'active' : ''; ?>"><i class='bx bxs-megaphone'></i> Manage Announcements</a>
+            <?php endif; ?>
             <?php if($user_role == 'bookstore'): ?>
                 <a href="<?php echo APP_URL; ?>/pages/manage_announcements.php" class="nav-item <?php echo $current_page == 'manage_announcements.php' ? 'active' : ''; ?>"><i class='bx bxs-megaphone'></i> Manage Announcements</a>
             <?php endif; ?>

@@ -212,7 +212,7 @@ try {
 
     } elseif ($action === 'create_fine_order') {
         // Fetch User's Unpaid Fines
-        $stmt = $pdo->prepare("SELECT unpaid_fines FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(monetary_penalty), 0) FROM penalties WHERE user_id = ? AND status = 'pending' AND penalty_type = 'damage_fine'");
         $stmt->execute([$currentUser]);
         $unpaidFines = (float)$stmt->fetchColumn();
 
@@ -383,16 +383,12 @@ try {
         $pdo->beginTransaction();
         try {
             // Get current fine amount for logging
-            $stmt = $pdo->prepare("SELECT unpaid_fines FROM users WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(monetary_penalty), 0) FROM penalties WHERE user_id = ? AND status = 'pending' AND penalty_type = 'damage_fine'");
             $stmt->execute([$currentUser]);
             $clearedAmount = (float)$stmt->fetchColumn();
 
-            // Reset user's unpaid fines
-            $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = 0 WHERE id = ?");
-            $stmt->execute([$currentUser]);
-
             // Update penalties table status
-            $stmt = $pdo->prepare("UPDATE penalties SET status = 'applied' WHERE user_id = ? AND status = 'pending'");
+            $stmt = $pdo->prepare("UPDATE penalties SET status = 'applied' WHERE user_id = ? AND status = 'pending' AND penalty_type = 'damage_fine'");
             $stmt->execute([$currentUser]);
 
             // Log the payment in some way? (Optional: Add a payment log entry)

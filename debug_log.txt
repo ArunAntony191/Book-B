@@ -3297,3 +3297,261 @@
     [transaction_id] => 135
 )
 
+[2026-02-25 04:51:39] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 35
+    [owner_id] => 28
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => Geotechnical Characteristics of Soils and Rocks of India
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-25 09:21:39] Create Request Action Triggered
+[2026-02-25 09:21:44] Notification Created
+[2026-02-25 04:52:08] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:52:13] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:52:34] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:52:46] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:52:49] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:53:55] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:56:08] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 136
+)
+
+[2026-02-25 04:57:13] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 136
+    [amount] => 40
+    [reason] => pages missing
+)
+
+[2026-02-25 06:45:33] Request Action Hit: Array
+(
+    [action] => settle_transaction_fine
+    [transaction_id] => 136
+)
+
+[2026-02-25 06:46:26] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 35
+    [owner_id] => 28
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => Geotechnical Characteristics of Soils and Rocks of India
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-25 11:16:26] Create Request Action Triggered
+[2026-02-25 11:16:31] Notification Created
+[2026-02-25 06:46:43] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:46:44] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:46:45] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:46:58] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:47:09] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:47:18] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:47:26] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:47:35] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 137
+)
+
+[2026-02-25 06:47:53] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 137
+    [amount] => 49
+    [reason] => DFG
+)
+
+[2026-02-25 06:48:18] Request Action Hit: Array
+(
+    [action] => settle_transaction_fine
+    [transaction_id] => 137
+)
+
+[2026-02-25 10:56:18] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 35
+    [owner_id] => 28
+    [type] => borrow
+    [due_date] => 2026-03-06
+    [book_title] => Geotechnical Characteristics of Soils and Rocks of India
+    [delivery] => 0
+    [address] => 
+    [landmark] => 
+    [lat] => 
+    [lng] => 
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-02-25 15:26:18] Create Request Action Triggered
+[2026-02-25 15:26:23] Notification Created
+[2026-02-25 10:57:06] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:57:09] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:57:11] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:57:11] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:57:12] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:57:12] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:58:45] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:59:05] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:59:08] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:59:17] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 138
+)
+
+[2026-02-25 10:59:32] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 138
+)
+
+[2026-02-25 11:00:27] Request Action Hit: Array
+(
+    [action] => apply_damage_fine_post
+    [transaction_id] => 138
+    [amount] => 50
+    [reason] => qwert
+)
+
+[2026-02-25 11:22:11] Request Action Hit: Array
+(
+    [action] => settle_transaction_fine
+    [transaction_id] => 138
+)
+

@@ -169,6 +169,9 @@ $userReviews = getUserReviews($userId, 5);
                 <button class="btn btn-outline" onclick="window.location.href='business_reports.php'" style="justify-content: center; padding: 0.75rem;">
                     <i class='bx bx-list-ul'></i> View All Borrows
                 </button>
+                <button class="btn btn-outline" onclick="window.location.href='manage_announcements.php'" style="justify-content: center; padding: 0.75rem;">
+                    <i class='bx bxs-megaphone'></i> Manage Announcements
+                </button>
                 <button class="btn btn-primary" onclick="window.location.href='deals.php?filter=requested'" style="justify-content: center; padding: 0.75rem;">
                     <i class='bx bx-time-five'></i> Pending Requests (<?php echo $stats['pending_requests'] ?? 0; ?>)
                 </button>
