@@ -724,15 +724,23 @@ $userReviews = getUserReviews($userId, 5);
             fetch('../actions/request_action.php', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
-                    if(!data.success) { 
-                        alert('Failed to update status');
+                    if (!data.success) { 
+                        showToast('Failed to update status. Please retry.', 'error', 4000);
                         location.reload(); 
                     }
                 });
         }
 
-        function updateStatus(txId, status) {
-            if (!confirm('Confirm current action?')) return;
+        async function updateStatus(txId, status) {
+            const labelMap = {
+                'active': 'Confirm you have picked up the book?',
+                'delivered': 'Confirm you have delivered the book to the recipient?',
+                'returning_active': 'Confirm you have picked up the book for return?',
+                'return_delivered': 'Confirm you have delivered the book back to the owner?'
+            };
+            const confirmed = await Popup.confirm('Update Status', labelMap[status] || 'Confirm this action?', { confirmText: 'Yes, Confirm' });
+            if (!confirmed) return;
+
             const formData = new FormData();
             formData.append('action', 'update_delivery_status');
             formData.append('transaction_id', txId);
@@ -742,15 +750,22 @@ $userReviews = getUserReviews($userId, 5);
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    location.reload();
+                    showToast('✅ Status updated!', 'success', 2500);
+                    setTimeout(() => location.reload(), 1200);
                 } else {
-                    alert('Error: ' + data.message);
+                    showToast('Error: ' + data.message, 'error', 5000);
                 }
             })
-            .catch(err => console.error('Fetch error:', err));
+            .catch(err => showToast('Connection error.', 'error', 4000));
         }
-        function cancelJob(txId) {
-            if (!confirm('Are you sure you want to cancel this job? A 5-credit penalty will be applied to your account.')) return;
+        async function cancelJob(txId) {
+            const confirmed = await Popup.confirm(
+                'Cancel Job',
+                'Are you sure you want to cancel this job? A 5-credit penalty will be applied to your account.',
+                { confirmText: 'Yes, Cancel Job', confirmStyle: 'danger' }
+            );
+            if (!confirmed) return;
+
             const formData = new FormData();
             formData.append('action', 'cancel_job');
             formData.append('transaction_id', txId);
@@ -759,12 +774,13 @@ $userReviews = getUserReviews($userId, 5);
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    location.reload();
+                    showToast('❌ Job cancelled. 5 credits have been deducted.', 'warning', 4000);
+                    setTimeout(() => location.reload(), 2000);
                 } else {
-                    alert('Error: ' + data.message);
+                    showToast('Error: ' + data.message, 'error', 5000);
                 }
             })
-            .catch(err => console.error('Fetch error:', err));
+            .catch(err => showToast('Connection error.', 'error', 4000));
         }
     </script>
 </body>

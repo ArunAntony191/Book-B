@@ -328,7 +328,7 @@ $agent = getUserById($userId);
         // 2. Export to Excel Function
         function exportToExcel() {
             const table = document.getElementById('activityTable');
-            if (!table) { alert('No data to export!'); return; }
+            if (!table) { showToast('No data to export!', 'warning', 3500); return; }
             
             // Create a clean data array from the table, handling nested HTML logic
             const ws_data = [];

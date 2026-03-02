@@ -210,8 +210,13 @@ if ($user['role'] === 'delivery_agent') {
 
                 <script>
                 async function markPaidOffline(targetUserId, amount, btn) {
-                    if (!confirm(`Are you sure you want to mark ₹${amount} as paid in cash? This will clear all dues for this user.`)) return;
-                    
+                    const confirmed = await Popup.confirm(
+                        'Mark Dues as Paid',
+                        `Are you sure you want to mark ₹${amount} as paid in cash? This will clear all dues for this user.`,
+                        { confirmText: 'Yes, Mark Paid' }
+                    );
+                    if (!confirmed) return;
+
                     try {
                         if (btn) {
                             btn.disabled = true;
@@ -229,18 +234,17 @@ if ($user['role'] === 'delivery_agent') {
                         const result = await response.json();
 
                         if (result.success) {
-                            alert(result.message);
-                            location.reload();
+                            showToast('✅ Dues cleared successfully!', 'success', 3000);
+                            setTimeout(() => location.reload(), 1500);
                         } else {
-                            alert(result.message || "Failed to clear dues.");
+                            showToast(result.message || 'Failed to clear dues.', 'error', 5000);
                             if (btn) {
                                 btn.disabled = false;
                                 btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Offline)";
                             }
                         }
                     } catch (err) {
-                        console.error(err);
-                        alert("Network error.");
+                        showToast('Network error. Please try again.', 'error', 4000);
                         if (btn) {
                             btn.disabled = false;
                             btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Offline)";

@@ -253,8 +253,17 @@ $my_deliveries = $stmt->fetchAll();
 </div>
 
 <script>
-    function updateStatus(txId, status) {
-        if (!confirm('Are you sure you want to update the status of this mission?')) return;
+    const statusLabels = {
+        'active': 'Confirm you have picked up the book from the sender?',
+        'delivered': 'Confirm you have successfully delivered the book to the recipient?',
+        'returning_active': 'Confirm you have picked up the book from the borrower for return?',
+        'return_delivered': 'Confirm you have returned the book to the owner?'
+    };
+
+    async function updateStatus(txId, status) {
+        const msg = statusLabels[status] || 'Confirm this status update?';
+        const confirmed = await Popup.confirm('Update Mission Status', msg, { confirmText: 'Yes, Confirm' });
+        if (!confirmed) return;
         
         const formData = new FormData();
         formData.append('action', 'update_delivery_status');
@@ -265,16 +274,22 @@ $my_deliveries = $stmt->fetchAll();
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                showToast('✅ Mission status updated!', 'success', 2500);
+                setTimeout(() => location.reload(), 1200);
             } else {
-                alert('Error: ' + data.message);
+                showToast('Error: ' + data.message, 'error', 5000);
             }
         })
-        .catch(err => console.error('Fetch error:', err));
+        .catch(err => showToast('Connection error.', 'error', 4000));
     }
 
-    function cancelJob(txId) {
-        if (!confirm('Are you sure you want to cancel this job? A 5-credit penalty will be applied to your account and your trust score will drop.')) return;
+    async function cancelJob(txId) {
+        const confirmed = await Popup.confirm(
+            'Cancel Mission',
+            'Are you sure you want to cancel this mission? A 5-credit penalty will be applied and your trust score will drop.',
+            { confirmText: 'Yes, Cancel Mission', confirmStyle: 'danger' }
+        );
+        if (!confirmed) return;
         
         const formData = new FormData();
         formData.append('action', 'cancel_job');
@@ -284,12 +299,13 @@ $my_deliveries = $stmt->fetchAll();
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                showToast('❌ Mission cancelled. 5 credits deducted.', 'warning', 4000);
+                setTimeout(() => location.reload(), 2000);
             } else {
-                alert('Error: ' + data.message);
+                showToast('Error: ' + data.message, 'error', 5000);
             }
         })
-        .catch(err => console.error('Fetch error:', err));
+        .catch(err => showToast('Connection error.', 'error', 4000));
     }
 </script>
 </body>

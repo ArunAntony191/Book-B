@@ -1309,7 +1309,8 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                 const msg = status === 'requested' 
                     ? "Are you sure you want to cancel this request? (Cancellation is FREE before owner approval)"
                     : "Are you sure you want to cancel this order? (A 5-credit penalty will be deducted)";
-                if (!confirm(msg)) return;
+                const confirmed = await Popup.confirm('Cancel Order', msg, { confirmText: 'Yes, Cancel', confirmStyle: 'danger' });
+                if (!confirmed) return;
             }
             try {
                 const formData = new FormData();
@@ -1389,7 +1390,7 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
             const card = document.getElementById(`listing-${listingId}`);
             card.style.opacity = '0.5';
             
-            const confirmed = confirm('Are you sure you want to delete this listing?');
+            const confirmed = await Popup.confirm('Delete Listing', 'Are you sure you want to delete this listing?', { confirmText: 'Yes, Delete', confirmStyle: 'danger' });
             
             if (confirmed) {
                 try {
@@ -1657,8 +1658,9 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
             });
         }
 
-        function processCashPayment(transactionId, listingId, quantity) {
-             if(!confirm("Confirm paying with Cash? This will mark the order as confirmed and deduct stock.")) return;
+        async function processCashPayment(transactionId, listingId, quantity) {
+             const confirmed = await Popup.confirm('Confirm Cash Payment', 'Confirm paying with Cash? This will mark the order as confirmed and deduct stock.', { confirmText: 'Confirm' });
+             if (!confirmed) return;
 
              const formData = new FormData();
              formData.append('action', 'confirm_cod_payment');
@@ -1805,11 +1807,11 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
             const reason = document.getElementById('post-fine-reason').value;
 
             if (!amt || amt <= 0) {
-                alert("Please enter a valid fine amount.");
+                showToast('Please enter a valid fine amount.', 'warning', 4000);
                 return;
             }
             if (!reason) {
-                alert("Please provide a reason for the damage fine.");
+                showToast('Please provide a reason for the damage fine.', 'warning', 4000);
                 return;
             }
 
@@ -1837,15 +1839,14 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                     closePostReturnFineModal();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert(result.message || "Failed to apply fine.");
+                    showToast(result.message || 'Failed to apply fine.', 'error', 5000);
                     if (btnElement) {
                         btnElement.disabled = false;
                         btnElement.innerHTML = "Apply Fine";
                     }
                 }
             } catch (err) {
-                console.error(err);
-                alert("An error occurred. Please try again.");
+                showToast('An error occurred. Please try again.', 'error', 4000);
                 if (btnElement) {
                     btnElement.disabled = false;
                     btnElement.innerHTML = "Apply Fine";
@@ -1854,7 +1855,8 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
         }
 
         async function markSalePaid(txId, btn) {
-            if (!confirm("Confirm that you have received the cash payment for this sale?")) return;
+            const confirmed = await Popup.confirm('Confirm Payment', 'Confirm that you have received the cash payment for this sale?', { confirmText: 'Yes, Received' });
+            if (!confirmed) return;
 
             try {
                 btn.disabled = true;
@@ -1874,7 +1876,7 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                     showToast(result.message, 'success');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert(result.message || "Failed to update.");
+                    showToast(result.message || 'Failed to update.', 'error', 5000);
                     btn.disabled = false;
                     btn.innerHTML = "<i class='bx bx-check-double'></i> Mark Paid (Cash)";
                 }

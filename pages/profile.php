@@ -908,13 +908,13 @@ if (isset($userData)) {
             
             // Validate file type
             if (!file.type.match('image.*')) {
-                alert('Please select an image file');
+                showToast('Please select an image file.', 'warning', 4000);
                 return;
             }
             
             // Validate file size (5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB');
+                showToast('File size must be less than 5MB.', 'warning', 4000);
                 return;
             }
             
@@ -948,7 +948,8 @@ if (isset($userData)) {
         });
 
         async function removeProfilePicture() {
-            if (!confirm('Are you sure you want to remove your profile picture?')) return;
+            const confirmed = await Popup.confirm('Remove Photo', 'Are you sure you want to remove your profile picture?', { confirmText: 'Yes, Remove', confirmStyle: 'danger' });
+            if (!confirmed) return;
             
             const formData = new FormData();
             formData.append('action', 'remove');

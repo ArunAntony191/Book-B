@@ -452,7 +452,8 @@ $status = $_GET['status'] ?? 'all';
             event.preventDefault();
             event.stopPropagation();
 
-            if (!confirm('Are you sure you want to delete this notification?')) return;
+            const confirmed = await Popup.confirm('Delete Notification', 'Are you sure you want to delete this notification?', { confirmText: 'Yes, Delete', confirmStyle: 'danger' });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch('../actions/delete_notification.php', {

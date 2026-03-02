@@ -208,10 +208,10 @@ function buildLocation($addr, $city, $dist) {
     <script>
         function exportHistoryExcel() {
             const container = document.getElementById('history-list');
-            if (!container) { alert('No history data to export.'); return; }
+            if (!container) { showToast('No history data to export.', 'warning', 3500); return; }
 
             const cards = container.querySelectorAll('.history-card');
-            if (cards.length === 0) { alert('No history data to export.'); return; }
+            if (cards.length === 0) { showToast('No history data to export.', 'warning', 3500); return; }
 
             const data = [];
             // Headers

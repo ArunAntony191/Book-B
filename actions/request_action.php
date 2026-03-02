@@ -241,7 +241,7 @@ try {
         exit;
 
     // --- Interactions (Accept/Decline/Return etc) ---
-    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receive', 'claim_job', 'cancel_job', 'request_return_delivery', 'cancel_order', 'confirm_cod_payment'])) {
+    } elseif (in_array($action, ['accept_request', 'decline_request', 'request_extension', 'approve_extension', 'decline_extension', 'mark_returned', 'update_delivery_status', 'confirm_handover', 'confirm_receive', 'claim_job', 'cancel_job', 'request_return_delivery', 'self_return_book', 'cancel_order', 'confirm_cod_payment'])) {
         
         $transactionId = validateId($_POST['transaction_id'] ?? 0);
         if (!$transactionId) throw new Exception("Invalid Transaction ID.");
@@ -479,6 +479,25 @@ try {
              $dm->cancelJob($userId, $transactionId);
              ob_clean();
              echo json_encode(['success' => true, 'message' => 'Job Cancelled']);
+             exit;
+
+        } elseif ($action === 'self_return_book') {
+             // Self-pickup return: borrower will drop off the book directly to the lender (no agent, no credit deduction)
+             $stmt = $pdo->prepare("SELECT t.*, b.title FROM transactions t JOIN listings l ON t.listing_id = l.id JOIN books b ON l.book_id = b.id WHERE t.id = ? AND t.borrower_id = ?");
+             $stmt->execute([$transactionId, $userId]);
+             $tx = $stmt->fetch();
+
+             if (!$tx) throw new Exception("Unauthorized or transaction not found.");
+             if ($tx['transaction_type'] !== 'borrow') throw new Exception("Returns are only allowed for borrowed books.");
+             if (in_array($tx['status'], ['returning', 'returned'])) throw new Exception("Return already initiated.");
+             if ($tx['delivery_method'] !== 'pickup') throw new Exception("This transaction uses delivery. Please use agent return instead.");
+
+             $pdo->prepare("UPDATE transactions SET status = 'returning', return_delivery_method = 'pickup' WHERE id = ?")->execute([$transactionId]);
+
+             // Notify lender
+             createNotification($tx['lender_id'], 'return_requested', "Borrower is returning '{$tx['title']}' via self drop-off. Please confirm receipt once you have the book.", $transactionId);
+             ob_clean();
+             echo json_encode(['success' => true, 'message' => 'Return initiated. Please drop off the book to the owner.']);
              exit;
 
         } elseif ($action === 'request_return_delivery') {

@@ -123,7 +123,12 @@ try {
 
     <script>
     async function deleteListing(listingId, title) {
-        if (!confirm('Are you sure you want to PERMANENTLY delete "' + title + '"? This action cannot be undone.')) return;
+        const confirmed = await Popup.confirm(
+            'Delete Listing',
+            `Are you sure you want to PERMANENTLY delete "${title}"? This action cannot be undone.`,
+            { confirmText: 'Yes, Delete', confirmStyle: 'danger' }
+        );
+        if (!confirmed) return;
         
         try {
             const formData = new FormData();
@@ -137,14 +142,13 @@ try {
             const result = await response.json();
             
             if (result.success) {
-                alert(result.message);
-                location.reload();
+                showToast('🗑️ Listing deleted successfully.', 'success', 3000);
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert(result.message);
+                showToast(result.message || 'Failed to delete listing.', 'error', 5000);
             }
         } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred');
+            showToast('An error occurred. Please try again.', 'error', 4000);
         }
     }
     </script>

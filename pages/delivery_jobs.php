@@ -492,13 +492,15 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
             map.fitBounds(markers.getBounds().pad(0.2));
         }
 
-        function claimJob(id) {
-            if(!confirm('Accept this delivery job?')) return;
-            
-            // Find both button types (card button and map popup button)
+        async function claimJob(id) {
+            const confirmed = await Popup.confirm(
+                'Accept Delivery Job',
+                'Accept this delivery assignment? You will be responsible for picking up and delivering the book.',
+                { confirmText: 'Yes, Accept Job' }
+            );
+            if (!confirmed) return;
+
             const buttons = document.querySelectorAll(`button[onclick="claimJob(${id})"]`);
-            
-            // Disable all buttons for this job to prevent double-clicks
             buttons.forEach(btn => {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
@@ -513,19 +515,16 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
             fetch('../actions/request_action.php', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
-                    if(data.success) {
-                        // Keep disabled, redirecting...
+                    if (data.success) {
                         buttons.forEach(btn => {
                             btn.innerHTML = '<i class="bx bx-check"></i> Accepted!';
-                            btn.className = 'btn-claim success'; 
+                            btn.className = 'btn-claim success';
                             btn.style.background = '#10b981';
                         });
-                        setTimeout(() => {
-                            window.location.href = 'dashboard_delivery_agent.php';
-                        }, 500);
+                        showToast('🎉 Job accepted! Redirecting to your dashboard...', 'success', 2500);
+                        setTimeout(() => { window.location.href = 'dashboard_delivery_agent.php'; }, 1200);
                     } else {
-                        alert('Error: ' + data.message);
-                        // Re-enable on error
+                        showToast('Error: ' + data.message, 'error', 5000);
                         buttons.forEach(btn => {
                             btn.disabled = false;
                             btn.innerHTML = '<i class="bx bx-check-double"></i> Accept Assignment';
@@ -535,7 +534,7 @@ if (!empty($available_jobs) && is_array($available_jobs)) {
                     }
                 })
                 .catch(err => {
-                    alert('Network error occurred.');
+                    showToast('Network error occurred. Please try again.', 'error', 4000);
                     buttons.forEach(btn => {
                         btn.disabled = false;
                         btn.innerHTML = '<i class="bx bx-check-double"></i> Accept Assignment';

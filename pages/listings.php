@@ -341,7 +341,8 @@ $myListings = $stmt->fetchAll();
     </div>
     <script>
         async function confirmDelete(id, title) {
-            if (!confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) return;
+            const confirmed = await Popup.confirm('Delete Listing', `Are you sure you want to delete "${title}"? This cannot be undone.`, { confirmText: 'Yes, Delete', confirmStyle: 'danger' });
+            if (!confirmed) return;
 
             try {
                 const formData = new FormData();

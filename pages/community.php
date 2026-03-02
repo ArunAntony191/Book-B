@@ -493,12 +493,11 @@ include '../includes/dashboard_header.php';
                         fileInput.value = '';
                         loadMessages();
                     } else {
-                        alert('Error sending message: ' + (data.error || 'Unknown error'));
+                        showToast('Error sending message: ' + (data.error || 'Unknown error'), 'error', 4000);
                     }
                 })
                 .catch(err => {
-                    console.error('Send error:', err);
-                    alert('Failed to send message. Please check your connection.');
+                    showToast('Failed to send message. Please check your connection.', 'error', 4000);
                 });
         }
 
@@ -528,13 +527,13 @@ include '../includes/dashboard_header.php';
         }
         
         function joinCommunity(id) {
-            if (isAdmin) { alert('Admins cannot join communities.'); return; }
+            if (isAdmin) { showToast('Admins cannot join communities.', 'warning', 3500); return; }
             const formData = new FormData();
             formData.append('community_id', id);
             fetch('../community/api.php?action=join', { method: 'POST', body: formData })
                 .then(() => {
-                    alert('Joined!');
-                    loadCommunities(); // reload list logic will probably clear search
+                    showToast('🎉 Joined community successfully!', 'success', 3000);
+                    loadCommunities();
                 });
         }
 
@@ -550,21 +549,20 @@ include '../includes/dashboard_header.php';
                     if (data.status === 'success') {
                         document.getElementById('create-modal').style.display = 'none';
                         loadCommunities();
-                        alert('Community created successfully!');
+                        showToast('🎉 Community created successfully!', 'success', 3000);
                     } else {
-                        alert('Error: ' + (data.error || 'Failed to create community'));
-                        console.error('Create error:', data);
+                        showToast('Error: ' + (data.error || 'Failed to create community'), 'error', 5000);
                     }
                 })
                 .catch(err => {
-                    alert('Network or Server Error. Check console.');
-                    console.error('Fetch error:', err);
+                    showToast('Network or Server Error. Please try again.', 'error', 4000);
                 });
         }
         
         // 7. Leave Community
-        function leaveCommunity() {
-            if (!confirm('Are you sure you want to leave this community?')) return;
+        async function leaveCommunity() {
+            const confirmed = await Popup.confirm('Leave Community', 'Are you sure you want to leave this community?', { confirmText: 'Yes, Leave' });
+            if (!confirmed) return;
             
             const formData = new FormData();
             formData.append('community_id', currentCommId);
@@ -572,14 +570,14 @@ include '../includes/dashboard_header.php';
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        alert('Left community successfully');
+                        showToast('You have left the community.', 'success', 3000);
                         currentCommId = null;
                         document.getElementById('chat-view').style.display = 'none';
                         document.getElementById('empty-choice').style.display = 'flex';
                         loadCommunities();
                     }
                 })
-                .catch(err => console.error('Leave error:', err));
+                .catch(err => showToast('Error leaving community.', 'error', 4000));
         }
         
         // 8. Edit Cover Image
@@ -596,21 +594,19 @@ include '../includes/dashboard_header.php';
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        alert('Profile picture updated successfully!');
+                        showToast('📸 Community picture updated!', 'success', 3000);
                         document.getElementById('edit-cover-modal').style.display = 'none';
-                        // Update image in UI
                         if (data.cover_image) {
                             document.getElementById('active-img').src = getImgPath(data.cover_image);
                         }
-                        loadCommunities(); // Refresh list
+                        loadCommunities();
                         e.target.reset();
                     } else {
-                        alert('Error: ' + (data.error || 'Failed to update'));
+                        showToast('Error: ' + (data.error || 'Failed to update'), 'error', 5000);
                     }
                 })
                 .catch(err => {
-                    alert('Error updating cover image');
-                    console.error('Update error:', err);
+                    showToast('Error updating cover image.', 'error', 4000);
                 });
         }
 
@@ -627,19 +623,18 @@ include '../includes/dashboard_header.php';
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        alert('Community deleted successfully');
+                        showToast('🗑️ Community deleted successfully.', 'success', 3000);
                         document.getElementById('delete-modal').style.display = 'none';
                         currentCommId = null;
                         document.getElementById('chat-view').style.display = 'none';
                         document.getElementById('empty-choice').style.display = 'flex';
                         loadCommunities();
                     } else {
-                        alert('Error: ' + (data.error || 'Failed to delete'));
+                        showToast('Error: ' + (data.error || 'Failed to delete'), 'error', 5000);
                     }
                 })
                 .catch(err => {
-                    alert('Error deleting community');
-                    console.error('Delete error:', err);
+                    showToast('Error deleting community.', 'error', 4000);
                 });
         }
 
@@ -663,14 +658,14 @@ include '../includes/dashboard_header.php';
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Report submitted successfully. Thank you for making the community safe.');
+                    showToast('🚩 Report submitted. Thank you for making the community safe!', 'success', 4000);
                     document.getElementById('report-modal').style.display = 'none';
                     e.target.reset();
                 } else {
-                    alert('Error: ' + result.message);
+                    showToast('Error: ' + result.message, 'error', 5000);
                 }
             } catch (error) {
-                alert('Failed to submit report. Please try again later.');
+                showToast('Failed to submit report. Please try again later.', 'error', 4000);
             }
         }
 

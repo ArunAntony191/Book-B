@@ -178,14 +178,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     let msg = "Error getting location.";
                     if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
                     else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
-                    alert(msg);
+                    showToast(msg, 'error', 4000);
                 }, {
                     enableHighAccuracy: true,
                     timeout: 10000,
                     maximumAge: 0
                 });
             } else {
-                alert("Geolocation is not supported by this browser.");
+                showToast('Geolocation is not supported by this browser.', 'error', 4000);
             }
         }
 
@@ -226,11 +226,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         map.fitBounds(group.getBounds().pad(0.1));
                     }
                 } else {
-                    alert('Location not found. Try adding a city name.');
+                    showToast('Location not found. Try adding a city name.', 'warning', 4000);
                 }
             } catch (error) {
-                console.error('Search error:', error);
-                alert('Error searching for location');
+                showToast('Error searching for location.', 'error', 4000);
             }
         }
 

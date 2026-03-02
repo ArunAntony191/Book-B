@@ -150,14 +150,15 @@ try {
     async function toggleBan(userId, action) {
         let reason = null;
         if (action === 'ban') {
-            reason = prompt('Enter the reason why you are banning this user:');
+            reason = await Popup.prompt('Ban User', 'Enter the reason why you are banning this user:', 'Reason for banning');
             if (reason === null) return; // Cancelled
             if (reason.trim() === '') {
-                alert('A reason is required to ban a user.');
+                showToast('A reason is required to ban a user.', 'error');
                 return;
             }
         } else {
-            if (!confirm('Are you sure you want to ' + action + ' this user?')) return;
+            const confirmed = await Popup.confirm('Unban User', `Are you sure you want to ${action} this user?`);
+            if (!confirmed) return;
         }
         
         try {
@@ -174,22 +175,22 @@ try {
             const result = await response.json();
             
             if (result.success) {
-                alert(result.message);
-                location.reload();
+                showToast(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert(result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred');
+            showToast('An error occurred', 'error');
         }
     }
 
     async function adjustTokens(userId, userName) {
-        const amount = prompt(`Adjust credits for ${userName}:\nEnter positive number to add, negative to take away (e.g. 50 or -20)`);
+        const amount = await Popup.prompt(`Adjust Credits`, `Adjust credits for ${userName}:\nEnter positive number to add, negative to take away (e.g. 50 or -20)`, 'e.g. 50');
         if (amount === null || amount === "" || isNaN(amount) || parseInt(amount) === 0) return;
 
-        const reason = prompt("Enter reason for adjustment:", "Admin adjustment");
+        const reason = await Popup.prompt("Adjustment Reason", "Enter reason for adjustment:", "Admin adjustment");
         if (reason === null) return;
 
         try {
@@ -206,14 +207,14 @@ try {
 
             const result = await response.json();
             if (result.success) {
-                alert(result.message);
-                location.reload();
+                showToast(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert(result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred');
+            showToast('An error occurred', 'error');
         }
     }
     </script>

@@ -512,7 +512,9 @@ $users = getRecentChats($userId);
         }
 
         async function clearChat() {
-            if (!currentReceiverId || !confirm('Are you sure you want to clear this chat?')) return;
+            if (!currentReceiverId) return;
+            const confirmed = await Popup.confirm('Clear Chat', 'Are you sure you want to clear this chat?', { confirmText: 'Yes, Clear', confirmStyle: 'danger' });
+            if (!confirmed) return;
             
             try {
                 const response = await fetch(`${API_URL}?user1=${currentUserId}&user2=${currentReceiverId}`, {
@@ -688,14 +690,14 @@ $users = getRecentChats($userId);
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Report submitted successfully. Admins will review it shortly.');
+                    showToast('Report submitted successfully. Admins will review it shortly.', 'success', 5000);
                     closeReportModal();
                 } else {
-                    alert('Error: ' + result.message);
+                    showToast('Error: ' + result.message, 'error', 5000);
                 }
             } catch (err) {
                 console.error(err);
-                alert('An error occurred submitting the report.');
+                showToast('An error occurred submitting the report.', 'error', 4000);
             }
         }
 

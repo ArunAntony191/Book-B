@@ -70,8 +70,11 @@ $reports = getReports('pending');
     </div>
 
     <script>
-    async function resolveReport(reportId, status) {
-        if (!confirm('Mark this report as ' + status + '?')) return;
+    async function resolveReport(reportId, status, silent = false) {
+        if (!silent) {
+            const confirmed = await Popup.confirm('Resolve Report', 'Mark this report as ' + status + '?');
+            if (!confirmed) return;
+        }
         
         try {
             const formData = new FormData();
@@ -83,20 +86,21 @@ $reports = getReports('pending');
             const result = await response.json();
             
             if (result.success) {
-                location.reload();
+                showToast(`Report ${status}`, 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert(result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
-            alert('Error resolving report');
+            showToast('Error resolving report', 'error');
         }
     }
 
     async function banAndResolve(reportId, userId) {
-        if (!confirm('This will BAN the user and resolve the report. Continue?')) return;
+        const confirmed = await Popup.confirm('Ban & Resolve', 'This will BAN the user and resolve the report. Continue?');
+        if (!confirmed) return;
         
         try {
-            // First ban user
             const banData = new FormData();
             banData.append('action', 'ban_user');
             banData.append('user_id', userId);
@@ -108,16 +112,16 @@ $reports = getReports('pending');
                 throw new Error(banResult.message);
             }
             
-            // Then resolve report
-            await resolveReport(reportId, 'resolved');
+            await resolveReport(reportId, 'resolved', true);
             
         } catch (error) {
-            alert('Error: ' + error.message);
+            showToast('Error: ' + error.message, 'error');
         }
     }
 
     async function deleteCommunityAndResolve(reportId, communityId, reason) {
-        if (!confirm('This will DELETE the community group and resolve the report. Members will be notified of the reason: ' + reason + '. Continue?')) return;
+        const confirmed = await Popup.confirm('Delete Community', 'This will DELETE the community group and resolve the report. Continue?');
+        if (!confirmed) return;
         
         try {
             const formData = new FormData();
@@ -129,17 +133,18 @@ $reports = getReports('pending');
             const result = await response.json();
             
             if (result.success) {
-                await resolveReport(reportId, 'resolved');
+                await resolveReport(reportId, 'resolved', true);
             } else {
-                alert(result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
-            alert('Error deleting community');
+            showToast('Error deleting community', 'error');
         }
     }
 
     async function warnCommunity(reportId, communityId, reason) {
-        if (!confirm('Send an official warning to this community group for: ' + reason + '?')) return;
+        const confirmed = await Popup.confirm('Warn Community', 'Send an official warning to this community group for: ' + reason + '?');
+        if (!confirmed) return;
         
         try {
             const formData = new FormData();
@@ -151,12 +156,12 @@ $reports = getReports('pending');
             const result = await response.json();
             
             if (result.success) {
-                await resolveReport(reportId, 'resolved');
+                await resolveReport(reportId, 'resolved', true);
             } else {
-                alert(result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
-            alert('Error sending warning');
+            showToast('Error sending warning', 'error');
         }
     }
     </script>

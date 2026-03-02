@@ -110,10 +110,10 @@ $my_announcements = getAnnouncementsByUser($user_id);
                                         <button onclick='editAnnouncement(<?php echo json_encode($a); ?>)' style="background: none; border: none; color: var(--primary); cursor: pointer; font-size: 1.2rem;" title="Edit">
                                             <i class='bx bx-edit'></i>
                                         </button>
-                                        <form action="../actions/announcement_action.php" method="POST" onsubmit="return confirm('Are you sure you want to delete this announcement?');">
+                                        <form action="../actions/announcement_action.php" method="POST" id="delete-form-<?php echo $a['id']; ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?php echo $a['id']; ?>">
-                                            <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem;" title="Delete">
+                                            <button type="button" onclick="deleteAnnouncement(<?php echo $a['id']; ?>)" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem;" title="Delete">
                                                 <i class='bx bx-trash'></i>
                                             </button>
                                         </form>
@@ -175,6 +175,12 @@ function cancelEdit() {
     
     document.getElementById('submit-btn').innerHTML = "<i class='bx bx-paper-plane'></i> Publish Announcement";
     document.getElementById('cancel-btn').style.display = "none";
+}
+
+async function deleteAnnouncement(id) {
+    const confirmed = await Popup.confirm('Delete Announcement', 'Are you sure you want to delete this announcement?', { confirmText: 'Yes, Delete', confirmStyle: 'danger' });
+    if (!confirmed) return;
+    document.getElementById('delete-form-' + id).submit();
 }
 </script>
 

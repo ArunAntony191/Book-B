@@ -397,9 +397,15 @@ function getStatusLabel($status, $agentId, $method) {
                                 <?php if (($d['status'] === 'delivered' || ($d['delivery_method'] === 'pickup' && in_array($d['status'], ['approved', 'active']))) && $isBorrower && empty($d['borrower_confirm_at'])): ?>
                                     <button onclick="handleAction('confirm_receive')" class="btn btn-primary">Confirm Receive</button>
                                 <?php elseif ($d['status'] === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
-                                    <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
-                                        <i class='bx bx-undo'></i> Return Book
-                                    </button>
+                                    <?php if ($d['delivery_method'] === 'delivery'): ?>
+                                        <button onclick="handleAction('request_return_delivery')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
+                                            <i class='bx bx-package'></i> Return via Agent
+                                        </button>
+                                    <?php else: ?>
+                                        <button onclick="handleAction('self_return_book')" class="btn btn-outline" style="color: var(--secondary); border-color: var(--secondary);">
+                                            <i class='bx bx-undo'></i> Return Book (Self Drop-off)
+                                        </button>
+                                    <?php endif; ?>
                                     <button onclick="openExtendModal()" class="btn btn-outline">
                                         <i class='bx bx-calendar-plus'></i> Extend Date
                                     </button>
@@ -530,9 +536,81 @@ function getStatusLabel($status, $agentId, $method) {
             map.fitBounds(line.getBounds().pad(0.2));
         }
 
+        // Context-aware success messages for each action
+        function getSuccessMessage(action) {
+            const isDelivery = d.delivery_method === 'delivery';
+            const isReturnDelivery = d.return_delivery_method === 'delivery';
+
+            switch (action) {
+                case 'accept_request':
+                    return '✅ Request accepted! The borrower has been notified.';
+                case 'decline_request':
+                    return '❌ Request declined.';
+                case 'confirm_handover':
+                    // Return phase: borrower handing book back
+                    if (d.status === 'returning') {
+                        return isReturnDelivery
+                            ? '📦 Handover confirmed! The return agent will collect the book.'
+                            : '📦 Return handover recorded successfully.';
+                    }
+                    // Forward phase: lender handing to agent or for pickup
+                    return isDelivery
+                        ? '📦 Handover confirmed! The delivery agent has been notified.'
+                        : '📦 Handover recorded. Borrower can now pick up the book.';
+                case 'confirm_receive':
+                    // Return phase: lender receiving book back
+                    if (d.status === 'returned' || d.status === 'returning') {
+                        return '🎉 Book received back! Transaction complete. Credits refunded to borrower.';
+                    }
+                    // Forward phase: borrower receiving book
+                    return isDelivery
+                        ? '🎉 Delivery confirmed! Enjoy your book!'
+                        : '🎉 Collection confirmed! Enjoy your book!';
+                case 'request_return_delivery':
+                    return '🚚 Return delivery requested! An agent will be assigned soon.';
+                case 'self_return_book':
+                    return '📦 Return initiated! Please drop off the book to the owner. They will confirm receipt.';
+                default:
+                    return '✅ Action completed successfully!';
+            }
+        }
+
         async function handleAction(action) {
-            if (!confirm('Confirm this action?')) return;
-            
+            // Build appropriate confirmation message
+            let confirmTitle = 'Confirm Action';
+            let confirmMsg = 'Are you sure you want to proceed?';
+
+            if (action === 'accept_request') {
+                confirmTitle = 'Accept Request';
+                confirmMsg = 'Accept this borrow/purchase request?';
+            } else if (action === 'decline_request') {
+                confirmTitle = 'Decline Request';
+                confirmMsg = 'Decline and cancel this request?';
+            } else if (action === 'confirm_handover') {
+                confirmTitle = 'Confirm Handover';
+                confirmMsg = (d.status === 'returning')
+                    ? 'Confirm that you have handed the book to the return agent?'
+                    : (d.delivery_method === 'delivery'
+                        ? 'Confirm that you have handed the book to the delivery agent?'
+                        : 'Confirm that the borrower has collected the book?');
+            } else if (action === 'confirm_receive') {
+                confirmTitle = 'Confirm Receipt';
+                confirmMsg = (d.status === 'returned' || d.status === 'returning')
+                    ? 'Confirm that you have received the book back?'
+                    : (d.delivery_method === 'delivery'
+                        ? 'Confirm that you have received the book from the delivery agent?'
+                        : 'Confirm that you have collected the book?');
+            } else if (action === 'request_return_delivery') {
+                confirmTitle = 'Request Return via Agent';
+                confirmMsg = 'A delivery agent will collect the book from you and return it. (10 credits will be deducted)';
+            } else if (action === 'self_return_book') {
+                confirmTitle = 'Return Book (Self Drop-off)';
+                confirmMsg = 'Confirm you will drop off the book directly to the owner? No credits will be deducted.';
+            }
+
+            const confirmed = await Popup.confirm(confirmTitle, confirmMsg, { confirmText: 'Yes, Proceed' });
+            if (!confirmed) return;
+
             const formData = new FormData();
             formData.append('action', action);
             formData.append('transaction_id', d.id);
@@ -541,12 +619,13 @@ function getStatusLabel($status, $agentId, $method) {
                 const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    location.reload();
+                    showToast(getSuccessMessage(action), 'success', 3000);
+                    setTimeout(() => location.reload(), 1800);
                 } else {
-                    alert('Error: ' + result.message);
+                    showToast('Error: ' + result.message, 'error', 5000);
                 }
             } catch (err) {
-                alert('Connection failed');
+                showToast('Connection failed. Please try again.', 'error', 4000);
             }
         }
 
@@ -565,7 +644,7 @@ function getStatusLabel($status, $agentId, $method) {
             const reason = document.getElementById('ext-reason').value;
 
             if (!newDate) {
-                alert('Please select a new due date');
+                showToast('Please select a new due date.', 'warning', 3500);
                 return;
             }
 
@@ -579,13 +658,13 @@ function getStatusLabel($status, $agentId, $method) {
                 const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    alert('Extension request sent to owner!');
+                    showToast('📅 Extension request sent to owner!', 'success', 3500);
                     closeExtendModal();
                 } else {
-                    alert(result.message || 'Failed to send request');
+                    showToast(result.message || 'Failed to send extension request.', 'error', 5000);
                 }
             } catch (e) {
-                alert('Error sending request');
+                showToast('Connection error. Please try again.', 'error', 4000);
             }
         }
 
@@ -609,11 +688,11 @@ function getStatusLabel($status, $agentId, $method) {
             const description = document.getElementById('report-description').value;
 
             if (!reason) {
-                alert('Please select a reason for reporting');
+                showToast('Please select a reason for reporting.', 'warning', 3500);
                 return;
             }
             if (!description.trim()) {
-                alert('Please provide a description');
+                showToast('Please provide a description of the incident.', 'warning', 3500);
                 return;
             }
 
@@ -631,13 +710,13 @@ function getStatusLabel($status, $agentId, $method) {
                 });
                 const result = await response.json();
                 if (result.success) {
-                    alert('Report submitted successfully. Our team will investigate.');
+                    showToast('🚩 Report submitted. Our team will investigate.', 'success', 4000);
                     closeAgentReportModal();
                 } else {
-                    alert(result.message || 'Failed to submit report');
+                    showToast(result.message || 'Failed to submit report.', 'error', 5000);
                 }
             } catch (error) {
-                alert('An error occurred. Please try again.');
+                showToast('An error occurred. Please try again.', 'error', 4000);
             }
         }
     </script>

@@ -227,7 +227,12 @@ try {
 
     <script>
         async function cancelFine(txId, btn) {
-            if (!confirm("Are you sure you want to cancel this fine? This should only be done if the fine was applied due to a misunderstanding. Borrower's balance will be reverted.")) return;
+            const confirmed = await Popup.confirm(
+                'Cancel Fine',
+                "Are you sure you want to cancel this fine? This should only be done if the fine was applied due to a misunderstanding. Borrower's balance will be reverted.",
+                { confirmText: 'Yes, Cancel Fine' }
+            );
+            if (!confirmed) return;
 
             try {
                 btn.disabled = true;
@@ -245,23 +250,27 @@ try {
                 const result = await response.json();
 
                 if (result.success) {
-                    showToast(result.message, 'success');
+                    showToast('✅ Fine cancelled successfully!', 'success', 3000);
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert(result.message || "Failed to cancel fine.");
+                    showToast(result.message || 'Failed to cancel fine.', 'error', 5000);
                     btn.disabled = false;
                     btn.innerHTML = originalContent;
                 }
             } catch (err) {
-                console.error(err);
-                alert("Network error. Please try again.");
+                showToast('Network error. Please try again.', 'error', 4000);
                 btn.disabled = false;
                 btn.innerHTML = "<i class='bx bx-x-circle'></i> Cancel";
             }
         }
 
         async function settleFine(txId, btn) {
-            if (!confirm("Confirm that you have received the cash payment for this damage fine?")) return;
+            const confirmed = await Popup.confirm(
+                'Settle Fine (Cash)',
+                'Confirm that you have received the cash payment for this damage fine?',
+                { confirmText: 'Yes, Confirm Payment' }
+            );
+            if (!confirmed) return;
 
             try {
                 btn.disabled = true;
@@ -278,27 +287,17 @@ try {
                 const result = await response.json();
 
                 if (result.success) {
-                    showToast(result.message, 'success');
+                    showToast('💰 Fine settled successfully!', 'success', 3000);
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert(result.message || "Failed to settle fine.");
+                    showToast(result.message || 'Failed to settle fine.', 'error', 5000);
                     btn.disabled = false;
                     btn.innerHTML = "<i class='bx bx-check-circle'></i> Settle Cash";
                 }
             } catch (err) {
-                console.error(err);
-                alert("Network error. Please try again.");
+                showToast('Network error. Please try again.', 'error', 4000);
                 btn.disabled = false;
                 btn.innerHTML = "<i class='bx bx-check-circle'></i> Settle Cash";
-            }
-        }
-
-        // Simple toast mock since it's global
-        function showToast(msg, type) {
-            if (window.Toast) {
-                Toast.show(msg, type);
-            } else {
-                alert(msg);
             }
         }
     </script>

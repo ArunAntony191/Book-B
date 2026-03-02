@@ -298,7 +298,7 @@ function buildLocation($addr, $city, $dist) {
 
     function exportHistoryExcel() {
         const container = document.getElementById('history-list');
-        if (!container) { alert('No history data to export.'); return; }
+        if (!container) { showToast('No history data to export.', 'warning', 3500); return; }
         const cards = container.querySelectorAll('.history-card');
         const data = [['Order ID', 'Mission Type', 'Book Title', 'From Location', 'To Location', 'Completion Date', 'Earnings (₹)']];
         cards.forEach(card => {

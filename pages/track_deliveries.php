@@ -609,7 +609,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
 
                 <?php if ($status === 'delivered' && $isBorrower && !empty($d['borrower_confirm_at']) && $d['transaction_type'] === 'borrow'): ?>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%;">
-                        <button class="btn-action btn-outline" style="background:var(--bg-body); border:none; margin-top:0;" onclick="handleVerify('request_return_delivery', <?= $d['id'] ?>)">
+                        <button class="btn-action btn-outline" style="background:var(--bg-body); border:none; margin-top:0;" onclick="handleVerify('<?= $isPickup ? 'self_return_book' : 'request_return_delivery' ?>', <?= $d['id'] ?>)">
                             <i class='bx bx-undo'></i> Return Book
                         </button>
                         <button class="btn-action btn-outline" style="background:var(--bg-body); border:none; margin-top:0;" onclick="openExtendModal(<?= $d['id'] ?>, '<?= $d['due_date'] ?>', <?= $d['lender_id'] ?>)">
@@ -625,7 +625,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                         </button>
                     <?php endif; ?>
 
-                    <?php if($isReturn && $status !== 'returned' && $needReceipt): ?>
+                    <?php if($isReturn && $needReceipt): ?>
                          <button class="btn-action btn-primary" onclick="handleVerify('confirm_receive', <?= $d['id'] ?>)">
                             <i class='bx bx-check-circle'></i> Confirm Receive (Return)
                         </button>
@@ -714,18 +714,25 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             document.getElementById(tab + '-list').style.display = 'block';
         }
 
+        const actionConfirmMap = {
+            'confirm_handover': { title: 'Confirm Handover', msg: 'Confirm you have handed over the book?' },
+            'confirm_receive': { title: 'Confirm Receipt', msg: 'Confirm you have received the book?' },
+            'request_return_delivery': { title: 'Return via Agent', msg: 'Initiate return via delivery agent? This deducts 10 credits + ₹50 agent fee (refunded on on-time return).' },
+            'self_return_book': { title: 'Return Book (Self Drop-off)', msg: 'Confirm you will drop off the book directly to the owner? No credits will be deducted.' },
+            'cancel_order': { title: 'Cancel Order', msg: 'Cancel this request/order? This will abort the transaction.' }
+        };
+        const actionSuccessMap = {
+            'confirm_handover': '📦 Handover confirmed successfully!',
+            'confirm_receive': '🎉 Receipt confirmed! Transaction updated.',
+            'request_return_delivery': '🚚 Return via agent initiated! An agent will be assigned soon.',
+            'self_return_book': '📦 Return initiated! Please drop off the book to the owner. They will confirm receipt.',
+            'cancel_order': '❌ Order cancelled.'
+        };
+
         async function handleVerify(action, txId) {
-            const labels = {
-                'confirm_handover': 'confirm you handed over the book?',
-                'confirm_receive': 'confirm you received the book?',
-                'request_return_delivery': 'initiate the return process for this book?',
-                'cancel_order': 'cancel this request/order? This will abort the transaction.'
-            };
-            let label = labels[action] || 'confirm this action?';
-            if (action === 'request_return_delivery') {
-                label = 'initiate the return process? This will deduct 10 credits and incur a 50 INR delivery fee (payable to agent). Credits will be refunded upon on-time return.';
-            }
-            if(!confirm('Are you sure you want to ' + label)) return;
+            const c = actionConfirmMap[action] || { title: 'Confirm', msg: 'Are you sure?' };
+            const confirmed = await Popup.confirm(c.title, c.msg, { confirmText: 'Yes, Proceed' });
+            if (!confirmed) return;
 
             const formData = new FormData();
             formData.append('action', action);
@@ -734,10 +741,14 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             try {
                 const r = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const data = await r.json();
-                if(data.success) location.reload();
-                else alert(data.message || 'Action failed');
+                if (data.success) {
+                    showToast(actionSuccessMap[action] || '✅ Action completed!', 'success', 3000);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(data.message || 'Action failed.', 'error', 5000);
+                }
             } catch(e) {
-                alert('Connection error');
+                showToast('Connection error. Please try again.', 'error', 4000);
             }
         }
 
@@ -839,7 +850,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             const reason = document.getElementById('ext-reason').value;
 
             if (!newDate) {
-                alert('Please select a new due date');
+                showToast('Please select a new due date.', 'warning', 3500);
                 return;
             }
 
@@ -853,13 +864,13 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 const r = await fetch('../actions/request_action.php', { method: 'POST', body: formData });
                 const data = await r.json();
                 if (data.success) {
-                    alert('Extension request sent to owner!');
+                    showToast('📅 Extension request sent to owner!', 'success', 3500);
                     closeExtendModal();
                 } else {
-                    alert(data.message || 'Failed to send request');
+                    showToast(data.message || 'Failed to send request.', 'error', 5000);
                 }
             } catch (e) {
-                alert('Error sending request');
+                showToast('Connection error. Please try again.', 'error', 4000);
             }
         }
 
@@ -883,11 +894,11 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             const description = document.getElementById('report-description').value;
 
             if (!reason) {
-                alert('Please select a reason for reporting');
+                showToast('Please select a reason for reporting.', 'warning', 3500);
                 return;
             }
             if (!description.trim()) {
-                alert('Please provide a description');
+                showToast('Please provide a description of the incident.', 'warning', 3500);
                 return;
             }
 
@@ -896,7 +907,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             formData.append('reported_id', currentReportedAgentId);
             formData.append('reason', reason);
             formData.append('description', description);
-            formData.append('type', 'user'); // Agents are users
+            formData.append('type', 'user');
 
             try {
                 const response = await fetch('../actions/request_action.php', {
@@ -905,13 +916,13 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 });
                 const result = await response.json();
                 if (result.success) {
-                    alert('Report submitted successfully. Our team will investigate.');
+                    showToast('🚩 Report submitted. Our team will investigate.', 'success', 4000);
                     closeAgentReportModal();
                 } else {
-                    alert(result.message || 'Failed to submit report');
+                    showToast(result.message || 'Failed to submit report.', 'error', 5000);
                 }
             } catch (error) {
-                alert('An error occurred. Please try again.');
+                showToast('An error occurred. Please try again.', 'error', 4000);
             }
         }
         // Handle URL tab parameter

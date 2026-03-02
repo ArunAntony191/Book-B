@@ -1066,10 +1066,10 @@ if ($userId) {
                                     suggestionsBox.style.display = 'none';
                                     searchInput.value = item.display_name;
                                 } else {
-                                    alert("Location not found.");
+                                    showToast('Location not found.', 'warning', 3500);
                                 }
                             } catch (e) {
-                                alert("Search failed.");
+                                showToast('Search failed. Please try again.', 'error', 4000);
                             }
                         }
                     });
@@ -1096,14 +1096,14 @@ if ($userId) {
                     let msg = "Unable to retrieve your location.";
                     if (error.code === error.TIMEOUT) msg = "Location request timed out. Please try again.";
                     else if (error.code === error.PERMISSION_DENIED) msg = "Geolocation permission denied.";
-                    alert(msg);
+                    showToast(msg, 'error', 4000);
                 }, {
                     enableHighAccuracy: true,
                     timeout: 10000,
                     maximumAge: 0
                 });
             } else {
-                alert("Geolocation is not supported by your browser.");
+                showToast('Geolocation is not supported by your browser.', 'error', 4000);
             }
         }
 
@@ -1328,7 +1328,7 @@ if ($userId) {
                             const rzp1 = new Razorpay(options);
                             rzp1.open();
                         } catch(e) {
-                            alert('Razorpay Error: ' + e.message);
+                            showToast('Razorpay Error: ' + e.message, 'error', 5000);
                             btn.disabled = false;
                         }
                     } else {

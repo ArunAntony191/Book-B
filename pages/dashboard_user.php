@@ -675,14 +675,14 @@ $activeDeliveries = (int)$deliveryStmt->fetchColumn();
                 const rzp1 = new Razorpay(options);
                 rzp1.open();
             } else {
-                alert('Error initializing payment: ' + data.message);
+                showToast('Error initializing payment: ' + data.message, 'error');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Payment error. Please try again later.');
+            showToast('Payment error. Please try again later.', 'error');
             btn.disabled = false;
             btn.innerHTML = originalText;
         });
@@ -703,17 +703,17 @@ $activeDeliveries = (int)$deliveryStmt->fetchColumn();
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert('Payment successful! Your fines have been cleared.');
-                location.reload();
+                showToast('Payment successful! Your fines have been cleared.', 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert('Payment verification failed: ' + data.message);
+                showToast('Payment verification failed: ' + data.message, 'error');
                 document.getElementById('btn-pay-fines').disabled = false;
                 document.getElementById('btn-pay-fines').innerText = 'Retry Payment';
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Server error verifying payment.');
+            showToast('Server error verifying payment.', 'error');
             document.getElementById('btn-pay-fines').disabled = false;
             document.getElementById('btn-pay-fines').innerText = 'Retry Payment';
         });
