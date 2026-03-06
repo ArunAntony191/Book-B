@@ -1,0 +1,38 @@
+﻿Field	Type	Null	Key	Default	Extra
+id	int(11)	NO	PRI	NULL	auto_increment
+listing_id	int(11)	NO	MUL	NULL	
+borrower_id	int(11)	NO	MUL	NULL	
+lender_id	int(11)	NO	MUL	NULL	
+transaction_type	enum('borrow','exchange','purchase')	NO		NULL	
+status	enum('requested','approved','active','delivered','returning','returned','cancelled')	YES	MUL	requested	
+is_restocked	tinyint(1)	YES		0	
+delivery_method	enum('pickup','delivery')	YES		pickup	
+delivery_agent_id	int(11)	YES		NULL	
+picked_up_at	datetime	YES		NULL	
+delivered_at	datetime	YES		NULL	
+agent_confirm_delivery_at	datetime	YES		NULL	
+lender_confirm_at	datetime	YES		NULL	
+borrower_confirm_at	datetime	YES		NULL	
+return_delivery_method	enum('pickup','delivery')	YES		pickup	
+return_agent_id	int(11)	YES		NULL	
+return_picked_up_at	datetime	YES		NULL	
+return_agent_confirm_at	datetime	YES		NULL	
+return_lender_confirm_at	datetime	YES		NULL	
+return_borrower_confirm_at	datetime	YES		NULL	
+return_delivered_at	datetime	YES		NULL	
+borrow_date	date	YES		NULL	
+due_date	date	YES		NULL	
+return_date	date	YES		NULL	
+created_at	timestamp	NO		current_timestamp()	
+updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+order_address	text	YES		NULL	
+order_landmark	text	YES		NULL	
+order_lat	decimal(10,8)	YES		NULL	
+order_lng	decimal(11,8)	YES		NULL	
+payment_method	varchar(50)	YES		online	
+pending_due_date	date	YES		NULL	
+price_at_transaction	decimal(10,2)	YES		0.00	
+payment_status	enum('unpaid','paid','pending','waiting')	YES		unpaid	
+razorpay_payment_id	varchar(255)	YES		NULL	
+payment_id	int(11)	YES		NULL	
+book_price	decimal(10,2)	YES		NULL	

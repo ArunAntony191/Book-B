@@ -844,20 +844,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (searchInput && suggestions) {
                 searchInput.addEventListener('input', debounce(async (e) => {
-                    const q = e.target.value;
+                    const q = e.target.value.trim();
                     if (q.length < 3) { suggestions.style.display = 'none'; return; }
                     
                     try {
-                        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+                        // OpenLibrary Search API is more reliable for unauthenticated use
+                        const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5`);
                         const data = await res.json();
                         
                         suggestions.innerHTML = '';
-                        if (data.items) {
-                            data.items.forEach(book => {
-                                const info = book.volumeInfo;
-                                const thumb = info.imageLinks?.thumbnail || '../assets/images/book-placeholder.jpg';
-                                const title = info.title;
-                                const author = info.authors ? info.authors[0] : 'Unknown Author';
+                        if (data.docs && data.docs.length > 0) {
+                            data.docs.forEach(book => {
+                                const title = book.title;
+                                const author = book.author_name ? book.author_name[0] : 'Unknown Author';
+                                const coverId = book.cover_i;
+                                const thumb = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-S.jpg` : '../assets/images/book-placeholder.jpg';
                                 
                                 const div = document.createElement('div');
                                 div.className = 'suggestion-item';
@@ -868,7 +869,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <div style="font-size: 0.8rem; color: var(--text-muted);">${author}</div>
                                     </div>
                                 `;
-                                div.onclick = () => fillBook(info);
+                                div.onclick = () => fillBook(book);
                                 suggestions.appendChild(div);
                             });
                             suggestions.style.display = 'block';
@@ -884,25 +885,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 });
     
-                window.fillBook = function(info) {
-                    document.getElementById('input_title').value = info.title;
-                    document.getElementById('input_author').value = info.authors ? info.authors[0] : '';
-                    document.getElementById('input_description').value = info.description ? info.description : '';
+                window.fillBook = async function(book) {
+                    document.getElementById('input_title').value = book.title;
+                    document.getElementById('input_author').value = book.author_name ? book.author_name[0] : '';
                     
-                    let imgUrl = info.imageLinks?.thumbnail || '';
-                    if (imgUrl) imgUrl = imgUrl.replace('http:', 'https:').replace('&edge=curl', '');
-                    
-                    document.getElementById('input_cover_url').value = imgUrl; 
-                    showPreview(imgUrl);
-                    
-                    if (info.categories) {
-                        const cats = info.categories.map(c => c.toLowerCase());
-                        document.querySelectorAll('.cat-checkbox').forEach(box => {
-                            if (cats.some(c => c.includes(box.value.toLowerCase()))) {
-                                box.checked = true;
-                                box.parentElement.classList.add('selected');
+                    // Clear categories and description while loading
+                    document.getElementById('input_description').value = 'Loading description...';
+                    document.querySelectorAll('.cat-checkbox').forEach(box => {
+                        box.checked = false;
+                        box.parentElement.classList.remove('selected');
+                    });
+
+                    // Set cover image
+                    if (book.cover_i) {
+                        const imgUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
+                        document.getElementById('input_cover_url').value = imgUrl; 
+                        showPreview(imgUrl);
+                    }
+
+                    // Fetch full details for description and categories if possible
+                    if (book.key) {
+                        try {
+                            const res = await fetch(`https://openlibrary.org${book.key}.json`);
+                            const details = await res.json();
+                            
+                            // Handling description which can be string or object
+                            let desc = '';
+                            if (typeof details.description === 'string') desc = details.description;
+                            else if (details.description && details.description.value) desc = details.description.value;
+                            
+                            document.getElementById('input_description').value = desc || 'No description available.';
+                            
+                            // Some basic category mapping if subjects are present
+                            if (details.subjects) {
+                                const subjects = details.subjects.map(s => s.toLowerCase());
+                                document.querySelectorAll('.cat-checkbox').forEach(box => {
+                                    if (subjects.some(s => s.includes(box.value.toLowerCase()))) {
+                                        box.checked = true;
+                                        box.parentElement.classList.add('selected');
+                                    }
+                                });
                             }
-                        });
+                        } catch (e) {
+                            console.error('Details fetch failed', e);
+                            document.getElementById('input_description').value = '';
+                        }
+                    } else {
+                        document.getElementById('input_description').value = '';
                     }
     
                     suggestions.style.display = 'none';

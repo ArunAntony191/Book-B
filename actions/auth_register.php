@@ -27,9 +27,16 @@ if (!$email) {
 }
 
 // 3. Validate Phone
-$phone = validatePhone($phoneRaw);
-if (!$phone) {
-    header("Location: ../pages/register.php?error=invalid_phone&msg=" . urlencode("Phone number must be 10-15 digits."));
+$phone = null;
+if (!empty($phoneRaw)) {
+    $phone = validatePhone($phoneRaw);
+    if (!$phone) {
+        header("Location: ../pages/register.php?error=invalid_phone&msg=" . urlencode("Phone number must be 10-15 digits."));
+        exit();
+    }
+} else {
+    // Phone required
+    header("Location: ../pages/register.php?error=missing_fields&msg=" . urlencode("Phone number is required."));
     exit();
 }
 

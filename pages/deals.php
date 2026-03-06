@@ -864,8 +864,8 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                             if ($p['status'] === 'cancelled') continue;
                             $isCodPickupConfirmed = ($p['payment_method'] === 'cod' && $p['delivery_method'] === 'pickup' && !empty($p['lender_confirm_at']));
                             if ($p['payment_status'] !== 'paid' && !$isCodPickupConfirmed) {
-                                $amt = (float)$p['price_at_transaction'];
-                                if ($amt <= 0) $amt = (float)$p['book_price'];
+                                $amt = (float)($p['price_at_transaction'] ?? 0);
+                                if ($amt <= 0) $amt = (float)($p['book_price'] ?? 0);
                                 if ($amt <= 0) $amt = (float)($p['listing_price'] ?? 0);
                                 $total_due += ($amt * ($p['quantity'] ?: 1));
                             }
@@ -929,8 +929,8 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                         </div>
                                         <div style="margin-top: 0.75rem; display: flex; gap: 1rem; align-items: center;">
                                             <?php 
-                                                $unitAmt = (float)$p['price_at_transaction'];
-                                                if ($unitAmt <= 0) $unitAmt = (float)$p['book_price'];
+                                                $unitAmt = (float)($p['price_at_transaction'] ?? 0);
+                                                if ($unitAmt <= 0) $unitAmt = (float)($p['book_price'] ?? 0);
                                                 if ($unitAmt <= 0) $unitAmt = (float)($p['listing_price'] ?? 0);
                                                 $displayAmt = $unitAmt * ($p['quantity'] ?: 1);
                                             ?>
@@ -991,8 +991,8 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                         </div>
                                         <div style="margin-top: 0.75rem; display: flex; gap: 1rem; align-items: center;">
                                             <?php 
-                                                $unitAmtS = (float)$s['price_at_transaction'];
-                                                if ($unitAmtS <= 0) $unitAmtS = (float)$s['book_price'];
+                                                $unitAmtS = (float)($s['price_at_transaction'] ?? 0);
+                                                if ($unitAmtS <= 0) $unitAmtS = (float)($s['book_price'] ?? 0);
                                                 if ($unitAmtS <= 0) $unitAmtS = (float)($s['listing_price'] ?? 0);
                                                 $displayAmtS = $unitAmtS * ($s['quantity'] ?: 1);
                                             ?>

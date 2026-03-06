@@ -437,7 +437,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             if(!empty($d['return_picked_up_at'])) $stepIdx = 2;
             if($d['status'] === 'returned') $stepIdx = 3;
         } else {
-            $steps = ['requested', 'approved', 'assigned', 'active', 'delivered'];
+            $steps = ['requested', 'approved', 'active', 'delivered'];
             $s = $d['status']; if($s === 'assigned') $s = 'approved';
             $stepIdx = array_search($s, $steps);
             if($stepIdx === false) $stepIdx = 0;
@@ -574,9 +574,9 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <div class="step <?= $stepIdx >= 3 ? 'completed' : ($stepIdx==2?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Returned</span></div>
                 <?php else: ?>
                     <div class="step <?= $stepIdx >= 0 ? 'completed' : '' ?>"><div class="step-dot"></div><span class="step-label">Request</span></div>
-                    <div class="step <?= $stepIdx >= 1 ? 'completed' : '' ?>"><div class="step-dot"></div><span class="step-label">Approved</span></div>
-                    <div class="step <?= $stepIdx >= 3 ? 'completed' : ($stepIdx==2?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Transit</span></div>
-                    <div class="step <?= $stepIdx >= 4 ? 'completed' : ($stepIdx==3?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Delivered</span></div>
+                    <div class="step <?= $stepIdx >= 1 ? 'completed' : ($stepIdx==0?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Approved</span></div>
+                    <div class="step <?= $stepIdx >= 2 ? 'completed' : ($stepIdx==1?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Transit</span></div>
+                    <div class="step <?= $stepIdx >= 3 ? 'completed' : ($stepIdx==2?'active':'') ?>"><div class="step-dot"></div><span class="step-label">Delivered</span></div>
                 <?php endif; ?>
             </div>
             <?php endif; ?>

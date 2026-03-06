@@ -38,15 +38,6 @@ function createUser($email, $password, $firstname, $lastname, $role, $phone = nu
             return 'email_exists';
         }
         
-        // Check if phone already exists
-        if ($phone) {
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
-            $stmt->execute([$phone]);
-            if ($stmt->fetch()) {
-                return 'phone_exists';
-            }
-        }
-        
         // Hash password
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         

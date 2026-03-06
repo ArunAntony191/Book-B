@@ -3679,3 +3679,318 @@
     [reason] => rtghy
 )
 
+[2026-03-06 17:35:06] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.5172
+    [l_lng] => 76.5993
+    [b_lat] => 9.4518537
+    [b_lng] => 76.7455434
+)
+
+[2026-03-06 17:35:11] Request Action Hit: Array
+(
+    [action] => create_request
+    [listing_id] => 4
+    [owner_id] => 7
+    [type] => borrow
+    [due_date] => 2026-03-28
+    [book_title] => Bleach
+    [delivery] => 1
+    [address] => Chunkappara, Pathanamthitta, Kerala, 686547, India
+    [landmark] => near kottangal
+    [lat] => 9.4518537
+    [lng] => 76.7455434
+    [quantity] => 1
+    [request_message] => 
+    [use_discount_credits] => 0
+)
+
+[2026-03-06 22:05:11] Create Request Action Triggered
+[2026-03-06 22:05:16] Notification Created
+[2026-03-06 17:35:32] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:05:32] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 17:35:35] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:05:35] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 17:35:38] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:35:40] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:35:41] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:05:43] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 22:05:43] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 22:05:43] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 17:35:45] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:05:45] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'return_delivery_price' in 'field list'
+[2026-03-06 17:38:11] Request Action Hit: Array
+(
+    [action] => accept_request
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:38:34] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:40:43] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 1
+    [status] => active
+)
+
+[2026-03-06 17:40:46] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 1
+    [status] => delivered
+)
+
+[2026-03-06 17:41:30] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:11:30] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'lender_confirm_at' in 'field list'
+[2026-03-06 17:41:37] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:11:37] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'lender_confirm_at' in 'field list'
+[2026-03-06 17:44:46] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:50:31] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:50:57] Request Action Hit: Array
+(
+    [action] => request_extension
+    [transaction_id] => 1
+    [new_date] => 2026-03-31
+    [reason] => test
+)
+
+[2026-03-06 17:51:30] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:30] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:51:32] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:32] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:51:36] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:36] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:51:49] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:49] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:51:53] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:53] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:51:57] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:21:57] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:55:38] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:25:38] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:55:43] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:25:43] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:55:48] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:25:48] Exception: Borrower has insufficient credits (5 needed) for this extension.
+[2026-03-06 17:58:27] Request Action Hit: Array
+(
+    [action] => adjust_tokens
+    [user_id] => 7
+    [amount] => 200
+    [reason] => 
+)
+
+[2026-03-06 17:58:36] Request Action Hit: Array
+(
+    [action] => adjust_tokens
+    [user_id] => 5
+    [amount] => 400
+    [reason] => 
+)
+
+[2026-03-06 17:59:02] Request Action Hit: Array
+(
+    [action] => approve_extension
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:59:52] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 1
+)
+
+[2026-03-06 17:59:56] Request Action Hit: Array
+(
+    [action] => request_return_delivery
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:29:56] Exception: Already requested.
+[2026-03-06 18:00:07] Request Action Hit: Array
+(
+    [action] => claim_job
+    [transaction_id] => 1
+)
+
+[2026-03-06 18:00:22] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 1
+    [status] => returning_active
+)
+
+[2026-03-06 18:00:34] Request Action Hit: Array
+(
+    [action] => update_delivery_status
+    [transaction_id] => 1
+    [status] => return_delivered
+)
+
+[2026-03-06 18:00:56] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 1
+)
+
+[2026-03-06 18:01:12] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:31:12] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'punctuality_streak' in 'field list'
+[2026-03-06 18:01:16] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 1
+)
+
+[2026-03-06 22:31:16] Exception: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'punctuality_streak' in 'field list'
+[2026-03-06 18:14:42] Request Action Hit: Array
+(
+    [action] => check_delivery
+    [l_lat] => 9.4518537
+    [l_lng] => 76.7455434
+    [b_lat] => 9.5172
+    [b_lng] => 76.5993
+)
+
+[2026-03-06 18:15:26] Request Action Hit: Array
+(
+    [action] => create_request
+    [type] => sell
+    [listing_id] => 3
+    [owner_id] => 5
+    [delivery] => 0
+    [address] => Pongamthanam, Kottayam, Kerala, 686539, India
+    [landmark] => kottangl church
+    [lat] => 9.5172
+    [lng] => 76.5993
+    [book_title] => The Murder at the Vicarage
+    [payment_method] => cod
+    [use_discount_credits] => 100
+)
+
+[2026-03-06 22:45:26] Create Request Action Triggered
+[2026-03-06 22:45:32] Notification Created
+[2026-03-06 18:15:38] Request Action Hit: Array
+(
+    [action] => confirm_receive
+    [transaction_id] => 2
+)
+
+[2026-03-06 18:15:46] Request Action Hit: Array
+(
+    [action] => confirm_handover
+    [transaction_id] => 2
+)
+
+[2026-03-06 22:51:18] Action: create - Start
+[2026-03-06 22:51:18] Creating community: manga
+[2026-03-06 22:51:18] Cover uploaded: images/communities/1772817678_images.jfif
+[2026-03-06 22:51:18] Attempting to insert into communities table
+[2026-03-06 22:51:18] Community created with ID: 1
+[2026-03-06 22:51:18] Auto-joining creator
+[2026-03-06 22:51:18] Creator joined successfully

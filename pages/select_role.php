@@ -26,37 +26,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Generate a random password (won't be used since they'll use Google Sign-In)
     $randomPassword = bin2hex(random_bytes(16));
     
-    if (createUser($email, $randomPassword, $firstname, $lastname, $role)) {
-        // Clear Google user data
-        unset($_SESSION['google_user']);
-        
-        // Set session
-        $_SESSION['user_email'] = $email;
-        $_SESSION['firstname'] = $firstname;
-        $_SESSION['lastname'] = $lastname;
-        $_SESSION['role'] = $role;
-        
-        // Redirect based on role
-        switch ($role) {
-            case 'library':
-                header("Location: dashboard_library.php");
-                break;
-            case 'bookstore':
-                header("Location: dashboard_bookstore.php");
-                break;
-            case 'admin':
-                header("Location: dashboard_admin.php");
-                break;
-            case 'delivery_agent':
-                header("Location: dashboard_delivery_agent.php");
-                break;
-            case 'user':
-            default:
-                header("Location: dashboard_user.php");
-                break;
+    $result = createUser($email, $randomPassword, $firstname, $lastname, $role);
+    
+    if ($result === 'email_exists') {
+        // User already exists, fetch their data
+        $user = authenticateUserByEmail($email);
+        if ($user === 'banned') {
+            header("Location: login.php?error=account_banned");
+            exit();
         }
+        $userId = $user['id'];
+        // Update role if they are selecting a specific one now
+        updateUser($userId, ['role' => $role]);
+    } elseif (is_numeric($result)) {
+        $userId = $result;
+    } else {
+        header("Location: select_role.php?error=registration_failed");
         exit();
     }
+    
+    // Clear Google user data
+    unset($_SESSION['google_user']);
+    
+    // Set session
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['user_email'] = $email;
+    $_SESSION['firstname'] = $firstname;
+    $_SESSION['lastname'] = $lastname;
+    $_SESSION['role'] = $role;
+    
+    // Redirect based on role
+    switch ($role) {
+        case 'library':
+            header("Location: dashboard_library.php");
+            break;
+        case 'bookstore':
+            header("Location: dashboard_bookstore.php");
+            break;
+        case 'admin':
+            header("Location: ../admin/dashboard_admin.php");
+            break;
+        case 'delivery_agent':
+            header("Location: dashboard_delivery_agent.php");
+            break;
+        case 'user':
+        default:
+            header("Location: dashboard_user.php");
+            break;
+    }
+    exit();
 }
 ?>
 <!DOCTYPE html>
