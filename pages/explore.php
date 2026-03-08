@@ -1,4 +1,5 @@
 <?php
+ob_start();
 require_once '../includes/db_helper.php';
 require_once '../paths.php';
 session_start();
@@ -458,17 +459,32 @@ $rareResults = getRareBooks(10, $filters);
                 <!-- Premium Sidebar -->
                 <aside class="premium-sidebar">
                     <div class="sidebar-header">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                            <h1 style="font-size: 1.5rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px;">Explore</h1>
-                            <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 5px 12px; border-radius: 20px; border: 2px solid var(--border-color); transition: all 0.3s; cursor: pointer;" onclick="document.getElementById('live-search-toggle').click()">
-                                <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px;">Live Sync</span>
-                                <label class="switch" style="width: 36px; height: 20px;" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="live-search-toggle" onchange="toggleSyncMode()" checked>
-                                    <span class="slider round" style="border-radius: 20px;"></span>
-                                </label>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                            <div>
+                                <h1 style="font-size: 1.5rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px;">Explore</h1>
+                                <p style="color: var(--text-muted); font-size: 0.8rem; font-weight: 500;">Discover literature in your city.</p>
+                            </div>
+                            
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem;">
+                                <!-- Live Sync Toggle -->
+                                <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 5px 12px; border-radius: 20px; border: 2px solid var(--border-color); transition: all 0.3s; cursor: pointer;" onclick="document.getElementById('live-search-toggle').click()">
+                                    <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px;">Live Sync</span>
+                                    <label class="switch" style="width: 36px; height: 20px;" onclick="event.stopPropagation()">
+                                        <input type="checkbox" id="live-search-toggle" onchange="toggleSyncMode()" checked>
+                                        <span class="slider round" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+
+                                <!-- Compact Book Search Bar -->
+                                <div class="search-container" style="width: 220px; height: 38px; padding: 0 0.75rem; border-radius: 10px;">
+                                    <i class='bx bx-search' style="color: var(--primary); font-size: 1rem;"></i>
+                                    <input type="text" id="book-search-input" placeholder="Search books..." 
+                                           style="padding: 0.4rem 0.5rem; font-size: 0.8rem;"
+                                           value="<?php echo htmlspecialchars($filters['query']); ?>"
+                                           oninput="handleBookSearch(this.value)">
+                                </div>
                             </div>
                         </div>
-                        <p style="color: var(--text-muted); font-size: 0.8rem; font-weight: 500; margin-bottom: 1.25rem;">Discover literature in your city.</p>
 
                         <!-- Listing Type Pills -->
                         <div style="margin-top: 1.5rem;">
@@ -611,7 +627,8 @@ $rareResults = getRareBooks(10, $filters);
                                                 <div style="width: 32px; height: 32px; background: var(--bg-body); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
                                                     <i class='bx bxs-star'></i>
                                                 </div>
-                                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;"><?php echo number_format($item['average_rating'], 1); ?></span>
+                                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;" title="Book Rating"><?php echo number_format($item['book_rating'], 1); ?></span>
+                                                <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 4px;">(Owner: <?php echo number_format($item['owner_rating'], 1); ?>★)</span>
                                             </div>
                                             <?php if ($item['listing_type'] === 'sell'): ?>
                                                 <div class="price-display">₹<?php echo number_format($item['price'], 0); ?></div>
@@ -725,7 +742,8 @@ $rareResults = getRareBooks(10, $filters);
                                 <span style="display:block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">by ${m.author}</span>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                                     <span class="premium-pill badge-${m.listing_type}" style="font-size: 0.65rem;">${m.listing_type}</span>
-                                    <span style="color: #f59e0b; font-size: 0.9rem; font-weight: 800;"><i class='bx bxs-star'></i> ${m.average_rating}</span>
+                                    <span style="color: #f59e0b; font-size: 0.9rem; font-weight: 800;" title="Book Rating"><i class='bx bxs-star'></i> ${m.book_rating}</span>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 4px;">(Owner: ${parseFloat(m.owner_rating).toFixed(1)}★)</span>
                                 </div>
                                 ${m.listing_type === 'sell' ? 
                                     `<div style="font-size: 1.1rem; font-weight: 900; color: var(--primary); margin-bottom: 15px;">\u20b9${new Intl.NumberFormat().format(m.price)}</div>` : 
@@ -778,7 +796,8 @@ $rareResults = getRareBooks(10, $filters);
                                 <div style="width: 32px; height: 32px; background: var(--bg-body); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
                                     <i class='bx bxs-star'></i>
                                 </div>
-                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${parseFloat(m.average_rating).toFixed(1)}</span>
+                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;" title="Book Rating">${parseFloat(m.book_rating).toFixed(1)}</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); margin-left: 2px;">(Owner: ${parseFloat(m.owner_rating).toFixed(1)}★)</span>
                             </div>
                             ${m.listing_type === 'sell' ? 
                                 `<div class="price-display">₹${new Intl.NumberFormat().format(m.price)}</div>` : 
@@ -816,7 +835,7 @@ $rareResults = getRareBooks(10, $filters);
                 ne_lng: bounds.getNorthEast().lng,
                 c_lat: center.lat,
                 c_lng: center.lng,
-                query: <?php echo json_encode($filters['query']); ?>,
+                query: document.getElementById('book-search-input').value,
                 role: <?php echo json_encode($filters['role']); ?>,
                 type: <?php echo json_encode($filters['type']); ?>,
                 category: <?php echo json_encode($filters['category']); ?>,
@@ -922,6 +941,20 @@ $rareResults = getRareBooks(10, $filters);
             } else {
                 manualSync.style.display = 'block';
             }
+        }
+
+        // Book search handler with debounce
+        let bookSearchTimeout;
+        function handleBookSearch(value) {
+            clearTimeout(bookSearchTimeout);
+            bookSearchTimeout = setTimeout(() => {
+                const isLive = document.getElementById('live-search-toggle').checked;
+                if (isLive) {
+                    fetchNewResults(true);
+                } else {
+                    document.getElementById('manual-sync-container').style.display = 'block';
+                }
+            }, 500);
         }
     </script>
 </body>

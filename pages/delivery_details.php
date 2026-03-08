@@ -595,8 +595,13 @@ function getStatusLabel($status, $agentId, $method) {
                         : 'Confirm that the borrower has collected the book?');
             } else if (action === 'confirm_receive') {
                 confirmTitle = 'Confirm Receipt';
-                confirmMsg = (d.status === 'returned' || d.status === 'returning')
-                    ? 'Confirm that you have received the book back?'
+                let isOwnerReturn = (d.status === 'returned' || d.status === 'returning');
+                confirmMsg = isOwnerReturn
+                    ? `Confirm that you have received the book back?<br><br>
+                       <label style="display: flex; align-items: center; gap: 0.5rem; background: #f0fdf4; padding: 1rem; border: 1px solid #86efac; border-radius: 8px; cursor: pointer; color: #16a34a; font-weight: 700; margin-top: 0.5rem; text-align: left;">
+                           <input type="checkbox" id="restock-checkbox" style="width: 1.25rem; height: 1.25rem;">
+                           Restock this book to active listings
+                       </label>`
                     : (d.delivery_method === 'delivery'
                         ? 'Confirm that you have received the book from the delivery agent?'
                         : 'Confirm that you have collected the book?');
@@ -608,12 +613,19 @@ function getStatusLabel($status, $agentId, $method) {
                 confirmMsg = 'Confirm you will drop off the book directly to the owner? No credits will be deducted.';
             }
 
-            const confirmed = await Popup.confirm(confirmTitle, confirmMsg, { confirmText: 'Yes, Proceed' });
+            const confirmed = await Popup.confirm(confirmTitle, confirmMsg, { confirmText: 'Yes, Proceed', allowHtml: (action === 'confirm_receive' && (d.status === 'returned' || d.status === 'returning')) });
             if (!confirmed) return;
 
             const formData = new FormData();
             formData.append('action', action);
             formData.append('transaction_id', d.id);
+            
+            if (action === 'confirm_receive' && (d.status === 'returned' || d.status === 'returning')) {
+                const restockCb = document.getElementById('restock-checkbox');
+                if (restockCb && restockCb.checked) {
+                    formData.append('restock', '1');
+                }
+            }
 
             try {
                 const response = await fetch('../actions/request_action.php', { method: 'POST', body: formData });

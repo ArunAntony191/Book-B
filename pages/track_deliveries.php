@@ -626,7 +626,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                     <?php endif; ?>
 
                     <?php if($isReturn && $needReceipt): ?>
-                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_receive', <?= $d['id'] ?>)">
+                         <button class="btn-action btn-primary" onclick="handleVerify('confirm_receive', <?= $d['id'] ?>, true)">
                             <i class='bx bx-check-circle'></i> Confirm Receive (Return)
                         </button>
                     <?php endif; ?>
@@ -647,7 +647,7 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
                 <?php if($showRateAgent): ?>
                     <button class="btn-action" style="background: #fbbf24; color: #78350f; border: none; margin-top: 0;" 
                             onclick="openFeedbackModal(<?= $d['id'] ?>, <?= $agentId ?>, '<?= addslashes($agentName) ?>')">
-                        <i class='bx bx-star'></i> Rate Agent
+                        <i class='bx bx-star'></i> Review Agent
                     </button>
                 <?php endif; ?>
             </div>
@@ -729,14 +729,33 @@ function getStatusLabel($status, $agentId, $deliveryMethod = 'delivery') {
             'cancel_order': '❌ Order cancelled.'
         };
 
-        async function handleVerify(action, txId) {
-            const c = actionConfirmMap[action] || { title: 'Confirm', msg: 'Are you sure?' };
-            const confirmed = await Popup.confirm(c.title, c.msg, { confirmText: 'Yes, Proceed' });
+        async function handleVerify(action, txId, isReturnReceipt = false) {
+            let c = { ... (actionConfirmMap[action] || { title: 'Confirm', msg: 'Are you sure?' }) };
+            let htmlOptions = {};
+            
+            if (action === 'confirm_receive' && isReturnReceipt) {
+                c.title = 'Confirm Receipt';
+                c.msg = `Confirm that you have received the book back?<br><br>
+                       <label style="display: flex; align-items: center; gap: 0.5rem; background: #f0fdf4; padding: 1rem; border: 1px solid #86efac; border-radius: 8px; cursor: pointer; color: #16a34a; font-weight: 700; margin-top: 0.5rem; text-align: left;">
+                           <input type="checkbox" id="restock-checkbox" style="width: 1.25rem; height: 1.25rem;">
+                           Restock this book to active listings
+                       </label>`;
+                htmlOptions.allowHtml = true;
+            }
+
+            const confirmed = await Popup.confirm(c.title, c.msg, { confirmText: 'Yes, Proceed', ...htmlOptions });
             if (!confirmed) return;
 
             const formData = new FormData();
             formData.append('action', action);
             formData.append('transaction_id', txId);
+            
+            if (action === 'confirm_receive' && isReturnReceipt) {
+                const restockCb = document.getElementById('restock-checkbox');
+                if (restockCb && restockCb.checked) {
+                    formData.append('restock', '1');
+                }
+            }
 
             try {
                 const r = await fetch('../actions/request_action.php', { method: 'POST', body: formData });

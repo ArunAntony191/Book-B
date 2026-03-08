@@ -32,7 +32,8 @@ const Popup = {
         });
     },
 
-    show({ title, message, type = 'info', showInput = false, placeholder = '', confirmText = 'OK', cancelText = 'Cancel', showCancel = false }) {
+    show(options) {
+        const { title, message, type = 'info', showInput = false, placeholder = '', confirmText = 'OK', cancelText = 'Cancel', showCancel = false, allowHtml = false } = options;
         this.init();
 
         const iconDiv = this.overlay.querySelector('.popup-icon');
@@ -44,7 +45,11 @@ const Popup = {
 
         // Set content
         titleH2.textContent = title;
-        messageP.textContent = message;
+        if (options.allowHtml) {
+            messageP.innerHTML = message;
+        } else {
+            messageP.textContent = message;
+        }
 
         // Set icon
         let iconClass = 'bx-info-circle';
@@ -115,7 +120,8 @@ const Popup = {
             type: 'question',
             showCancel: true,
             confirmText: options.confirmText || 'Confirm',
-            cancelText: options.cancelText || 'Cancel'
+            cancelText: options.cancelText || 'Cancel',
+            allowHtml: options.allowHtml || false
         });
     },
 

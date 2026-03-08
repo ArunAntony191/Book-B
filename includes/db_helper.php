@@ -672,8 +672,8 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         $pdo = getDBConnection();
         $params = [];
         
-        $select = "l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, 
-                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating";
+        $select = "l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating as owner_rating";
         
         // Dynamic Distance Calculation if center provided
         if (!empty($filters['center_lat']) && !empty($filters['center_lng'])) {
@@ -695,9 +695,9 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         ";
 
         if (!empty($filters['query'])) {
-            $sql .= " AND (b.title LIKE ? OR b.author LIKE ?)";
-            $params[] = "%" . $filters['query'] . "%";
-            $params[] = "%" . $filters['query'] . "%";
+            $sql .= " AND (b.title LIKE ? OR b.author LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+            $q = "%" . $filters['query'] . "%";
+            $params[] = $q; $params[] = $q; $params[] = $q; $params[] = $q;
         }
 
         if (!empty($filters['role'])) {
@@ -738,7 +738,7 @@ function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
         }
 
         if (isset($filters['min_rating']) && $filters['min_rating'] !== null && $filters['min_rating'] !== '') {
-            $sql .= " AND u.average_rating >= ?";
+            $sql .= " AND b.average_rating >= ?";
             $params[] = (float)$filters['min_rating'];
         }
 
@@ -823,8 +823,8 @@ function getRecommendedBooks($userId, $limit = 4) {
         $params[] = (int)$limit;
         
         $stmt = $pdo->prepare("
-            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, 
-                   u.firstname, u.lastname, u.trust_score, u.average_rating
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.trust_score, u.average_rating as owner_rating
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
@@ -1277,6 +1277,38 @@ function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment =
             WHERE id = ?
         ");
         $stmt->execute([$revieweeId, $revieweeId]);
+
+        // NEW: Update associated book's average rating
+        $stmt = $pdo->prepare("
+            SELECT l.book_id 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $bookId = $stmt->fetchColumn();
+
+        if ($bookId) {
+            $stmt = $pdo->prepare("
+                UPDATE books 
+                SET total_ratings = (
+                    SELECT COUNT(*) 
+                    FROM reviews r 
+                    JOIN transactions t ON r.transaction_id = t.id
+                    JOIN listings l ON t.listing_id = l.id
+                    WHERE l.book_id = ?
+                ),
+                average_rating = (
+                    SELECT AVG(r.rating) 
+                    FROM reviews r 
+                    JOIN transactions t ON r.transaction_id = t.id
+                    JOIN listings l ON t.listing_id = l.id
+                    WHERE l.book_id = ?
+                )
+                WHERE id = ?
+            ");
+            $stmt->execute([$bookId, $bookId, $bookId]);
+        }
         
         // Update trust score
         updateTrustScore($revieweeId, $trustImpact, 'rating_received');
@@ -2724,8 +2756,8 @@ function getRareBooks($limit = 10, $filters = []) {
         $params = [];
         
         $sql = "
-            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details,
-                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating as owner_rating
             FROM listings l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
@@ -2741,9 +2773,9 @@ function getRareBooks($limit = 10, $filters = []) {
         }
 
         if (!empty($filters['query'])) {
-            $sql .= " AND (b.title LIKE ? OR b.author LIKE ?)";
-            $params[] = "%" . $filters['query'] . "%";
-            $params[] = "%" . $filters['query'] . "%";
+            $sql .= " AND (b.title LIKE ? OR b.author LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+            $q = "%" . $filters['query'] . "%";
+            $params[] = $q; $params[] = $q; $params[] = $q; $params[] = $q;
         }
 
         $sql .= " ORDER BY l.created_at DESC LIMIT ?";

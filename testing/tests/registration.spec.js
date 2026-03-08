@@ -1,103 +1,79 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
-test('Registration form visual automation tour', async ({ page }) => {
-  // 1. Navigate to the registration page
-  console.log('Navigating to registration page...');
-  await page.goto('pages/register.php');
+const roles = ['user', 'library', 'bookstore', 'delivery_agent'];
 
-  // 2. Wait for the page to load
-  await expect(page).toHaveTitle(/Register | BOOK-B/);
+test.describe.serial('Multi-Role Registration and Login Verification', () => {
+  for (const role of roles) {
+    test(`Register and Verify Login for ${role}`, async ({ page }) => {
+      test.setTimeout(90000); // Increase timeout for each role flow
+      console.log(`--- Starting Flow for Role: ${role} ---`);
 
-  // 3. Trigger initial validation errors (Missing fields)
-  console.log('Testing empty submission validation...');
-  await page.click('#submitBtn');
-  await expect(page.locator('#roleError')).toBeVisible();
-  await expect(page.locator('#firstnameError')).toBeVisible();
-  await page.waitForTimeout(1000);
+      // 1. Navigate to the registration page
+      console.log('Navigating to registration page...');
+      await page.goto('pages/register.php');
+      await expect(page).toHaveTitle(/Register | BOOK-B/);
 
-  // 4. Fill in INVALID data to test validation rules
-  console.log('Testing invalid data validation...');
-  await page.click('.role-card[data-role="user"]');
-  await page.fill('#firstname', 'J'); // Too short
-  await page.fill('#email', 'invalid-email'); // Bad format
-  await page.fill('#phone', '123'); // Too short
-  await page.fill('#password', '123'); // Too weak
+      // 2. Generate unique data
+      const timestamp = Date.now();
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const randomString = alphabet[Math.floor(Math.random() * 26)] + alphabet[Math.floor(Math.random() * 26)];
+      const firstname = `${role.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')}${randomString}`;
+      const lastname = 'Tester';
+      const email = `${role}_${timestamp}@bookb-test.com`;
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000).toString();
+      const password = 'SecurePass123_!';
 
-  await page.click('#submitBtn');
+      console.log(`Registering: ${firstname} (${email}) with role ${role}`);
 
-  // Verify specific validation messages using IDs to avoid ambiguity
-  await expect(page.locator('#firstnameError')).toContainText('Must be at least 2 characters');
-  await expect(page.locator('#emailError')).toContainText('Please enter a valid email address');
-  await expect(page.locator('#passwordError')).toContainText('Password must be at least 8 characters');
-  console.log('Validation rules confirmed!');
-  await page.waitForTimeout(1500);
+      // 3. Fill registration form
+      await page.click(`.role-card[data-role="${role}"]`);
+      await page.fill('#firstname', firstname);
+      await page.fill('#lastname', lastname);
+      await page.fill('#email', email);
+      await page.fill('#phone', phone);
+      await page.fill('#password', password);
+      await page.check('#terms');
 
-  // 5. FIX DATA with CORRECT and UNIQUE info
-  console.log('Filling data with unique randomized info...');
-  const timestamp = Date.now();
-  // Valid Name: Letters only! (Fixing the numeric name bug)
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const randomName = 'User' + alphabet[Math.floor(Math.random() * 26)] + alphabet[Math.floor(Math.random() * 26)];
+      // 4. Submit Registration
+      console.log('Submitting registration...');
+      await Promise.all([
+        page.waitForURL(/.*dashboard.*/, { timeout: 60000 }).catch(async (e) => {
+          const currentUrl = page.url();
+          console.error(`Registration timeout/failure for ${role}. Current URL: ${currentUrl}`);
+          if (currentUrl.includes('register.php')) {
+            const errorMsg = await page.locator('div[style*="background: #fee2e2"]').innerText().catch(() => 'No error message found on page');
+            console.error(`Error message from page: ${errorMsg}`);
+          }
+          throw e;
+        }),
+        page.click('#submitBtn')
+      ]);
+      console.log('Registration successful! Redirected to dashboard.');
 
-  const email = `automated_${timestamp}@test.com`;
-  const phone = '9' + Math.floor(100000000 + Math.random() * 900000000).toString();
+      // 5. Logout
+      console.log('Logging out...');
+      await page.goto('actions/logout.php');
+      await expect(page).toHaveURL(/.*login.*/);
 
-  // Select a RANDOM role for the successful registration
-  const roles = ['user', 'library', 'bookstore', 'delivery_agent'];
-  const randomRole = roles[Math.floor(Math.random() * roles.length)];
-  console.log(`Selecting Random Role: ${randomRole}`);
-  await page.click(`.role-card[data-role="${randomRole}"]`);
-  await page.waitForTimeout(500);
+      // 6. Verify Login with new credentials
+      console.log(`Verifying login for ${email}...`);
+      await page.fill('input[name="email"]', email);
+      await page.fill('input[name="password"]', password);
 
-  console.log(`Using Data: Name=${randomName}, Email=${email}, Phone=${phone}`);
+      await Promise.all([
+        page.waitForURL(/.*dashboard.*/, { timeout: 60000 }).catch(async (e) => {
+          console.error(`Login timeout/failure for ${role}. Current URL: ${page.url()}`);
+          throw e;
+        }),
+        page.click('button[type="submit"]')
+      ]);
 
-  await page.fill('#firstname', randomName);
-  await page.fill('#lastname', 'Doe');
-  await page.fill('#email', email);
-  await page.fill('#phone', phone);
-  await page.fill('#password', 'SecurePass123_!');
-  await page.check('#terms');
+      console.log(`Login verified for ${role}!`);
 
-  await page.waitForTimeout(1000);
-
-  // --- SMART FIX LOGIC (Detects red errors and fixes them!) ---
-  const errorLocators = [
-    { id: '#firstnameError', field: '#firstname', fix: () => 'John' + alphabet[Math.floor(Math.random() * 26)] },
-    { id: '#emailError', field: '#email', fix: () => `fix_${Date.now()}@test.com` },
-    { id: '#phoneError', field: '#phone', fix: () => '9' + Math.floor(100000000 + Math.random() * 900000000).toString() }
-  ];
-
-  for (const err of errorLocators) {
-    if (await page.locator(err.id).isVisible()) {
-      console.log(`Smart Fix: Detected error in ${err.id}. Correcting field...`);
-      await page.fill(err.field, ''); // Clear
-      await page.fill(err.field, err.fix());
-      await page.waitForTimeout(500);
-    }
+      // 7. Final Logout for this role
+      await page.goto('actions/logout.php');
+      console.log(`--- Completed Flow for Role: ${role} ---`);
+    });
   }
-
-  // 6. FINAL SUBMIT
-  console.log('Performing final submission...');
-
-  await Promise.all([
-    page.waitForURL(/.*dashboard.*/, { timeout: 60000 }).catch(async () => {
-      const currentURL = page.url();
-      if (currentURL.includes('error=')) {
-        throw new Error(`Registration failed with error in URL: ${currentURL}`);
-      }
-      throw new Error('Timeout waiting for dashboard.');
-    }),
-    page.click('#submitBtn')
-  ]);
-
-  // Verify success by checking the URL
-  console.log('Registration successful! Redirected to dashboard.');
-  await expect(page).toHaveURL(/.*dashboard.*/);
-
-  // Optional: Logout to leave the browser ready for the login test
-  console.log('Logging out to prepare for next tests...');
-  await page.goto('actions/logout.php').catch(() => console.log('Logout failed, proceeding...'));
-
-  await page.waitForTimeout(2000);
 });

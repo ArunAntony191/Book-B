@@ -6,8 +6,8 @@ $listingId = $_GET['id'] ?? 0;
 
 $pdo = getDBConnection();
 $stmt = $pdo->prepare("
-    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, b.condition_status, b.is_rare, b.rare_details,
-           u.firstname, u.lastname, u.role, u.reputation_score, l.quantity
+    SELECT l.*, b.title, b.author, b.description, b.cover_image, b.category, b.condition_status, b.is_rare, b.rare_details, b.average_rating as book_rating,
+           u.firstname, u.lastname, u.role, u.reputation_score, u.average_rating as owner_rating, l.quantity
     FROM listings l
     JOIN books b ON l.book_id = b.id
     JOIN users u ON l.user_id = u.id
@@ -374,9 +374,20 @@ if ($userId) {
                 <!-- Center: Info -->
                 <div class="column-main">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                        <div>
-                            <h1 style="font-size: 2.2rem; font-weight: 800; line-height: 1.2; margin-bottom: 0.5rem; color: var(--text-main);"><?php echo htmlspecialchars($book['title']); ?></h1>
-                            <p style="font-size: 1.1rem; color: var(--text-muted);">by <span style="font-weight: 600; color: var(--primary);"><?php echo htmlspecialchars($book['author']); ?></span></p>
+                        <div style="flex: 1;">
+                            <h1 style="font-size: 2.8rem; font-weight: 900; line-height: 1.1; margin: 0 0 0.5rem 0; color: var(--text-main); letter-spacing: -1px; display: block; width: 100%;"><?php echo htmlspecialchars($book['title']); ?></h1>
+                            <div style="display: block; width: 100%; margin-bottom: 1.25rem;">
+                                <span style="font-size: 1.15rem; color: var(--text-muted);">by <span style="font-weight: 700; color: var(--primary);"><?php echo htmlspecialchars($book['author']); ?></span></span>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(245, 158, 11, 0.1); padding: 6px 14px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                    <i class='bx bxs-star' style="color: #f59e0b; font-size: 1.1rem;"></i>
+                                    <span style="font-weight: 800; color: #92400e; font-size: 1rem;"><?php echo number_format($book['book_rating'], 1); ?></span>
+                                    <span style="font-size: 0.7rem; color: #b45309; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 2px;">Book Rating</span>
+                                </div>
+                                <span class="premium-pill badge-<?php echo $book['listing_type']; ?>" style="font-size: 0.7rem; font-weight: 800; padding: 6px 14px; border-radius: 12px; background: rgba(var(--primary-rgb), 0.1); border: 1px solid rgba(var(--primary-rgb), 0.2); text-transform: uppercase;"><?php echo strtoupper($book['listing_type']); ?></span>
+                            </div>
                         </div>
                         <?php if ($book['user_id'] != $userId): ?>
                         <button class="wishlist-btn <?php echo $inWishlist ? 'active' : ''; ?>" onclick="toggleWishlist()">
@@ -445,7 +456,7 @@ if ($userId) {
                             </span>
                         </div>
 
-                            <?php if ($currentUser && ($currentUser['role'] === 'admin' || $book['user_id'] == $userId)): ?>
+                            <?php if ($currentUser && $book['user_id'] == $userId): ?>
                                 <div style="background: rgba(79, 70, 229, 0.1); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
                                     <i class='bx bx-user-check' style="font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
                                     <p style="font-weight: 700; color: var(--text-main); margin: 0;">This is your listing</p>
@@ -453,6 +464,13 @@ if ($userId) {
                                     <a href="deals.php" class="btn btn-primary w-full" style="margin-top: 1rem; justify-content: center;">
                                         <i class='bx bx-cog'></i> Manage Listings
                                     </a>
+                                </div>
+
+                            <?php elseif ($currentUser && $currentUser['role'] === 'admin'): ?>
+                                <div style="background: rgba(100, 116, 139, 0.1); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center;">
+                                    <i class='bx bx-shield' style="font-size: 2rem; color: var(--text-muted); margin-bottom: 0.5rem;"></i>
+                                    <p style="font-weight: 700; color: var(--text-main); margin: 0;">Admin View</p>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">You can only view this listing as an administrator.</p>
                                 </div>
 
                             <?php elseif ($book['quantity'] > 0): ?>
@@ -495,10 +513,15 @@ if ($userId) {
                                 <?php echo strtoupper(substr($book['firstname'], 0, 1)); ?>
                             </div>
                             <div>
-                                <div style="font-weight: 700; color: var(--text-main);"><?php echo $book['firstname'] . ' ' . $book['lastname']; ?></div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);"><?php echo ucfirst($book['role']); ?></div>
-                                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-top: 2px;">
-                                    <i class='bx bx-star'></i> View Ratings & Feedback
+                                <div style="font-weight: 700; color: var(--text-main); margin-bottom: 2px;"><?php echo $book['firstname'] . ' ' . $book['lastname']; ?></div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;"><?php echo ucfirst($book['role']); ?></span>
+                                    <div style="display: flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.1); padding: 2px 8px; border-radius: 8px; color: #f59e0b; font-weight: 700; font-size: 0.8rem;">
+                                        <i class='bx bxs-star'></i> <?php echo number_format($book['owner_rating'], 1); ?>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
+                                    <i class='bx bx-award'></i> Reputation Score: <?php echo $book['reputation_score']; ?>
                                 </div>
                             </div>
                         </a>
@@ -682,15 +705,15 @@ if ($userId) {
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const userId = <?php echo $userId; ?>;
-        const listingId = <?php echo $listingId; ?>;
-        const ownerId = <?php echo $book['user_id']; ?>;
-        const bookTitle = <?php echo json_encode($book['title']); ?>;
-        const bookPrice = <?php echo $book['price'] ?: 0; ?>;
+        const userId = <?php echo (int)($userId ?? 0); ?>;
+        const listingId = <?php echo (int)($listingId ?? 0); ?>;
+        const ownerId = <?php echo (int)($book['user_id'] ?? 0); ?>;
+        const bookTitle = <?php echo json_encode($book['title'] ?? 'Unknown'); ?>;
+        const bookPrice = <?php echo (float)($book['price'] ?? 0); ?>;
         const lenderLat = <?php echo $book['latitude'] ?: 'null'; ?>;
         const lenderLng = <?php echo $book['longitude'] ?: 'null'; ?>;
-        const userLatDefault = <?php echo $currentUser['service_start_lat'] ?? 9.4124; ?>;
-        const userLngDefault = <?php echo $currentUser['service_start_lng'] ?? 76.6946; ?>;
+        const userLatDefault = <?php echo !empty($currentUser['service_start_lat']) ? $currentUser['service_start_lat'] : '9.4124'; ?>;
+        const userLngDefault = <?php echo !empty($currentUser['service_start_lng']) ? $currentUser['service_start_lng'] : '76.6946'; ?>;
         let currentType = '';
         let dMap = null;
         let dMarker = null;

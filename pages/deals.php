@@ -36,8 +36,8 @@ try {
 // Re-fetch deals after cleanup to ensure UI is fresh
 $deals = getUserDeals($userId);
 $all_deals = $deals; // All deals
-$incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId);
-$outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId);
+$incoming = array_filter($deals, fn($d) => $d['lender_id'] == $userId && !in_array($d['status'], ['returned', 'cancelled']));
+$outgoing = array_filter($deals, fn($d) => $d['borrower_id'] == $userId && !in_array($d['status'], ['returned', 'cancelled']));
 $returns = array_filter($deals, fn($d) => in_array($d['status'], ['returning', 'returned']));
 
 // Fetch detailed pending penalties for the consolidation view
@@ -619,7 +619,7 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                                 <i class='bx bx-package'></i> Restock
                                             </button>
                                         <?php endif; ?>
-                                        <?php if ($deal['status'] === 'returned' && $deal['transaction_type'] === 'borrow' && $deal['lender_id'] == $userId): ?>
+                                        <?php if ($deal['status'] === 'returned' && $deal['transaction_type'] === 'borrow' && $deal['lender_id'] == $userId && $user['role'] === 'library'): ?>
                                             <?php if (empty($deal['damage_fine_status'])): ?>
                                                 <button onclick="openPostReturnFineModal(<?php echo $deal['id']; ?>, '<?php echo addslashes($deal['title']); ?>')" class="btn btn-sm" style="background: #fee2e2; color: #dc2626; border: none; font-size: 0.75rem; padding: 0.5rem 0.75rem;">
                                                     <i class='bx bx-error-alt'></i> Apply Fine
@@ -634,9 +634,11 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                                 </span>
                                             <?php endif; ?>
                                         <?php endif; ?>
-                                        <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="btn btn-outline btn-sm">
-                                            <i class='bx bx-star'></i> Rate Partner
-                                        </button>
+                                        <?php if (empty($deal['is_reviewed'])): ?>
+                                            <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['borrower_id']; ?>, '<?php echo addslashes($deal['borrower_name']); ?>')" class="btn btn-outline btn-sm">
+                                                <i class='bx bx-star'></i> Leave Review
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -733,7 +735,7 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                     <?php endif; ?>
                                     <?php if (($deal['status'] === 'delivered' || $deal['status'] === 'returned') && empty($deal['is_reviewed'])): ?>
                                         <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $deal['lender_id']; ?>, '<?php echo addslashes($deal['lender_name']); ?>')" class="btn btn-outline btn-sm">
-                                            <i class='bx bx-star'></i> Rate
+                                            <i class='bx bx-star'></i> Leave Review
                                         </button>
                                     <?php endif; ?>
                                 </div>
@@ -838,6 +840,26 @@ $userUnpaidFines = (float)$stmt->fetchColumn();
                                     <button onclick="window.location.href='track_deliveries.php'" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
                                         <i class='bx bx-radar'></i> Track Return
                                     </button>
+                                    
+                                    <?php if ($deal['status'] === 'returned'): ?>
+                                        <div class="btn-group" style="width: 100%; margin-top: 0.5rem;">
+                                            <?php if ($deal['lender_id'] == $userId && empty($deal['is_restocked'])): ?>
+                                                <button onclick="showRestockModal(<?php echo $deal['id']; ?>)" class="btn btn-primary btn-sm" style="flex: 1;">
+                                                    <i class='bx bx-package'></i> Restock
+                                                </button>
+                                            <?php endif; ?>
+                                            
+                                            <?php if (empty($deal['is_reviewed'])): ?>
+                                                <?php 
+                                                    $revieweeId = ($deal['lender_id'] == $userId) ? $deal['borrower_id'] : $deal['lender_id'];
+                                                    $revieweeName = ($deal['lender_id'] == $userId) ? $deal['borrower_name'] : $deal['lender_name'];
+                                                ?>
+                                                <button onclick="openFeedbackModal(<?php echo $deal['id']; ?>, <?php echo $revieweeId; ?>, '<?php echo addslashes($revieweeName); ?>')" class="btn btn-outline btn-sm" style="flex: 1;">
+                                                    <i class='bx bx-star'></i> Leave Review
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
