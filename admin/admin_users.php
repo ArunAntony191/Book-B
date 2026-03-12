@@ -16,11 +16,11 @@ $search = $_GET['search'] ?? '';
 try {
     $pdo = getDBConnection();
     
-    $query = "SELECT id, firstname, lastname, email, role, credits, trust_score, total_lends, total_borrows, late_returns, is_banned, created_at FROM users WHERE 1=1";
+    $query = "SELECT id, firstname, lastname, email, role, credits, trust_score, total_lends, total_borrows, late_returns, is_banned, created_at FROM users WHERE role != 'admin'";
     $params = [];
     
     if ($filter === 'low_trust') {
-        $query .= " AND trust_score < 30 AND role != 'admin'";
+        $query .= " AND trust_score < 30";
     } elseif ($filter === 'libraries') {
         $query .= " AND role = 'library'";
     } elseif ($filter === 'bookstores') {

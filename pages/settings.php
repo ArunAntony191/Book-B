@@ -296,7 +296,7 @@ include '../includes/dashboard_header.php'; ?>
                         <i class='bx bx-palette'></i>
                         <h2>Appearance</h2>
                     </div>
-                    <form id="preferences-form">
+                    <div id="preferences-section">
                         <div class="setting-row">
                             <div class="setting-info">
                                 <h3>Dark Mode</h3>
@@ -362,7 +362,7 @@ include '../includes/dashboard_header.php'; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
 
                 <!-- Security -->

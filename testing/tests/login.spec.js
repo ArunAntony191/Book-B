@@ -1,37 +1,72 @@
-// @ts-check
 const { test, expect } = require('@playwright/test');
 
-const testUsers = [
-    { role: 'Admin', email: 'admin@bookb.com', password: 'admin123' },
-    { role: 'User', email: 'user@test.com', password: 'admin123' },
-    { role: 'Library', email: 'library@test.com', password: 'admin123' },
-    { role: 'Bookstore', email: 'store@test.com', password: 'admin123' }
-];
+/**
+ * Login Tests for BOOK-B
+ * Console output redirected to browser console to appear in Playwright UI.
+ */
 
-test.describe.serial('Login Verification for Different Roles', () => {
-    for (const user of testUsers) {
-        test(`Verify login for ${user.role}`, async ({ page }) => {
-            console.log(`--- Testing login for ${user.role} (${user.email}) ---`);
+test.describe('Multi-Role Login Flow', () => {
 
-            await page.goto('pages/login.php');
-            await page.fill('input[name="email"]', user.email);
-            await page.fill('input[name="password"]', user.password);
+    // Helper to log both to terminal and browser console
+    async function log(page, message) {
+        console.log(message); // Still log to terminal
+        await page.evaluate((msg) => console.log(msg), message); // Log to browser for Playwright UI
+    }
 
-            await Promise.all([
-                page.waitForURL(/.*dashboard.*/),
-                page.click('button[type="submit"]')
-            ]);
+    test.beforeEach(async ({ page }, testInfo) => {
+        const testName = testInfo.title;
+        await log(page, `${testName} (BOOK-B.LoginTest.${testName}) ...`);
+        await log(page, `Running ${testName}...`);
 
-            console.log(`Successfully reached dashboard for ${user.role}`);
-            await expect(page).not.toHaveURL(/.*error.*/);
+        // Navigate to the login page
+        await page.goto('pages/login.php');
+        const url = page.url();
+        const title = await page.title();
+        await log(page, `Loaded: ${url} | Title: ${title}`);
+    });
 
-            // Small pause for visual confirmation
-            await page.waitForTimeout(2000);
+    const credentials = [
+        { role: 'Admin', email: 'admin@bookb.com', password: 'admin123', dashboard: /dashboard_admin\.php|admin\/dashboard/ },
+        { role: 'User', email: 'user@test.com', password: 'admin123', dashboard: /dashboard_user\.php/ },
+        { role: 'Library', email: 'library@test.com', password: 'admin123', dashboard: /dashboard_library\.php/ },
+        { role: 'Bookstore', email: 'store@test.com', password: 'admin123', dashboard: /dashboard_bookstore\.php/ }
+    ];
 
-            // Logout to prepare for next user
-            console.log(`Logging out ${user.role}...`);
-            await page.goto('actions/logout.php');
-            await expect(page).toHaveURL(/.*login.*/);
+    for (const cred of credentials) {
+        test(`test_login_as_${cred.role.toLowerCase()}`, async ({ page }) => {
+            await page.fill('input[name="email"]', cred.email);
+            await page.fill('input[name="password"]', cred.password);
+            await page.click('button[type="submit"]');
+
+            await page.waitForURL(cred.dashboard, { timeout: 30000 });
+
+            await log(page, `Login successful for ${cred.role}.`);
+            await log(page, 'ok');
         });
     }
+
+    test('test_invalid_credentials', async ({ page }) => {
+        await page.fill('input[name="email"]', 'incorrect@test.com');
+        await page.fill('input[name="password"]', 'wrongpass');
+        await page.click('button[type="submit"]');
+
+        await page.waitForURL(/error=invalid_credentials/);
+
+        const errorMsg = page.locator('div[style*="background: #fee2e2"]');
+        await expect(errorMsg).toBeVisible();
+
+        await log(page, 'Invalid credentials correctly handled.');
+        await log(page, 'ok');
+    });
+
+    test('test_mandatory_fields', async ({ page }) => {
+        await page.click('button[type="submit"]');
+        const emailInput = page.locator('input[name="email"]');
+        const isEmailRequired = await emailInput.evaluate(node => node.required);
+
+        expect(isEmailRequired).toBeTruthy();
+        await log(page, 'Mandatory fields validation passed.');
+        await log(page, 'ok');
+    });
+
 });

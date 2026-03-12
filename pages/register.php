@@ -500,8 +500,8 @@
                 showError(errorId, "Must be at least 2 characters.");
                 return false;
             }
-            if (!/^[A-Za-z\s'\-]+$/.test(val)) {
-                showError(errorId, "Only letters, spaces, hyphens, and apostrophes allowed.");
+            if (!/^[A-Za-z\s]+$/.test(val)) {
+                showError(errorId, "Only letters and spaces allowed.");
                 return false;
             }
             hideError(errorId);

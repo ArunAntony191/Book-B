@@ -43,7 +43,7 @@ if (!empty($phoneRaw)) {
 // 4. Validate Names
 $firstname = validateName($firstnameRaw);
 if (!$firstname) {
-    header("Location: ../pages/register.php?error=invalid_name&msg=" . urlencode("First name contains invalid characters. Only letters, spaces, hyphens, and apostrophes are allowed."));
+    header("Location: ../pages/register.php?error=invalid_name&msg=" . urlencode("First name contains invalid characters. Only letters and spaces are allowed."));
     exit();
 }
 $lastname = validateName($lastnameRaw);

@@ -107,7 +107,7 @@ function validateDate($date) {
  */
 function validateName($name) {
     $name = trim($name);
-    if (preg_match("/^[A-Za-z\s'\-]{2,50}$/", $name)) {
+    if (preg_match("/^[A-Za-z\s]{2,50}$/", $name)) {
         return $name;
     }
     return false;
