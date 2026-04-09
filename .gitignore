@@ -1,0 +1,10 @@
+vendor/
+composer.lock
+.phpintel/
+*.log
+.DS_Store
+Thumbs.db
+config/database.php
+config/mail.php
+config/google.php
+assets/uploads/

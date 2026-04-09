@@ -1,0 +1,2993 @@
+<?php
+// Database helper functions for user authentication
+require_once __DIR__ . '/../config/database.php';
+
+// Sync timezone for consistent expiration times
+date_default_timezone_set('Asia/Kolkata');
+
+// Token System Constants
+define('MIN_TOKEN_LIMIT', 30);
+define('MAX_TOKEN_LIMIT', 500);
+
+/**
+ * Check if user meets the minimum token requirement
+ */
+function hasMinimumTokens($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $credits = (int)$stmt->fetchColumn();
+        return $credits >= MIN_TOKEN_LIMIT;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Create a new user
+ */
+function createUser($email, $password, $firstname, $lastname, $role, $phone = null) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Check if email already exists
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            return 'email_exists';
+        }
+        
+        // Hash password
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        
+        // Insert new user with initial credits and trust
+        $stmt = $pdo->prepare("
+            INSERT INTO users (email, password, firstname, lastname, phone, role, credits, trust_score) 
+            VALUES (?, ?, ?, ?, ?, ?, 100, 100)
+        ");
+        
+        if ($stmt->execute([$email, $hashedPassword, $firstname, $lastname, $phone, $role])) {
+            return $pdo->lastInsertId();
+        }
+        return false;
+        
+    } catch (PDOException $e) {
+        error_log("Create user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Authenticate user
+ */
+function authenticateUser($email, $password) {
+    try {
+        $pdo = getDBConnection();
+        
+        $stmt = $pdo->prepare("
+            SELECT id, email, password, firstname, lastname, role, reputation_score, 
+                   is_accepting_deliveries, is_banned, theme_mode, email_notifications
+            FROM users 
+            WHERE email = ?
+        ");
+        
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        
+        if ($user && password_verify($password, $user['password'])) {
+            if ($user['is_banned']) {
+                return 'banned';
+            }
+            // Remove password from returned array
+            unset($user['password']);
+            return $user;
+        }
+        
+        return false;
+        
+    } catch (PDOException $e) {
+        error_log("Authentication error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get user by ID
+ */
+function getUserById($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        $stmt = $pdo->prepare("
+            SELECT id, email, firstname, lastname, phone, role, reputation_score, trust_score, credits,
+                   total_lends, total_borrows, average_rating, total_ratings, created_at,
+                   address, landmark, district, city, pincode, state, 
+                   theme_mode, email_notifications, notify_new_listings,
+                   service_start_lat, service_start_lng, service_end_lat, service_end_lng, is_accepting_deliveries,
+                   profile_picture, favorite_category, available_earnings, pending_earnings, unpaid_fines
+            FROM users 
+            WHERE id = ?
+        ");
+        
+        $stmt->execute([$userId]);
+        return $stmt->fetch();
+        
+    } catch (PDOException $e) {
+        error_log("Get user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update user profile
+ */
+function updateUser($userId, $data) {
+    try {
+        $pdo = getDBConnection();
+        
+        $fields = [];
+        $values = [];
+        
+        foreach ($data as $key => $value) {
+            if (in_array($key, [
+                'firstname', 'lastname', 'email', 'phone', 'address', 'landmark', 'district', 'city', 'pincode', 'state',
+                'service_start_lat', 'service_start_lng', 
+                'service_end_lat', 'service_end_lng', 
+                'is_accepting_deliveries', 'role', 'favorite_category'
+            ])) {
+                $fields[] = "$key = ?";
+                $values[] = $value;
+            }
+        }
+        
+        if (empty($fields)) {
+            return false;
+        }
+        
+        $values[] = $userId;
+        
+        $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        
+        return $stmt->execute($values);
+        
+    } catch (PDOException $e) {
+        error_log("Update user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get all books
+ */
+function getAllBooks($limit = 10, $offset = 0) {
+    try {
+        $pdo = getDBConnection();
+        
+        $stmt = $pdo->prepare("
+            SELECT * FROM books 
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        ");
+        
+        $stmt->execute([$limit, $offset]);
+        return $stmt->fetchAll();
+        
+    } catch (PDOException $e) {
+        error_log("Get books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Authenticate user by email only (for OAuth)
+ */
+function authenticateUserByEmail($email) {
+    try {
+        $pdo = getDBConnection();
+        
+        $stmt = $pdo->prepare("
+            SELECT id, email, firstname, lastname, role, reputation_score, 
+                   is_banned, theme_mode, email_notifications
+            FROM users 
+            WHERE email = ?
+        ");
+        
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        if ($user && $user['is_banned']) {
+            return 'banned';
+        }
+        return $user;
+        
+    } catch (PDOException $e) {
+        error_log("Authentication error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update the remember token for a user
+ */
+function updateRememberToken($userId, $token) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE users SET remember_token = ? WHERE id = ?");
+        return $stmt->execute([$token, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update remember token error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get user by remember token
+ */
+function getUserByRememberToken($token) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role, theme_mode, email_notifications FROM users WHERE remember_token = ? AND is_banned = 0");
+        $stmt->execute([$token]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log("Get user by remember token error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get user statistics
+ */
+function getUserStats($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get total listings
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM listings WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $listings = $stmt->fetch()['total'];
+        
+        // Get active borrows (as borrower)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM transactions 
+            WHERE borrower_id = ? AND status = 'active'
+        ");
+        $stmt->execute([$userId]);
+        $active_borrows = $stmt->fetch()['total'];
+        
+        return [
+            'total_listings' => $listings,
+            'active_borrows' => $active_borrows
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Get user stats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all users except the current one
+ */
+function getAllUsers($excludeId = 0) {
+    try {
+        $pdo = getDBConnection();
+        $sql = "SELECT u.id, u.email, u.firstname, u.lastname, u.role,
+                (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.is_read = 0) as unread_count,
+                (SELECT MAX(created_at) FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id)) as last_activity
+                FROM users u WHERE u.id != ? AND u.role != 'admin'
+                ORDER BY last_activity DESC, firstname ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$excludeId, $excludeId, $excludeId, $excludeId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get all users error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get users that have had a conversation with the current user
+ */
+function getRecentChats($userId) {
+    try {
+        $pdo = getDBConnection();
+        $sql = "SELECT DISTINCT u.id, u.email, u.firstname, u.lastname, u.role,
+                (SELECT message FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id) ORDER BY created_at DESC LIMIT 1) as last_message,
+                (SELECT created_at FROM messages WHERE (sender_id = u.id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.id) ORDER BY created_at DESC LIMIT 1) as last_time,
+                (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.is_read = 0) as unread_count
+                FROM users u
+                INNER JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = u.id)
+                WHERE u.id != ?
+                ORDER BY last_time DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId, $userId, $userId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get recent chats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Search users by name or email
+ */
+function searchUsers($query, $excludeId = 0) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT id, email, firstname, lastname, role FROM users 
+                              WHERE id != ? AND role != 'admin' AND (firstname LIKE ? OR lastname LIKE ? OR email LIKE ?)
+                              LIMIT 10");
+        $q = "%$query%";
+        $stmt->execute([$excludeId, $q, $q, $q]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Search users error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get total unread messages for a user
+ */
+function getTotalUnreadCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get unread notification count for a user
+ */
+function getUnreadNotificationsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+/**
+ * Get all transactions for a user (as borrower or lender)
+ */
+function getUserDeals($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.*, b.title, b.author, b.cover_image, 
+                   u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
+                   l.listing_type, l.price as listing_price,
+                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed,
+                   (SELECT status FROM penalties WHERE transaction_id = t.id AND penalty_type = 'damage_fine' LIMIT 1) as damage_fine_status,
+                   (SELECT monetary_penalty FROM penalties WHERE transaction_id = t.id AND penalty_type = 'damage_fine' LIMIT 1) as damage_fine_amount
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            JOIN users u_lender ON t.lender_id = u_lender.id
+            WHERE t.borrower_id = ? OR t.lender_id = ?
+            ORDER BY t.created_at DESC
+        ");
+        $stmt->execute([$userId, $userId, $userId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get deals error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all deliveries for a user (as borrower or lender)
+ */
+function getUserDeliveries($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.*, b.title, b.author, b.cover_image, 
+                   u_borrower.firstname as borrower_name, u_lender.firstname as lender_name,
+                   l.listing_type, l.location as pickup_location, l.landmark as pickup_landmark,
+                   l.latitude as pickup_lat, l.longitude as pickup_lng,
+                   l.price, l.credit_cost,
+                   u_agent.firstname as agent_name, u_agent.phone as agent_phone, u_agent.average_rating as agent_rating,
+                   u_ret_agent.firstname as ret_agent_name, u_ret_agent.phone as ret_agent_phone, u_ret_agent.average_rating as ret_agent_rating,
+                   (SELECT COUNT(*) FROM reviews r WHERE r.transaction_id = t.id AND r.reviewer_id = ?) as is_reviewed
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            JOIN users u_lender ON t.lender_id = u_lender.id
+            LEFT JOIN users u_agent ON t.delivery_agent_id = u_agent.id
+            LEFT JOIN users u_ret_agent ON t.return_agent_id = u_ret_agent.id
+            WHERE (t.borrower_id = ? OR t.lender_id = ?)
+            ORDER BY t.created_at DESC
+        ");
+        $stmt->execute([$userId, $userId, $userId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get deliveries error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Update transaction status
+ */
+function updateTransactionStatus($transactionId, $status) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
+        return $stmt->execute([$status, $transactionId]);
+    } catch (PDOException $e) {
+        error_log("Update transaction status error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check and notify user if any books are due soon
+ */
+function checkAndNotifyDueSoon($userId) {
+    try {
+        $pdo = getDBConnection();
+        // Find books due in the next 2 days that are 'delivered' (active borrows)
+        // and haven't been notified today.
+        $stmt = $pdo->prepare("
+            SELECT t.id, t.due_date, b.title 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            WHERE t.borrower_id = ? 
+            AND t.status = 'delivered'
+            AND t.due_date IS NOT NULL
+            AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+        ");
+        $stmt->execute([$userId]);
+        $dueSoon = $stmt->fetchAll();
+
+        foreach ($dueSoon as $tx) {
+            $msg = "Reminder: Your borrow for '{$tx['title']}' is due on " . date('M d, Y', strtotime($tx['due_date'])) . ". Please return it on time or request an extension.";
+            
+            // Avoid duplicate notifications for the same transaction on the same day
+            $checkStmt = $pdo->prepare("
+                SELECT id FROM notifications 
+                WHERE user_id = ? AND reference_id = ? AND type = 'due_warning' 
+                AND DATE(created_at) = CURDATE()
+            ");
+            $checkStmt->execute([$userId, $tx['id']]);
+            
+            if (!$checkStmt->fetch()) {
+                createNotification($userId, 'due_warning', $msg, $tx['id']);
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Check due soon error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Get books due within X days
+ */
+function getDueBooks($userId, $days = 3) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.id, t.due_date, b.title, b.cover_image, l.id as listing_id
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            WHERE t.borrower_id = ? 
+            AND t.status = 'delivered'
+            AND t.due_date IS NOT NULL AND t.due_date != '0000-00-00'
+            AND t.due_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+            ORDER BY t.due_date ASC
+        ");
+        $stmt->execute([$userId, $days]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get due books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Request an extension for a borrow
+ */
+function requestExtension($transactionId, $newDate, $reason = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE transactions SET pending_due_date = ?, pending_extension_reason = ? WHERE id = ?");
+        return $stmt->execute([$newDate, $reason, $transactionId]);
+    } catch (PDOException $e) {
+        error_log("Request extension error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Approve a pending extension
+ */
+function approveExtension($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare("SELECT pending_due_date FROM transactions WHERE id = ?");
+        $stmt->execute([$transactionId]);
+        $newDate = $stmt->fetchColumn();
+
+        if ($newDate) {
+            $stmt = $pdo->prepare("UPDATE transactions SET due_date = ?, pending_due_date = NULL, is_extended = 1 WHERE id = ?");
+            $stmt->execute([$newDate, $transactionId]);
+            $pdo->commit();
+            return true;
+        }
+
+        $pdo->rollBack();
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Approve extension error: " . $e->getMessage());
+        return false;
+    }
+}
+/**
+ * Add a new book listing
+ */
+function addListing($userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null, $isRare = 0, $rareDetails = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Create/Get book
+        $stmt = $pdo->prepare("INSERT INTO books (title, author, cover_image, description, category, condition_status, is_rare, rare_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$bookTitle, $author, $cover, $description, $category, $condition, $isRare, $rareDetails]);
+        $bookId = $pdo->lastInsertId();
+
+        // 2. Create listing with quantity and credit_cost
+        $stmt = $pdo->prepare("
+            INSERT INTO listings (user_id, book_id, listing_type, price, location, landmark, district, city, pincode, latitude, longitude, visibility, community_id, quantity, credit_cost) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $bookId, $type, $price, $location, $landmark, $district, $city, $pincode, $lat, $lng, $visibility, $communityId, $quantity, $creditCost]);
+        
+        $listingId = $pdo->lastInsertId();
+        
+        $pdo->commit();
+        
+        // Notify users who have opted in for new listing alerts
+        if ($listingId && $visibility === 'public') {
+            notifyNewListing($listingId, $userId, $bookTitle);
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Add listing error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update an existing book listing
+ */
+function updateListing($listingId, $userId, $bookTitle, $author, $type, $price, $location, $lat, $lng, $cover = null, $description = '', $category = '', $condition = 'good', $visibility = 'public', $communityId = null, $quantity = 1, $creditCost = 10, $district = null, $city = null, $pincode = null, $landmark = null, $isRare = 0, $rareDetails = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get book_id from listing
+        $stmt = $pdo->prepare("SELECT book_id FROM listings WHERE id = ? AND user_id = ?");
+        $stmt->execute([$listingId, $userId]);
+        $listing = $stmt->fetch();
+        if (!$listing) throw new Exception("Listing not found or unauthorized");
+        $bookId = $listing['book_id'];
+
+        // 2. Update book
+        $stmt = $pdo->prepare("
+            UPDATE books 
+            SET title = :title, 
+                author = :author, 
+                cover_image = :cover, 
+                description = :desc, 
+                category = :cat, 
+                condition_status = :cond, 
+                is_rare = :rare, 
+                rare_details = :rare_det 
+            WHERE id = :book_id
+        ");
+        $stmt->execute([
+            ':title' => $bookTitle,
+            ':author' => $author,
+            ':cover' => $cover,
+            ':desc' => $description,
+            ':cat' => $category,
+            ':cond' => $condition,
+            ':rare' => $isRare,
+            ':rare_det' => $rareDetails,
+            ':book_id' => $bookId
+        ]);
+
+        // 3. Update listing
+        $stmt = $pdo->prepare("
+            UPDATE listings 
+            SET listing_type = :type, 
+                price = :price, 
+                location = :loc, 
+                landmark = :landmark, 
+                district = :district, 
+                city = :city, 
+                pincode = :pincode, 
+                latitude = :lat, 
+                longitude = :lng, 
+                visibility = :vis, 
+                community_id = :comm, 
+                quantity = :qty, 
+                credit_cost = :cost,
+                availability_status = CASE WHEN :qty_status > 0 THEN 'available' ELSE 'unavailable' END
+            WHERE id = :id AND user_id = :uid
+        ");
+        
+        $stmt->execute([
+            ':type' => $type,
+            ':price' => $price,
+            ':loc' => $location,
+            ':landmark' => $landmark,
+            ':district' => $district,
+            ':city' => $city,
+            ':pincode' => $pincode,
+            ':lat' => $lat,
+            ':lng' => $lng,
+            ':vis' => $visibility,
+            ':comm' => $communityId,
+            ':qty' => $quantity,
+            ':qty_status' => $quantity,
+            ':cost' => $creditCost,
+            ':id' => $listingId,
+            ':uid' => $userId
+        ]);
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Update listing error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Advanced search for listings
+ */
+function searchListingsAdvanced($filters, $limit = 20, $offset = 0) {
+    try {
+        $pdo = getDBConnection();
+        $params = [];
+        
+        $select = "l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.role, u.reputation_score, u.trust_score, u.average_rating as owner_rating";
+        
+        // Dynamic Distance Calculation if center provided
+        if (!empty($filters['center_lat']) && !empty($filters['center_lng'])) {
+            $select .= ", (6371 * acos(cos(radians(" . (float)$filters['center_lat'] . ")) 
+                        * cos(radians(l.latitude)) 
+                        * cos(radians(l.longitude) - radians(" . (float)$filters['center_lng'] . ")) 
+                        + sin(radians(" . (float)$filters['center_lat'] . ")) 
+                        * sin(radians(l.latitude)))) AS distance";
+        } else {
+            $select .= ", NULL as distance";
+        }
+
+        $sql = "
+            SELECT $select
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.availability_status IN ('available', 'unavailable') AND l.visibility = 'public'
+        ";
+
+        if (!empty($filters['query'])) {
+            $sql .= " AND (b.title LIKE ? OR b.author LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+            $q = "%" . $filters['query'] . "%";
+            $params[] = $q; $params[] = $q; $params[] = $q; $params[] = $q;
+        }
+
+        if (!empty($filters['role'])) {
+            $sql .= " AND u.role = ?";
+            $params[] = $filters['role'];
+        }
+
+        if (!empty($filters['exclude_user_id'])) {
+            $sql .= " AND l.user_id != ?";
+            $params[] = $filters['exclude_user_id'];
+        }
+
+        if (!empty($filters['category'])) {
+            if (is_array($filters['category'])) {
+                $placeholders = array_fill(0, count($filters['category']), "b.category LIKE ?");
+                $sql .= " AND (" . implode(" OR ", $placeholders) . ")";
+                foreach ($filters['category'] as $cat) {
+                    $params[] = "%" . trim($cat) . "%";
+                }
+            } else {
+                $sql .= " AND b.category LIKE ?";
+                $params[] = "%" . $filters['category'] . "%";
+            }
+        }
+
+        if (!empty($filters['type'])) {
+            $sql .= " AND l.listing_type = ?";
+            $params[] = $filters['type'];
+        }
+
+        if (isset($filters['min_price']) && $filters['min_price'] !== null && $filters['min_price'] !== '') {
+            $sql .= " AND l.price >= ?";
+            $params[] = $filters['min_price'];
+        }
+        if (isset($filters['max_price']) && $filters['max_price'] !== null && $filters['max_price'] !== '') {
+            $sql .= " AND l.price <= ?";
+            $params[] = $filters['max_price'];
+        }
+
+        if (isset($filters['min_rating']) && $filters['min_rating'] !== null && $filters['min_rating'] !== '') {
+            $sql .= " AND b.average_rating >= ?";
+            $params[] = (float)$filters['min_rating'];
+        }
+
+        // ONLY show available quantities by default if not specified
+        if (!isset($filters['show_all']) || !$filters['show_all']) {
+            $sql .= " AND l.quantity > 0";
+        }
+
+        if (!empty($filters['has_location'])) {
+            $sql .= " AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL";
+        }
+
+        // Bounding Box Filter
+        if (!empty($filters['bounds'])) {
+            $sql .= " AND l.latitude BETWEEN ? AND ? AND l.longitude BETWEEN ? AND ?";
+            $params[] = (float)$filters['bounds']['sw_lat'];
+            $params[] = (float)$filters['bounds']['ne_lat'];
+            $params[] = (float)$filters['bounds']['sw_lng'];
+            $params[] = (float)$filters['bounds']['ne_lng'];
+        }
+
+        // Sorting
+        if (!empty($filters['center_lat']) && !empty($filters['center_lng'])) {
+            $sql .= " ORDER BY distance ASC";
+        } else {
+            $sql .= " ORDER BY l.created_at DESC";
+        }
+
+        $sql .= " LIMIT ? OFFSET ?";
+        
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue($i++, (int)$offset, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        return $stmt->fetchAll();
+
+    } catch (PDOException $e) {
+        error_log("Advanced search error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get recommended books based on user's favorite category
+ */
+function getRecommendedBooks($userId, $limit = 4) {
+    try {
+        $pdo = getDBConnection();
+        
+        // 1. Get user's favorite category
+        $stmt = $pdo->prepare("SELECT favorite_category FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $favoriteCategory = $stmt->fetchColumn();
+        
+        if (!$favoriteCategory) {
+            return [];
+        }
+        
+        // 2. Fetch books matching any of the user's favorite categories, excluding user's own listings
+        $interests = explode(', ', $favoriteCategory);
+        $clauseParts = [];
+        $params = [];
+        
+        foreach ($interests as $interest) {
+            if (!empty($interest)) {
+                $clauseParts[] = "b.category LIKE ?";
+                $params[] = "%$interest%";
+            }
+        }
+        
+        if (empty($clauseParts)) {
+            return [];
+        }
+        
+        $categoryClause = "(" . implode(' OR ', $clauseParts) . ")";
+        $params[] = $userId;
+        $params[] = (int)$limit;
+        
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.trust_score, u.average_rating as owner_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.availability_status = 'available' 
+            AND l.visibility = 'public'
+            AND l.quantity > 0
+            AND $categoryClause
+            AND l.user_id != ?
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        ");
+        
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+        
+    } catch (PDOException $e) {
+        error_log("Get recommended books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==================== CREDIT MANAGEMENT FUNCTIONS ====================
+
+/**
+ * Get user's current credit balance
+ */
+function getUserCredits($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
+        return $result ? (int)$result['credits'] : 0;
+    } catch (PDOException $e) {
+        error_log("Get credits error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Add credits to user account
+ */
+function addCredits($userId, $amount, $type, $description, $transactionId = null) {
+    try {
+        $pdo = getDBConnection();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
+        
+        // Get current balance
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $currentBalance = (int)$stmt->fetchColumn();
+        
+        // Cap new balance at MAX_TOKEN_LIMIT
+        $newBalance = min($currentBalance + $amount, MAX_TOKEN_LIMIT);
+        $actualAdded = $newBalance - $currentBalance;
+        
+        // Update user credits
+        $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
+        $stmt->execute([$newBalance, $userId]);
+        
+        // Log transaction
+        $stmt = $pdo->prepare("
+            INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $transactionId, $actualAdded, $newBalance, $type, $description]);
+        
+        if (!$inExistingTransaction) $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Add credits error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Deduct credits from user account
+ */
+function deductCredits($userId, $amount, $type, $description, $transactionId = null) {
+    try {
+        $pdo = getDBConnection();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
+        
+        // Get current balance
+        $stmt = $pdo->prepare("SELECT credits FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $currentBalance = (int)$stmt->fetchColumn();
+        
+        // Floor new balance at 0 (tokens cannot be negative)
+        $newBalance = max(0, $currentBalance - $amount);
+        $actualDeducted = $currentBalance - $newBalance;
+        
+        // Update user credits
+        $stmt = $pdo->prepare("UPDATE users SET credits = ? WHERE id = ?");
+        $stmt->execute([$newBalance, $userId]);
+        
+        // Log transaction
+        $stmt = $pdo->prepare("
+            INSERT INTO credit_transactions (user_id, transaction_id, amount, balance_after, type, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $transactionId, -$actualDeducted, $newBalance, $type, $description]);
+
+        // Trigger Notification if hitting minimum limit
+        if ($newBalance < MIN_TOKEN_LIMIT && $currentBalance >= MIN_TOKEN_LIMIT) {
+            $msg = "Warning: Your credit balance has dropped below " . MIN_TOKEN_LIMIT . ". You must increase your credits to continue listing or borrowing books.";
+            createNotification($userId, 'system', $msg);
+        }
+        
+        if (!$inExistingTransaction) $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Deduct credits error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if user has sufficient credits
+ */
+function checkSufficientCredits($userId, $amount) {
+    $balance = getUserCredits($userId);
+    return $balance >= $amount;
+}
+
+/**
+ * Get credit transaction history
+ */
+function getCreditHistory($userId, $limit = 20) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT * FROM credit_transactions
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get credit history error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==================== TRUST SCORE FUNCTIONS ====================
+
+/**
+ * Update user trust score
+ */
+function updateTrustScore($userId, $change, $reason) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE users 
+            SET trust_score = GREATEST(0, LEAST(100, trust_score + ?))
+            WHERE id = ?
+        ");
+        return $stmt->execute([$change, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update trust score error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get trust score rating label
+ */
+function getTrustScoreRating($score) {
+    if ($score >= 90) return ['label' => 'Elite', 'color' => '#16a34a'];
+    if ($score >= 70) return ['label' => 'Trusted', 'color' => '#2563eb'];
+    if ($score >= 50) return ['label' => 'Standard', 'color' => '#ca8a04'];
+    if ($score >= 30) return ['label' => 'Probation', 'color' => '#ea580c'];
+    return ['label' => 'Risk', 'color' => '#dc2626'];
+}
+
+/**
+ * Calculate penalty for late return
+ */
+function calculatePenalty($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get transaction details
+        $stmt = $pdo->prepare("
+            SELECT borrower_id, due_date, return_date, is_extended 
+            FROM transactions 
+            WHERE id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $transaction = $stmt->fetch();
+        
+        if (!$transaction || !$transaction['due_date']) {
+            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0, 'monetary_penalty' => 0];
+        }
+        
+        $dueDate = new DateTime($transaction['due_date']);
+        $returnDate = $transaction['return_date'] ? new DateTime($transaction['return_date']) : new DateTime();
+        
+        if ($returnDate <= $dueDate) {
+            return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+        }
+        
+        $daysOverdue = $dueDate->diff($returnDate)->days;
+        $creditPenalty = $daysOverdue * 5; // 5 credits per day
+        $trustPenalty = min($daysOverdue * 2, 20); // 2 points per day, max 20
+        
+        // Real Money Fine: ₹10 per day if no extension was taken
+        $monetaryPenalty = 0;
+        if (empty($transaction['is_extended'])) {
+            $monetaryPenalty = $daysOverdue * 10;
+        }
+        
+        return [
+            'days' => $daysOverdue,
+            'credit_penalty' => $creditPenalty,
+            'trust_penalty' => $trustPenalty,
+            'monetary_penalty' => $monetaryPenalty
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Calculate penalty error: " . $e->getMessage());
+        return ['days' => 0, 'credit_penalty' => 0, 'trust_penalty' => 0];
+    }
+}
+
+/**
+ * Record a penalty in the platform audit log
+ */
+function recordPenalty($userId, $type, $amount, $trustPenalty, $reason, $transactionId = null, $monetaryPenalty = 0, $status = 'applied') {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO penalties (user_id, penalty_type, amount, trust_penalty, monetary_penalty, reason, transaction_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        return $stmt->execute([
+            $userId,
+            $type,
+            $amount,
+            $trustPenalty,
+            $monetaryPenalty,
+            $reason,
+            $transactionId,
+            $status
+        ]);
+    } catch (Exception $e) {
+        error_log("Record penalty error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Apply penalty for late return
+ */
+function applyPenalty($transactionId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $penalty = calculatePenalty($transactionId);
+        
+        if ($penalty['days'] > 0) {
+            $pdo->beginTransaction();
+            
+            $reason = "Late return penalty: {$penalty['days']} days overdue";
+            if ($penalty['monetary_penalty'] > 0) {
+                $reason .= " (Includes ₹{$penalty['monetary_penalty']} fine for no extension)";
+            }
+            
+            // Record penalty using the new centralized helper
+            recordPenalty($userId, 'late_return', $penalty['credit_penalty'], $penalty['trust_penalty'], $reason, $transactionId, $penalty['monetary_penalty']);
+            
+            // Deduct credits
+            deductCredits($userId, $penalty['credit_penalty'], 'penalty', $reason, $transactionId);
+            
+            // Update trust score
+            updateTrustScore($userId, -$penalty['trust_penalty'], 'late_return');
+
+            // Apply monetary fine to user account
+            if ($penalty['monetary_penalty'] > 0) {
+                $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = unpaid_fines + ? WHERE id = ?");
+                $stmt->execute([$penalty['monetary_penalty'], $userId]);
+            }
+            
+            // Update late returns count
+            $stmt = $pdo->prepare("UPDATE users SET late_returns = late_returns + 1 WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            $pdo->commit();
+            return true;
+        }
+        
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Apply penalty error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Apply a fine for book damage
+ */
+function applyDamageFine($transactionId, $userId, $amount, $reason, $isPaid = false) {
+    try {
+        $pdo = getDBConnection();
+
+        // Prevent duplicate damage fines for same transaction
+        $checkStmt = $pdo->prepare("SELECT id FROM penalties WHERE transaction_id = ? AND penalty_type = 'damage_fine'");
+        $checkStmt->execute([$transactionId]);
+        if ($checkStmt->fetch()) {
+            error_log("Attempted to apply duplicate damage fine for transaction #$transactionId");
+            return false;
+        }
+
+        $pdo->beginTransaction();
+        
+        $status = $isPaid ? 'applied' : 'pending';
+        $finalReason = $isPaid ? $reason . " (Paid Offline in Cash)" : $reason;
+
+        // Record penalty
+        recordPenalty($userId, 'damage_fine', 0, 0, $finalReason, $transactionId, $amount, $status);
+        
+        // Apply monetary fine to user account ONLY if NOT paid instantly
+        if (!$isPaid) {
+            $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = unpaid_fines + ? WHERE id = ?");
+            $stmt->execute([$amount, $userId]);
+        }
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Apply damage fine error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Re-calculate and sync user's unpaid_fines from the penalties table.
+ * Useful for fixing issues caused by duplicate entries or race conditions.
+ */
+function syncUserUnpaidFines($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE users u
+            SET u.unpaid_fines = COALESCE((
+                SELECT SUM(monetary_penalty) 
+                FROM penalties 
+                WHERE user_id = ? AND status = 'pending'
+            ), 0)
+            WHERE u.id = ?
+        ");
+        return $stmt->execute([$userId, $userId]);
+    } catch (Exception $e) {
+        error_log("Sync user fines error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get all pending penalties for a user with book information if available
+ */
+function getUserPendingPenalties($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT p.*, b.title as book_title
+            FROM penalties p
+            LEFT JOIN transactions t ON p.transaction_id = t.id
+            LEFT JOIN listings l ON t.listing_id = l.id
+            LEFT JOIN books b ON l.book_id = b.id
+            WHERE p.user_id = ? AND p.status = 'pending'
+            ORDER BY p.created_at DESC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log("Get user pending penalties error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Clear a user's outstanding fines (offline payment)
+ */
+function clearFinesOffline($userId, $clearedBy) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // Fetch current fines
+        $stmt = $pdo->prepare("SELECT unpaid_fines FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $amount = (float)$stmt->fetchColumn();
+        
+        if ($amount > 0) {
+            // Reset fines
+            $stmt = $pdo->prepare("UPDATE users SET unpaid_fines = 0 WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            // Mark penalties as applied
+            $stmt = $pdo->prepare("UPDATE penalties SET status = 'applied', reason = CONCAT(reason, ' (Paid Offline to user #', ?, ')') WHERE user_id = ? AND status = 'pending'");
+            $stmt->execute([$clearedBy, $userId]);
+            
+            $pdo->commit();
+            return true;
+        }
+        return false;
+    } catch (Exception $e) {
+        if (isset($pdo)) $pdo->rollBack();
+        error_log("Clear fines offline error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ==================== RATING SYSTEM FUNCTIONS ====================
+
+/**
+ * Add a review/rating for a user
+ */
+function addReview($transactionId, $reviewerId, $revieweeId, $rating, $comment = '') {
+    try {
+        $pdo = getDBConnection();
+        $inExistingTransaction = $pdo->inTransaction();
+        if (!$inExistingTransaction) $pdo->beginTransaction();
+        
+        // Calculate trust impact based on rating (1-5 stars)
+        // 5 stars: +10 trust, 4 stars: +5, 3 stars: 0, 2 stars: -5, 1 star: -10
+        $trustImpact = ($rating - 3) * 5;
+        
+        // Insert review
+        $stmt = $pdo->prepare("
+            INSERT INTO reviews (transaction_id, reviewer_id, reviewee_id, rating, comment, trust_impact)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$transactionId, $reviewerId, $revieweeId, $rating, $comment, $trustImpact]);
+        
+        // Update reviewee's average rating and total ratings
+        $stmt = $pdo->prepare("
+            UPDATE users 
+            SET total_ratings = total_ratings + 1,
+                average_rating = (
+                    SELECT AVG(rating) FROM reviews WHERE reviewee_id = ?
+                )
+            WHERE id = ?
+        ");
+        $stmt->execute([$revieweeId, $revieweeId]);
+
+        // NEW: Update associated book's average rating
+        $stmt = $pdo->prepare("
+            SELECT l.book_id 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $bookId = $stmt->fetchColumn();
+
+        if ($bookId) {
+            $stmt = $pdo->prepare("
+                UPDATE books 
+                SET total_ratings = (
+                    SELECT COUNT(*) 
+                    FROM reviews r 
+                    JOIN transactions t ON r.transaction_id = t.id
+                    JOIN listings l ON t.listing_id = l.id
+                    WHERE l.book_id = ?
+                ),
+                average_rating = (
+                    SELECT AVG(r.rating) 
+                    FROM reviews r 
+                    JOIN transactions t ON r.transaction_id = t.id
+                    JOIN listings l ON t.listing_id = l.id
+                    WHERE l.book_id = ?
+                )
+                WHERE id = ?
+            ");
+            $stmt->execute([$bookId, $bookId, $bookId]);
+        }
+        
+        // Update trust score
+        updateTrustScore($revieweeId, $trustImpact, 'rating_received');
+        
+        // Behavioral Credit System: Rewards & Penalties
+        if ($rating == 5) {
+            addCredits($revieweeId, 5, 'rating_bonus', 'Earned 5-star rating bonus', $transactionId);
+        } elseif ($rating == 4) {
+            addCredits($revieweeId, 2, 'rating_bonus', 'Earned 4-star rating bonus', $transactionId);
+        } elseif ($rating == 2) {
+            deductCredits($revieweeId, 5, 'bad_review_penalty', 'Penalty for 2-star rating', $transactionId);
+        } elseif ($rating == 1) {
+            deductCredits($revieweeId, 10, 'bad_review_penalty', 'Penalty for 1-star rating', $transactionId);
+        }
+        
+        if (!$inExistingTransaction) $pdo->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        if (!$inExistingTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Add review error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if user has already reviewed a transaction
+ */
+function hasUserReviewed($transactionId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM reviews 
+            WHERE transaction_id = ? AND reviewer_id = ?
+        ");
+        $stmt->execute([$transactionId, $userId]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Get reviews for a user
+ */
+function getUserReviews($userId, $limit = 10) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, u.firstname, u.lastname, t.id as trans_id
+            FROM reviews r
+            JOIN users u ON r.reviewer_id = u.id
+            JOIN transactions t ON r.transaction_id = t.id
+            WHERE r.reviewee_id = ?
+            ORDER BY r.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get user reviews error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==================== ADMIN SAFETY FUNCTIONS ====================
+
+/**
+ * Ban a user
+ */
+function banUser($userId, $reason = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Set is_banned flag and save reason
+        $stmt = $pdo->prepare("UPDATE users SET is_banned = 1, ban_reason = ? WHERE id = ?");
+        $stmt->execute([$reason, $userId]);
+
+        // 2. Clear any active sessions (handled by login check usually, but good to flag)
+        
+        // 3. Send notification
+        $notifMsg = 'Your account has been suspended due to policy violations.';
+        if ($reason) {
+            $notifMsg .= " Reason: " . $reason;
+        }
+        $notifMsg .= ' Contact admin for appeal.';
+        
+        createNotification($userId, 'system', $notifMsg);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Ban user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Unban a user
+ */
+function unbanUser($userId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare("UPDATE users SET is_banned = 0 WHERE id = ?");
+        $stmt->execute([$userId]);
+
+        createNotification($userId, 'system', 'Your account suspension has been lifted. Welcome back.');
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Unban user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create a report (user or community)
+ */
+function createReport($reporterId, $targetId, $reason, $description, $type = 'user') {
+    try {
+        $pdo = getDBConnection();
+        $sql = "INSERT INTO reports (reporter_id, " . ($type === 'community' ? 'reported_community_id' : 'reported_id') . ", reason, type, description, status) 
+                VALUES (?, ?, ?, ?, ?, 'pending')";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([$reporterId, $targetId, $reason, $type, $description]);
+    } catch (PDOException $e) {
+        error_log("Create report error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get reports
+ */
+function getReports($status = 'pending') {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, 
+                   u_reporter.firstname as reporter_fname, u_reporter.lastname as reporter_lname,
+                   u_reported.firstname as reported_fname, u_reported.lastname as reported_lname, u_reported.id as reported_uid,
+                   c.name as community_name
+            FROM reports r
+            JOIN users u_reporter ON r.reporter_id = u_reporter.id
+            LEFT JOIN users u_reported ON r.reported_id = u_reported.id
+            LEFT JOIN communities c ON r.reported_community_id = c.id
+            WHERE r.status = ?
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute([$status]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get reports error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Resolve report
+ */
+function resolveReport($reportId, $status) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE reports SET status = ? WHERE id = ?");
+        return $stmt->execute([$status, $reportId]);
+    } catch (PDOException $e) {
+        error_log("Resolve report error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ==================== QUANTITY MANAGEMENT FUNCTIONS ====================
+
+/**
+ * Check available quantity for a listing
+ */
+function checkAvailableQuantity($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT quantity FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+        $result = $stmt->fetch();
+        return $result ? (int)$result['quantity'] : 0;
+    } catch (PDOException $e) {
+        error_log("Check quantity error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Update listing quantity
+ */
+function updateListingQuantity($listingId, $change) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE listings 
+            SET quantity = GREATEST(0, quantity + ?),
+                availability_status = CASE 
+                    WHEN (quantity + ?) <= 0 THEN 'unavailable'
+                    ELSE 'available'
+                END
+            WHERE id = ?
+        ");
+        return $stmt->execute([$change, $change, $listingId]);
+    } catch (PDOException $e) {
+        error_log("Update quantity error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get listing with full details including quantity
+ */
+function getListingWithQuantity($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.description, b.category, b.is_rare, b.rare_details,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.id = ?
+        ");
+        $stmt->execute([$listingId]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log("Get listing error: " . $e->getMessage());
+        return null;
+    }
+}
+
+// ==================== ENHANCED USER STATS ====================
+
+/**
+ * Get enhanced user statistics with credits and trust
+ */
+function getUserStatsEnhanced($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get user data
+        $stmt = $pdo->prepare("
+            SELECT credits, available_earnings, trust_score, average_rating, total_ratings, 
+                   total_lends, total_borrows, late_returns, unpaid_fines
+            FROM users 
+            WHERE id = ?
+        ");
+        $stmt->execute([$userId]);
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($stats) {
+            $stats['trust_rating'] = getTrustScoreRating($stats['trust_score']);
+        }
+        
+        // Get total listings
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM listings WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $listings = $stmt->fetch()['total'];
+        
+        // Get active borrows
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM transactions 
+            WHERE borrower_id = ? AND status IN ('active', 'approved')
+        ");
+        $stmt->execute([$userId]);
+        $activeBorrows = $stmt->fetch()['total'];
+        
+        // Get pending requests (as lender)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM transactions 
+            WHERE lender_id = ? AND status = 'requested'
+        ");
+        $stmt->execute([$userId]);
+        $pendingRequests = $stmt->fetch()['total'];
+        
+        return array_merge($stats ?: [], [
+            'total_listings' => $listings,
+            'active_borrows' => $activeBorrows,
+            'pending_requests' => $pendingRequests,
+            'available_earnings' => $stats['available_earnings'] ?? 0,
+            'unpaid_fines' => $stats['unpaid_fines'] ?? 0.00,
+            'trust_rating' => getTrustScoreRating($stats['trust_score'] ?? 50)
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log("Get enhanced stats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get library/bookstore specific stats
+ */
+function getStoreStats($userId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Total inventory (sum of all quantities)
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(quantity), 0) as total_inventory,
+                   COUNT(*) as unique_titles
+            FROM listings 
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        $inventory = $stmt->fetch();
+        
+        // Currently lent books
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as lent 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE l.user_id = ? AND t.status IN ('active', 'approved')
+        ");
+        $stmt->execute([$userId]);
+        $lent = $stmt->fetch()['lent'];
+        
+        // Low stock items (quantity < 3)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as low_stock
+            FROM listings 
+            WHERE user_id = ? AND quantity < 3 AND quantity > 0
+        ");
+        $stmt->execute([$userId]);
+        $lowStock = $stmt->fetch()['low_stock'];
+        
+        // Out of stock items
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as out_stock
+            FROM listings 
+            WHERE user_id = ? AND quantity = 0
+        ");
+        $stmt->execute([$userId]);
+        $outStock = $stmt->fetch()['out_stock'];
+        
+        return [
+            'total_inventory' => $inventory['total_inventory'],
+            'unique_titles' => $inventory['unique_titles'],
+            'currently_lent' => $lent,
+            'low_stock_items' => $lowStock,
+            'out_of_stock_items' => $outStock
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Get store stats error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Mark notification as read
+ */
+function markNotificationAsRead($notificationId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ?");
+        return $stmt->execute([$notificationId]);
+    } catch (Exception $e) {
+        error_log("Mark notification read error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Mark all notifications as read for a user
+ */
+function markAllNotificationsAsRead($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0");
+        return $stmt->execute([$userId]);
+    } catch (Exception $e) {
+        error_log("Mark all notifications read error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get unread request notifications count
+ */
+function getUnreadRequestsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type IN ('borrow_request', 'sell_request', 'request_accepted', 'request_declined')
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get unread delivery notifications count
+ */
+function getUnreadDeliveryUpdatesCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type IN ('delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed')
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Mark all unread notifications related to a transaction as read
+ */
+function markTxNotificationsRead($userId, $transactionId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND reference_id = ? AND is_read = 0");
+        return $stmt->execute([$userId, $transactionId]);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Get count of available delivery jobs for agents
+ */
+function getAvailableDeliveryJobsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE (delivery_method = 'delivery' AND status = 'approved' AND delivery_agent_id IS NULL)
+               OR (return_delivery_method = 'delivery' AND status = 'returning' AND return_agent_id IS NULL)
+        ");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get count of active (in-progress) jobs for a specific agent
+ */
+function getActiveAgentJobsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE (delivery_agent_id = ? AND agent_confirm_delivery_at IS NULL AND status IN ('approved', 'assigned', 'active'))
+               OR (return_agent_id = ? AND return_agent_confirm_at IS NULL AND status = 'returning')
+        ");
+        $stmt->execute([$userId, $userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get unread "System" notifications count (excluding deals and deliveries)
+ */
+function getUnreadSystemNotificationsCount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND is_read = 0 
+            AND type NOT IN (
+                'borrow_request', 'sell_request', 'request_accepted', 'request_declined',
+                'delivery_assigned', 'delivery_cancelled', 'delivery_pending_confirmation', 'delivery_update', 'receive_confirmed', 'borrower_confirmed'
+            )
+        ");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Mark specific types of notifications as read
+ */
+function markNotificationsAsReadByType($userId, $types) {
+    if (empty($types)) return false;
+    try {
+        $pdo = getDBConnection();
+        $placeholders = str_repeat('?,', count($types) - 1) . '?';
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type IN ($placeholders)");
+        $params = array_merge([$userId], $types);
+        return $stmt->execute($params);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function markSpecificNotificationAsRead($userId, $referenceId, $types) {
+    try {
+        $pdo = getDBConnection();
+        $placeholders = str_repeat('?,', count($types) - 1) . '?';
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND reference_id = ? AND type IN ($placeholders)");
+        $params = array_merge([$userId, $referenceId], $types);
+        return $stmt->execute($params);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// ==================== DELIVERY & SMART ASSIGN FUNCTIONS ====================
+
+/**
+ * Calculate distance between two points in KM
+ */
+function getDistanceKM($lat1, $lng1, $lat2, $lng2) {
+    if (!$lat1 || !$lng1 || !$lat2 || !$lng2) return 9999;
+    $earth_radius = 6371;
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLng = deg2rad($lng2 - $lng1);
+    $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng/2) * sin($dLng/2);
+    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+    return $earth_radius * $c;
+}
+
+/**
+ * Check if any delivery agent is available for a route
+ */
+function checkDeliveryAvailability($pickupLat, $pickupLng, $dropoffLat, $dropoffLng) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng 
+            FROM users 
+            WHERE role = 'delivery_agent' AND is_accepting_deliveries = 1 AND is_banned = 0
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+
+        $maxRadius = 50; // Maximum service radius in km (increased from 20km)
+
+        foreach ($agents as $agent) {
+            // Skip agents with no service coordinates at all
+            if (!$agent['service_start_lat'] || !$agent['service_start_lng']) {
+                continue;
+            }
+
+            // Case 1: Agent has both start and end points (route-based service)
+            if ($agent['service_end_lat'] && $agent['service_end_lng']) {
+                // Check if both pickup and dropoff are within range of either endpoint
+                $distP1 = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distP2 = getDistanceKM($pickupLat, $pickupLng, $agent['service_end_lat'], $agent['service_end_lng']);
+                
+                $distD1 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distD2 = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_end_lat'], $agent['service_end_lng']);
+
+                $canPickup = ($distP1 < $maxRadius || $distP2 < $maxRadius);
+                $canDropoff = ($distD1 < $maxRadius || $distD2 < $maxRadius);
+
+                if ($canPickup && $canDropoff) return true;
+            }
+            // Case 2: Agent has only start point (area-based service)
+            else {
+                // Check if both pickup and dropoff are within radius of the service area center
+                $distPickup = getDistanceKM($pickupLat, $pickupLng, $agent['service_start_lat'], $agent['service_start_lng']);
+                $distDropoff = getDistanceKM($dropoffLat, $dropoffLng, $agent['service_start_lat'], $agent['service_start_lng']);
+
+                // Both locations must be within the service radius
+                if ($distPickup < $maxRadius && $distDropoff < $maxRadius) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Smart Assign an agent to a transaction
+ */
+function assignDeliveryAgent($transactionId) {
+    try {
+        $pdo = getDBConnection();
+        
+        // 1. Get transaction info
+        $stmt = $pdo->prepare("
+            SELECT t.*, l.latitude as pickup_lat, l.longitude as pickup_lng 
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $t = $stmt->fetch();
+
+        if (!$t || $t['delivery_method'] !== 'delivery') return false;
+
+        // 2. Find best agent
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng, firstname
+            FROM users 
+            WHERE role = 'delivery_agent' AND is_accepting_deliveries = 1 AND is_banned = 0
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+
+        $bestAgentId = null;
+        $minDist = 9999;
+
+        foreach ($agents as $agent) {
+            $distP = min(
+                getDistanceKM($t['pickup_lat'], $t['pickup_lng'], $agent['service_start_lat'], $agent['service_start_lng']),
+                getDistanceKM($t['pickup_lat'], $t['pickup_lng'], $agent['service_end_lat'], $agent['service_end_lng'])
+            );
+            $distD = min(
+                getDistanceKM($t['order_lat'], $t['order_lng'], $agent['service_start_lat'], $agent['service_start_lng']),
+                getDistanceKM($t['order_lat'], $t['order_lng'], $agent['service_end_lat'], $agent['service_end_lng'])
+            );
+
+            if ($distP < 15 && $distD < 15) { // Threshold for candidate
+                $totalDist = $distP + $distD;
+                if ($totalDist < $minDist) {
+                    $minDist = $totalDist;
+                    $bestAgentId = $agent['id'];
+                }
+            }
+        }
+
+        if ($bestAgentId) {
+            $pdo->prepare("UPDATE transactions SET delivery_agent_id = ?, status = 'assigned' WHERE id = ?")
+                ->execute([$bestAgentId, $transactionId]);
+            
+            // Notify agent
+            createNotification($bestAgentId, 'delivery_assigned', "New delivery task assigned! Travel to pickup location.", $transactionId);
+            
+            return true;
+        }
+
+        return false;
+    } catch (PDOException $e) {
+        error_log("Assign agent error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if delivery is available for a given pickup location
+ * Returns true if any active delivery agent can cover this area
+ */
+/**
+ * Check if delivery is available for a given pickup location
+ * Returns true if any active delivery agent can cover this area
+ */
+function checkDeliveryServiceAvailability($pickupLat, $pickupLng, $district = null) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get all active delivery agents
+        $stmt = $pdo->prepare("
+            SELECT id, service_start_lat, service_start_lng, service_end_lat, service_end_lng, district
+            FROM users 
+            WHERE role = 'delivery_agent' 
+            AND is_accepting_deliveries = 1
+        ");
+        $stmt->execute();
+        $agents = $stmt->fetchAll();
+        
+        foreach ($agents as $agent) {
+            // Check if agent's district matches (if both have district set)
+            if ($district && $agent['district'] && $agent['district'] === $district) {
+                return true;
+            }
+            
+            // Check distance from pickup to agent's service start point
+            if ($agent['service_start_lat'] && $agent['service_start_lng']) {
+                $distStart = getDistanceKM(
+                    $pickupLat, 
+                    $pickupLng, 
+                    $agent['service_start_lat'], 
+                    $agent['service_start_lng']
+                );
+                
+                if ($distStart < 25) {
+                    return true;
+                }
+            }
+            
+            // Check distance from pickup to agent's service end point
+            if ($agent['service_end_lat'] && $agent['service_end_lng']) {
+                $distEnd = getDistanceKM(
+                    $pickupLat, 
+                    $pickupLng, 
+                    $agent['service_end_lat'], 
+                    $agent['service_end_lng']
+                );
+                
+                if ($distEnd < 25) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    } catch (PDOException $e) {
+        error_log("Check delivery availability error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get aggregated statistics for a delivery agent over a date range
+ */
+function getAgentReportStats($agentId, $startDate, $endDate) {
+    try {
+        $pdo = getDBConnection();
+        $startStr = $startDate . " 00:00:00";
+        $endStr = $endDate . " 23:59:59";
+        
+        $stats = [
+            'total_completed' => 0,
+            'lifetime_completed' => 0,
+            'total_earnings' => 0,
+            'cash_earnings' => 0.00,
+            'lifetime_cash' => 0.00,
+            'total_abandoned' => 0,
+            'avg_rating' => 0.0,
+            'success_rate' => 100
+        ];
+        
+        // Total Completed Missions (Sum of Forward + Return counts)
+        $stmt = $pdo->prepare("
+            SELECT 
+                (SELECT COUNT(*) FROM transactions 
+                 WHERE delivery_agent_id = ? AND agent_confirm_delivery_at BETWEEN ? AND ?)
+                +
+                (SELECT COUNT(*) FROM transactions 
+                 WHERE return_agent_id = ? AND return_agent_confirm_at BETWEEN ? AND ?)
+                as total_completed
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr, $agentId, $startStr, $endStr]);
+        $stats["total_completed"] = (int)$stmt->fetchColumn();
+
+        // Lifetime Completed Missions
+        $stmt = $pdo->prepare("
+            SELECT 
+                (SELECT COUNT(*) FROM transactions WHERE delivery_agent_id = ? AND agent_confirm_delivery_at IS NOT NULL)
+                +
+                (SELECT COUNT(*) FROM transactions WHERE return_agent_id = ? AND return_agent_confirm_at IS NOT NULL)
+                as lifetime_completed
+        ");
+        $stmt->execute([$agentId, $agentId]);
+        $stats["lifetime_completed"] = (int)$stmt->fetchColumn();
+        
+        // Earnings (Credits earned)
+        $stmt = $pdo->prepare("
+            SELECT SUM(amount) FROM credit_transactions 
+            WHERE user_id = ? AND type = 'earn' AND (description LIKE '%Mission Completed%' OR description LIKE '%Deliver%' OR description LIKE '%Return%')
+            AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["total_earnings"] = (int)($stmt->fetchColumn() ?: 0);
+        
+        // Abandoned Jobs
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM credit_transactions 
+            WHERE user_id = ? AND type = 'penalty' AND (description LIKE '%Abandoned%' OR description LIKE '%penalty%')
+            AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["total_abandoned"] = (int)$stmt->fetchColumn();
+        
+        // Average Rating
+        $stmt = $pdo->prepare("
+            SELECT AVG(rating) FROM reviews 
+            WHERE reviewee_id = ? AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$agentId, $startStr, $endStr]);
+        $stats["avg_rating"] = (float)($stmt->fetchColumn() ?: 0);
+        
+        // Success Rate
+        $total_attempts = $stats["total_completed"] + $stats["total_abandoned"];
+        $stats["success_rate"] = $total_attempts > 0 ? ($stats["total_completed"] / $total_attempts) * 100 : 100;
+
+        // Monetary Earnings (Total Completed * 50)
+        $stats["cash_earnings"] = $stats["total_completed"] * 50.00;
+        $stats["lifetime_cash"] = $stats["lifetime_completed"] * 50.00;
+        
+        // Unified Activity Log (UNION ALL to support separate Forward/Return entries)
+        $sql = "
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Forward' as mission_type,
+                    t.agent_confirm_delivery_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.delivery_agent_id = ? AND t.agent_confirm_delivery_at BETWEEN ? AND ?)
+            
+            UNION ALL
+            
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Return' as mission_type,
+                    t.return_agent_confirm_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.return_agent_id = ? AND t.return_agent_confirm_at BETWEEN ? AND ?)
+             
+            ORDER BY mission_timestamp DESC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $agentId, $startStr, $endStr,
+            $agentId, $startStr, $endStr
+        ]);
+        $stats["activity"] = $stmt->fetchAll();
+
+        // 6. Lifetime Activity Log (No date filter)
+        $sqlLife = "
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Forward' as mission_type,
+                    t.agent_confirm_delivery_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.delivery_agent_id = ? AND t.agent_confirm_delivery_at IS NOT NULL)
+            
+            UNION ALL
+            
+            (SELECT t.id, t.created_at, b.title, b.cover_image, 
+                    u_lender.firstname as lender_name, u_borrower.firstname as borrower_name,
+                    'Return' as mission_type,
+                    t.return_agent_confirm_at as mission_timestamp
+             FROM transactions t
+             JOIN listings l ON t.listing_id = l.id
+             JOIN books b ON l.book_id = b.id
+             JOIN users u_lender ON t.lender_id = u_lender.id
+             JOIN users u_borrower ON t.borrower_id = u_borrower.id
+             WHERE t.return_agent_id = ? AND t.return_agent_confirm_at IS NOT NULL)
+             
+            ORDER BY mission_timestamp DESC
+        ";
+        
+        $stmtLife = $pdo->prepare($sqlLife);
+        $stmtLife->execute([$agentId, $agentId]);
+        $stats["lifetime_activity"] = $stmtLife->fetchAll();
+        
+        return $stats;
+    } catch (PDOException $e) {
+        error_log("Get agent report stats error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Add monetary earnings to user balance
+ */
+function addEarnings($userId, $amount, $description = "") {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("UPDATE users SET available_earnings = available_earnings + ? WHERE id = ?");
+        return $stmt->execute([$amount, $userId]);
+    } catch (PDOException $e) {
+        error_log("Add earnings error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update user password
+ */
+function updateUserPassword($userId, $newPassword) {
+    try {
+        $pdo = getDBConnection();
+        $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+        return $stmt->execute([$hashed, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update password error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update user settings (notifications, theme, etc.)
+ */
+function updateUserSettings($userId, $settings) {
+    try {
+        $pdo = getDBConnection();
+        $fields = [];
+        $params = [];
+        
+        if (isset($settings['email_notifications'])) {
+            $fields[] = "email_notifications = ?";
+            $params[] = $settings['email_notifications'];
+        }
+        
+        if (isset($settings['notify_new_listings'])) {
+            $fields[] = "notify_new_listings = ?";
+            $params[] = $settings['notify_new_listings'];
+        }
+        
+        if (isset($settings['theme_mode'])) {
+            $fields[] = "theme_mode = ?";
+            $params[] = $settings['theme_mode'];
+        }
+
+        if (isset($settings['role'])) {
+            $fields[] = "role = ?";
+            $params[] = $settings['role'];
+        }
+        
+        if (empty($fields)) return true;
+        
+        $params[] = $userId;
+        $sql = "UPDATE users SET " . implode(", ", $fields) . " WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute($params);
+    } catch (PDOException $e) {
+        error_log("Update settings error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Delete user account
+ */
+function deleteUserAccount($userId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // This will cascade to listings, transactions, etc. if foreign keys are set correctly
+        // (Our schema uses ON DELETE CASCADE for most things)
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+        $success = $stmt->execute([$userId]);
+        
+        $pdo->commit();
+        return $success;
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete account error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Delete a community group
+ */
+function deleteCommunity($communityId, $reason = "Violation of community guidelines") {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get community name and members before deletion
+        $stmt = $pdo->prepare("SELECT name FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+        $communityName = $stmt->fetchColumn();
+
+        if (!$communityName) throw new Exception("Community not found.");
+
+        $stmt = $pdo->prepare("SELECT user_id FROM community_members WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+        $memberIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // 2. Notify members
+        $msg = "The community group '$communityName' has been deleted by an admin. Reason: $reason";
+        foreach ($memberIds as $mId) {
+            createNotification($mId, 'system', $msg);
+        }
+
+        // 3. Delete listings that are restricted to this community
+        $stmt = $pdo->prepare("DELETE FROM listings WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+
+        // 4. Members and Messages are handled by ON DELETE CASCADE in schema
+        
+        // 5. Delete the community itself
+        $stmt = $pdo->prepare("DELETE FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete community error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Send a warning to a community group
+ */
+function warnCommunity($communityId, $adminId, $reason) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get community name and members
+        $stmt = $pdo->prepare("SELECT name FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+        $communityName = $stmt->fetchColumn();
+
+        if (!$communityName) throw new Exception("Community not found.");
+
+        $stmt = $pdo->prepare("SELECT user_id FROM community_members WHERE community_id = ?");
+        $stmt->execute([$communityId]);
+        $memberIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // 2. Notify individual members
+        $msg = "ADMIN WARNING: The community group '$communityName' has received a warning for: $reason. Continued violations will lead to group deletion.";
+        foreach ($memberIds as $mId) {
+            createNotification($mId, 'system', $msg);
+        }
+
+        // 3. Post an official message in the group chat
+        $chatMsg = "🚨 OFFICIAL ADMIN WARNING: This group has been reported for: $reason. Please ensure all discussions follow community guidelines to avoid group deletion.";
+        $stmt = $pdo->prepare("INSERT INTO community_messages (community_id, user_id, message) VALUES (?, ?, ?)");
+        $stmt->execute([$communityId, $adminId, $chatMsg]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        error_log("Warn community error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Global function to create a notification
+ */
+function createNotification($userId, $type, $message, $referenceId = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, type, message, reference_id, is_read) 
+            VALUES (?, ?, ?, ?, 0)
+        ");
+        $success = $stmt->execute([$userId, $type, $message, $referenceId]);
+        
+        // Send email notification if enabled
+        if ($success) {
+            require_once __DIR__ . '/mail_helper.php';
+            require_once __DIR__ . '/../paths.php';
+            
+            // Determine email subject and action based on notification type
+            $subject = 'New Notification from BOOK-B';
+            $actionUrl = null;
+            $actionText = null;
+            
+            switch ($type) {
+                case 'borrow_request':
+                case 'sell_request':
+                    $subject = 'New Book Request';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Request';
+                    break;
+                    
+                case 'request_accepted':
+                    $subject = 'Your Request Was Accepted!';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'request_declined':
+                    $subject = 'Request Update';
+                    break;
+                    
+                case 'delivery_assigned':
+                    $subject = 'Delivery Agent Assigned';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'Track Delivery';
+                    break;
+                    
+                case 'delivery_update':
+                case 'delivery_pending_confirmation':
+                    $subject = 'Delivery Update';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Update';
+                    break;
+                    
+                case 'receive_confirmed':
+                case 'borrower_confirmed':
+                    $subject = 'Delivery Confirmed';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'due_soon':
+                    $subject = 'Book Return Reminder';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'Arrange Return';
+                    break;
+                    
+                case 'extension_request':
+                    $subject = 'Extension Request Received';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'Review Request';
+                    break;
+                    
+                case 'extension_approved':
+                case 'extension_declined':
+                    $subject = 'Extension Request Update';
+                    $actionUrl = APP_URL . '/pages/track_deliveries.php';
+                    $actionText = 'View Details';
+                    break;
+                    
+                case 'support':
+                    $subject = 'Support Request Received';
+                    $actionUrl = APP_URL . '/pages/notifications.php';
+                    $actionText = 'View Message';
+                    break;
+
+                case 'return_complete':
+                    $subject = 'Return Delivery Completed';
+                    $actionUrl = APP_URL . '/pages/deals.php';
+                    $actionText = 'View Details';
+                    break;
+
+                case 'book_restocked':
+                    $subject = 'Book Restocked';
+                    $actionUrl = APP_URL . '/pages/my_books.php';
+                    $actionText = 'View Inventory';
+                    break;
+                    
+                default:
+                    $actionUrl = APP_URL . '/pages/notifications.php';
+                    $actionText = 'View Notification';
+                    break;
+            }
+            
+            // Send email (will check user preference inside the function)
+            sendNotificationEmail($userId, $type, $subject, $message, $actionUrl, $actionText);
+        }
+        
+        return $success;
+    } catch (PDOException $e) {
+        error_log("Create notification error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Notify users who opted in for new listing alerts
+ */
+function notifyNewListing($listingId, $ownerId, $bookTitle) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Get all users who want new listing notifications (excluding the owner and banned users)
+        $stmt = $pdo->prepare("
+            SELECT id FROM users 
+            WHERE notify_new_listings = 1 
+            AND id != ? 
+            AND is_banned = 0
+        ");
+        $stmt->execute([$ownerId]);
+        $interestedUsers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Create notification for each interested user
+        $message = "New book available: '$bookTitle'";
+        foreach ($interestedUsers as $userId) {
+            createNotification(
+                $userId, 
+                'new_listing', 
+                $message, 
+                $listingId
+            );
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        // Log error but don't fail the listing creation
+        error_log("Failed to send new listing notifications: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create a new role change request
+ */
+function createRoleChangeRequest($userId, $currentRole, $requestedRole) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO `role_change_requests` (`user_id`, `current_role`, `requested_role`) 
+            VALUES (?, ?, ?)
+        ");
+        return $stmt->execute([$userId, $currentRole, $requestedRole]);
+    } catch (PDOException $e) {
+        error_log("Create role request error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get pending role request for a user
+ */
+function getPendingRoleRequest($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT * FROM `role_change_requests` WHERE `user_id` = ? AND `status` = 'pending' LIMIT 1");
+        $stmt->execute([$userId]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Get all role requests by status
+ */
+function getRoleRequests($status = 'pending') {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT r.*, u.firstname, u.lastname, u.email 
+            FROM `role_change_requests` r
+            JOIN `users` u ON r.user_id = u.id
+            WHERE r.status = ?
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute([$status]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get role requests error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Update role request status and apply role change if approved
+ */
+function updateRoleRequestStatus($requestId, $status, $adminId, $adminMessage = null) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+        
+        // 1. Update request status
+        $stmt = $pdo->prepare("
+            UPDATE `role_change_requests` 
+            SET `status` = ?, `admin_id` = ?, `admin_message` = ? 
+            WHERE `id` = ?
+        ");
+        $stmt->execute([$status, $adminId, $adminMessage, $requestId]);
+        
+        // 2. If approved, update the user's role
+        if ($status === 'approved') {
+            $stmt = $pdo->prepare("SELECT `user_id`, `requested_role` FROM `role_change_requests` WHERE `id` = ?");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch();
+            
+            if ($request) {
+                $stmt = $pdo->prepare("UPDATE users SET role = ? WHERE id = ?");
+                $stmt->execute([$request['requested_role'], $request['user_id']]);
+                
+                // Create notification for user
+                createNotification($request['user_id'], 'system', "Your request to change role to " . ucfirst($request['requested_role']) . " has been approved.", $requestId);
+            }
+        } elseif ($status === 'rejected') {
+            $stmt = $pdo->prepare("SELECT `user_id`, `requested_role` FROM `role_change_requests` WHERE `id` = ?");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch();
+            
+            if ($request) {
+                createNotification($request['user_id'], 'system', "Your request to change role to " . ucfirst($request['requested_role']) . " was declined." . ($adminMessage ? " Reason: $adminMessage" : ""), $requestId);
+            }
+        }
+        
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Update role request error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Synchronize the user role in session with the database
+ */
+function syncSessionRole($userId) {
+    if (!$userId) return;
+    
+    $role = getUserRole($userId);
+    if ($role && $role !== ($_SESSION['role'] ?? '')) {
+        $_SESSION['role'] = $role;
+    }
+}
+
+/**
+ * Get user role by ID
+ */
+function getUserRole($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+/**
+ * Delete a listing and its associated book record
+ */
+function deleteListing($listingId) {
+    try {
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        // 1. Get book_id
+        $stmt = $pdo->prepare("SELECT book_id FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+        $listing = $stmt->fetch();
+        
+        if (!$listing) {
+            throw new Exception("Listing not found.");
+        }
+        $bookId = $listing['book_id'];
+
+        // 2. Delete listing (associated data like transactions should be handled by foreign key cascades or checked)
+        $stmt = $pdo->prepare("DELETE FROM listings WHERE id = ?");
+        $stmt->execute([$listingId]);
+
+        // 3. Delete book record
+        $stmt = $pdo->prepare("DELETE FROM books WHERE id = ?");
+        $stmt->execute([$bookId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Delete listing error: " . $e->getMessage());
+        return false;
+    }
+}
+/**
+ * Get aggregated statistics for a bookstore or library
+ */
+function getBusinessReportStats($userId, $startDate, $endDate) {
+    try {
+        $pdo = getDBConnection();
+        $startStr = $startDate . " 00:00:00";
+        $endStr = $endDate . " 23:59:59";
+        
+        $stats = [];
+        
+        // 1. Total Listings
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM listings WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $stats["total_listings"] = (int)$stmt->fetchColumn();
+        
+        // 2. Out of Stock
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM listings WHERE user_id = ? AND quantity <= 0");
+        $stmt->execute([$userId]);
+        $stats["out_of_stock"] = (int)$stmt->fetchColumn();
+        
+        // 3. Completed Transactions (as Lender/Seller)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE lender_id = ? AND status IN ('completed', 'delivered', 'returned') AND created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_completed"] = (int)$stmt->fetchColumn();
+        
+        // 4. Revenue / Tokens Earned
+        // Bookstore earns tokens (price) or Tokens (credit_cost)
+        $stmt = $pdo->prepare("
+            SELECT SUM(l.price) FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.lender_id = ? AND t.status IN ('completed', 'delivered', 'returned') AND t.created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_revenue_money"] = (float)($stmt->fetchColumn() ?: 0);
+
+        $stmt = $pdo->prepare("
+            SELECT SUM(l.credit_cost) FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            WHERE t.lender_id = ? AND t.status IN ('completed', 'delivered', 'returned') AND t.created_at BETWEEN ? AND ?
+        ");
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["total_revenue_tokens"] = (int)($stmt->fetchColumn() ?: 0);
+        
+        // 5. Active Deals
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM transactions 
+            WHERE lender_id = ? AND status NOT IN ('completed', 'cancelled', 'returned', 'delivered')
+        ");
+        $stmt->execute([$userId]);
+        $stats["active_deals"] = (int)$stmt->fetchColumn();
+        
+        // 6. Activity Log
+        $sql = "
+            SELECT t.id, t.created_at, b.title, b.cover_image, l.listing_type, l.price, l.credit_cost,
+                   u_borrower.firstname as borrower_name, u_borrower.lastname as borrower_lastname,
+                   t.status
+            FROM transactions t
+            JOIN listings l ON t.listing_id = l.id
+            JOIN books b ON l.book_id = b.id
+            JOIN users u_borrower ON t.borrower_id = u_borrower.id
+            WHERE t.lender_id = ? AND t.created_at BETWEEN ? AND ?
+            ORDER BY t.created_at DESC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $startStr, $endStr]);
+        $stats["activity"] = $stmt->fetchAll();
+        
+        return $stats;
+    } catch (PDOException $e) {
+        error_log("Get business report stats error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get available rare books
+ */
+function getRareBooks($limit = 10, $filters = []) {
+    try {
+        $pdo = getDBConnection();
+        $params = [];
+        
+        $sql = "
+            SELECT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details, b.average_rating as book_rating,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating as owner_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE b.is_rare = 1
+            AND l.availability_status = 'available'
+            AND l.visibility = 'public'
+            AND l.quantity > 0
+        ";
+
+        if (!empty($filters['category'])) {
+            $sql .= " AND b.category LIKE ?";
+            $params[] = "%" . $filters['category'] . "%";
+        }
+
+        if (!empty($filters['query'])) {
+            $sql .= " AND (b.title LIKE ? OR b.author LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+            $q = "%" . $filters['query'] . "%";
+            $params[] = $q; $params[] = $q; $params[] = $q; $params[] = $q;
+        }
+
+        $sql .= " ORDER BY l.created_at DESC LIMIT ?";
+        
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Get rare books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get communities for a user
+ */
+function getUserCommunities($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT c.id, c.name 
+            FROM communities c
+            JOIN community_members cm ON c.id = cm.community_id
+            WHERE cm.user_id = ?
+            ORDER BY c.name ASC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get user communities error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get listings for a specific community
+ */
+function getCommunityListings($communityId, $limit = 20, $offset = 0) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT l.*, b.title, b.author, b.cover_image, b.category,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.visibility = 'community' 
+            AND l.community_id = ?
+            AND l.quantity > 0
+            ORDER BY l.created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->bindValue(1, $communityId, PDO::PARAM_INT);
+        $stmt->bindValue(2, (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(3, (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get community listings error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get listings from all communities a user has joined
+ */
+function getUserCommunityBooks($userId, $limit = 8) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT l.*, b.title, b.author, b.cover_image, b.category, b.is_rare, b.rare_details,
+                   u.firstname, u.lastname, u.role, u.trust_score, u.average_rating,
+                   c.name as community_name
+            FROM listings l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            JOIN communities c ON l.community_id = c.id
+            JOIN community_members cm ON c.id = cm.community_id
+            WHERE l.visibility = 'community' 
+            AND cm.user_id = ?
+            AND l.user_id != ?
+            AND l.quantity > 0
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->bindValue(1, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(3, (int)$limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get user community books error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get active announcements from bookstores
+ */
+function getActiveAnnouncements() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT a.*, u.firstname, u.lastname, u.role
+            FROM announcements a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.status = 'active'
+            AND (a.start_date IS NULL OR a.start_date <= CURDATE())
+            AND (a.end_date IS NULL OR a.end_date >= CURDATE())
+            ORDER BY a.created_at DESC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get active announcements error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get announcements by user (for management)
+ */
+function getAnnouncementsByUser($userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT * FROM announcements WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Get announcements by user error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a new announcement
+ */
+function addAnnouncement($userId, $title, $message, $link = null, $startDate = null, $endDate = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO announcements (user_id, title, message, target_link, start_date, end_date) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        return $stmt->execute([$userId, $title, $message, $link, $startDate, $endDate]);
+    } catch (PDOException $e) {
+        error_log("Add announcement error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Delete or deactivate announcement
+ */
+function deleteAnnouncement($announcementId, $userId) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("DELETE FROM announcements WHERE id = ? AND user_id = ?");
+        return $stmt->execute([$announcementId, $userId]);
+    } catch (PDOException $e) {
+        error_log("Delete announcement error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update an existing announcement
+ */
+function updateAnnouncement($announcementId, $userId, $title, $message, $link = null, $startDate = null, $endDate = null) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            UPDATE announcements 
+            SET title = ?, message = ?, target_link = ?, start_date = ?, end_date = ? 
+            WHERE id = ? AND user_id = ?
+        ");
+        return $stmt->execute([$title, $message, $link, $startDate, $endDate, $announcementId, $userId]);
+    } catch (PDOException $e) {
+        error_log("Update announcement error: " . $e->getMessage());
+        return false;
+    }
+}
+/**
+ * Get count of pending role change requests
+ */
+function getPendingRoleRequestsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `role_change_requests` WHERE `status` = 'pending'");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get count of pending reports
+ */
+function getPendingReportsCount() {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `reports` WHERE `status` = 'pending'");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
